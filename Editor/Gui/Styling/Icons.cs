@@ -16,12 +16,12 @@ internal static class Icons
     public static ImFontPtr IconFont { get; set; }
     public static float FontSize = 16;
 
-    /** Draws icon vertically aligned to current font */
-    public static void Draw(this Icon icon)
+    /** Draws icon vertically aligned to the current font */
+    public static void DrawAtCursor(this Icon icon)
     {
-        var defaultFontSize = ImGui.GetFrameHeight();// ImGui.GetFontSize();
+        var defaultFontSize = ImGui.GetFrameHeight(); // ImGui.GetFontSize();
         var glyph = IconFont.FindGlyph((char)icon);
-        var iconHeight = glyph.Y0 ; // Not sure if this is correct
+        var iconHeight = glyph.Y0; // Not sure if this is correct
         var dy = (int)((defaultFontSize - iconHeight) / 2) + 2;
         ImGui.SetCursorPosY(ImGui.GetCursorPosY() + dy);
         ImGui.PushFont(IconFont);
@@ -29,43 +29,9 @@ internal static class Icons
         ImGui.PopFont();
     }
 
-    public static void Draw(Icon icon, Vector2 screenPosition)
-    {
-        var keepPosition = ImGui.GetCursorScreenPos();
-        ImGui.SetCursorScreenPos(screenPosition);
-        Draw(icon);
-        ImGui.SetCursorScreenPos(keepPosition);
-    }
-
-    public static void Draw(Icon icon, Vector2 screenPosition, Color color)
-    {
-        ImGui.PushStyleColor(ImGuiCol.Text, color.Rgba);
-        Draw(icon, screenPosition);
-        ImGui.PopStyleColor();
-    }
-    
     public static void DrawIconAtScreenPosition(Icon icon, Vector2 screenPos)
     {
-        GetGlyphDefinition(icon, out var uvRange, out var size);
-        ImGui.GetWindowDrawList().AddImage(ImGui.GetIO().Fonts.TexID,
-                                           screenPos,
-                                           screenPos + size,
-                                           uvRange.Min,
-                                           uvRange.Max,
-                                           Color.White);
-    }
-
-    public static void DrawIconAtScreenPosition(Icon icon,
-                                                Vector2 screenPos,
-                                                ImDrawListPtr drawList)
-    {
-        GetGlyphDefinition(icon, out var uvRange, out var size);
-        drawList.AddImage(ImGui.GetIO().Fonts.TexID,
-                          screenPos,
-                          screenPos + size,
-                          uvRange.Min,
-                          uvRange.Max,
-                          Color.White);
+        DrawIconAtScreenPosition(icon, screenPos, ImGui.GetWindowDrawList(), Color.White);
     }
 
     public static void DrawIconAtScreenPosition(Icon icon,
@@ -82,13 +48,13 @@ internal static class Icons
                           color);
     }
 
-    public static void DrawIconCenter(Icon icon, Color color, float alignment = 0.5f)
+    public static void DrawIconOnLastItem(Icon icon, Color color, float alignment = 0.5f)
     {
         var pos = ImGui.GetItemRectMin();
         var size = ImGui.GetItemRectMax() - pos;
         GetGlyphDefinition(icon, out var uvRange, out var iconSize);
         var centerOffset = (size - iconSize) * new Vector2(alignment, 0.5f);
-        var alignedPos = MathUtils.Floor(pos + centerOffset);
+        var alignedPos = (pos + centerOffset).Floor();
         ImGui.GetWindowDrawList().AddImage(ImGui.GetIO().Fonts.TexID,
                                            alignedPos,
                                            (alignedPos + iconSize),
@@ -125,7 +91,7 @@ internal static class Icons
     {
         return new Vector2(g.X0, g.Y0);
     }
-    
+
     public sealed class IconSource
     {
         public IconSource(Icon icon, int slotIndex)
@@ -156,37 +122,35 @@ internal static class Icons
             new(Icon.None, 0),
             new(Icon.DopeSheetKeyframeLinear, 0, new Vector2(9, 25)),
             new(Icon.DopeSheetKeyframeLinearSelected, 1, new Vector2(9, 25)),
-            
+
             new(Icon.ConstantKeyframe, 3, new Vector2(9, 25)),
             new(Icon.ConstantKeyframeSelected, 4, new Vector2(9, 25)),
-            
+
             new(Icon.DopeSheetKeyframeSmooth, 5, new Vector2(9, 25)),
             new(Icon.DopeSheetKeyframeSmoothSelected, 6, new Vector2(9, 25)),
 
             new(Icon.DopeSheetKeyframeCubic, 7, new Vector2(9, 25)),
             new(Icon.DopeSheetKeyframeCubicSelected, 8, new Vector2(9, 25)),
-            
+
             new(Icon.DopeSheetKeyframeHorizontal, 9, new Vector2(9, 25)),
             new(Icon.DopeSheetKeyframeHorizontalSelected, 10, new Vector2(9, 25)),
-            
+
             new(Icon.FirstKeyframe, 11, new Vector2(15, 25)),
             new(Icon.LastKeyframe, 12, new Vector2(15, 25)),
-            
+
             new(Icon.CurveKeyframe, new Vector2(13 * 15, 0), new Vector2(15, 15)),
             new(Icon.CurveKeyframeSelected, new Vector2(13 * 15, 15), new Vector2(15, 15)),
 
-            
             new(Icon.KeyframeToggleOnBoth, new Vector2(14 * 15, 0), new Vector2(23, 15)),
             new(Icon.KeyframeToggleOnLeft, new Vector2(16 * 15, 0), new Vector2(23, 15)),
             new(Icon.KeyframeToggleOnRight, new Vector2(18 * 15, 0), new Vector2(23, 15)),
             new(Icon.KeyframeToggleOnNone, new Vector2(20 * 15, 0), new Vector2(23, 15)),
-            
+
             new(Icon.KeyframeToggleOffBoth, new Vector2(14 * 15, 15), new Vector2(23, 15)),
             new(Icon.KeyframeToggleOffLeft, new Vector2(16 * 15, 15), new Vector2(23, 15)),
             new(Icon.KeyframeToggleOffRight, new Vector2(18 * 15, 15), new Vector2(23, 15)),
             new(Icon.KeyframeToggleOffNone, new Vector2(20 * 15, 15), new Vector2(23, 15)),
 
-            
             new(Icon.JumpToRangeStart, 22),
             new(Icon.JumpToPreviousKeyframe, 23),
             new(Icon.PlayBackwards, 24),
@@ -194,7 +158,7 @@ internal static class Icons
             new(Icon.JumpToNextKeyframe, 26),
             new(Icon.JumpToRangeEnd, 27),
             new(Icon.Loop, 28, new Vector2(24, 15)),
-            
+
             new(Icon.BeatGrid, 30),
             new(Icon.ConnectedInput, 31),
             new(Icon.ConnectedOutput, 32),
@@ -229,7 +193,7 @@ internal static class Icons
             new(Icon.Comment, 60),
             new(Icon.IO, 61),
             new(Icon.Presets, 62),
-            new(Icon.HelpOutline, 63), 
+            new(Icon.HelpOutline, 63),
             new(Icon.Bookmark, slotIndex: 64),
             new(Icon.Settings2, slotIndex: 65),
             new(Icon.Settings, 66),
@@ -290,7 +254,6 @@ internal static class Icons
             new(Icon.RotateCounterClockwise, slotIndex: 125),
             new(Icon.RotateClockwise, slotIndex: 126),
             new(Icon.Stack, slotIndex: 127),
-            
         };
 
     public static readonly string IconAtlasPath = Path.Combine(SharedResources.Directory, @"images\editor\t3-icons.png");

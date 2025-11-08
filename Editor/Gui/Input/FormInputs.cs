@@ -669,7 +669,7 @@ internal static class FormInputs
     {
         var modified = false;
         var flexWidth = ComputeFlexWidth(2, 3);
-        if (CustomComponents.IconButton("clampMin",
+        if (CustomComponents.RoundedIconButton("clampMin",
                                         clampedMin ? Icon.ClampMinOn : Icon.ClampMinOff, 0,
                                         ImDrawFlags.RoundCornersLeft,
                                         clampedMin
@@ -686,7 +686,7 @@ internal static class FormInputs
 
         ImGui.SameLine();
 
-        if (CustomComponents.IconButton("clampMax",
+        if (CustomComponents.RoundedIconButton("clampMax",
                                         clampedMax ? Icon.ClampMaxOn : Icon.ClampMaxOff, 0,
                                         ImDrawFlags.RoundCornersRight,
                                         clampedMax
@@ -725,7 +725,7 @@ internal static class FormInputs
     {
         var modified = false;
         var flexWidth = ComputeFlexWidth(2, 3);
-        if (CustomComponents.IconButton("clampMin",
+        if (CustomComponents.RoundedIconButton("clampMin",
                                         clampedMin ? Icon.ClampMinOn : Icon.ClampMinOff, 0,
                                         ImDrawFlags.RoundCornersLeft,
                                         clampedMin
@@ -742,7 +742,7 @@ internal static class FormInputs
 
         ImGui.SameLine();
 
-        if (CustomComponents.IconButton("clampMax",
+        if (CustomComponents.RoundedIconButton("clampMax",
                                         clampedMax ? Icon.ClampMaxOn : Icon.ClampMaxOff, 0,
                                         ImDrawFlags.RoundCornersRight,
                                         clampedMax

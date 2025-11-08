@@ -28,11 +28,13 @@ internal sealed class ConsoleLogWindow : Window, ILogWriter
         if (FrameStats.Last.UiColorsChanged)
             _colorForLogLevel = UpdateLogLevelColors();
 
-        CustomComponents.ToggleButton("Scroll", ref _shouldScrollToBottom, Vector2.Zero);
+        CustomComponents.ToggleIconButton(ref _shouldScrollToBottom, Icon.ScrollLog, Vector2.Zero);
+        //CustomComponents.ToggleButton("Scroll", ref _shouldScrollToBottom, Vector2.Zero);
         ImGui.SameLine();
 
         //ImGui.SetNextWindowSize(new Vector2(500, 400), ImGuiCond.FirstUseEver);
-        if (ImGui.Button("Clear"))
+        if(CustomComponents.IconButton(Icon.ClearLog, Vector2.Zero))
+        //if (ImGui.Button("Clear"))
         {
             lock (_logEntries)
             {
@@ -49,7 +51,8 @@ internal sealed class ConsoleLogWindow : Window, ILogWriter
         {
             var highlightFactor = (float)(ImGui.GetTime() - _lastCopyTime).Clamp(0, 1);
             ImGui.PushStyleColor(ImGuiCol.Button, Color.Mix( UiColors.StatusActivated, UiColors.BackgroundButton, highlightFactor).Rgba  );
-            if (ImGui.Button("Copy"))
+            if(CustomComponents.IconButton(Icon.CopyToClipboard, Vector2.Zero))
+            //if (ImGui.Button("Copy"))
             {
                 lock (_logEntries)
                 {

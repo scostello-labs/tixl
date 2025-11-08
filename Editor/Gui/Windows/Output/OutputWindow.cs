@@ -202,7 +202,7 @@ internal sealed class OutputWindow : Window
                 ImGui.SameLine();
                
                 var showGizmos = _evaluationContext.ShowGizmos != GizmoVisibility.Off;
-                if (CustomComponents.ToggleIconButton(Icon.Grid, "##gizmos", ref showGizmos, Vector2.One * ImGui.GetFrameHeight()))
+                if (CustomComponents.ToggleIconButton(ref showGizmos, Icon.Grid, Vector2.One * ImGui.GetFrameHeight()))
                 {
                     _evaluationContext.ShowGizmos = showGizmos
                                                         ? GizmoVisibility.On

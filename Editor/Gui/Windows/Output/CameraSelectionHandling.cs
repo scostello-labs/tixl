@@ -277,7 +277,7 @@ internal sealed class CameraSelectionHandling
         var isAuto = _controlMode == ControlModes.AutoUseFirstCam;
 
         var width = ImGui.GetFrameHeight() * 5;
-        var vAlign = CustomComponents.ComputeVerticalIconAlign(ImGui.GetFrameHeight());
+
         ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, new Vector2(0, 0.5f));
         var labelColor = isAuto ? UiColors.TextMuted : UiColors.ForegroundFull;
         ImGui.PushStyleColor(ImGuiCol.Text, labelColor.Rgba);

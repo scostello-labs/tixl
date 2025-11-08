@@ -128,7 +128,7 @@ internal sealed class GraphImageBackground
         ImGui.SameLine();
 
         var showGizmos = _showGizmos != T3.Core.Operator.GizmoVisibility.Off;
-        if (CustomComponents.ToggleIconButton(Icon.Grid, "##gizmos", ref showGizmos, Vector2.One * ImGui.GetFrameHeight() * T3Ui.UiScaleFactor))
+        if (CustomComponents.ToggleIconButton(ref showGizmos, Icon.Grid, Vector2.One * ImGui.GetFrameHeight() * T3Ui.UiScaleFactor))
         {
             _showGizmos = showGizmos
                               ? T3.Core.Operator.GizmoVisibility.On

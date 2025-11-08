@@ -100,7 +100,7 @@ internal sealed class GraphNode
                                             IStatusProvider.StatusLevel.Error   => UiColors.StatusError,
                                             _                                   => UiColors.StatusError
                                         };
-                        Icons.DrawIconCenter(Icon.Warning, color);
+                        Icons.DrawIconOnLastItem(Icon.Warning, color);
                         CustomComponents.TooltipForLastItem(UiColors.StatusWarning, statusLevel.ToString(), statusProvider.GetStatusMessage(), false);
                     }
                 }
@@ -113,7 +113,7 @@ internal sealed class GraphNode
                         _projectView.NodeSelection.SetSelection(childUi, instance);
                         _view.EditCommentDialog.ShowNextFrame();
                     }
-                    Icons.DrawIconCenter(Icon.Comment, UiColors.ForegroundFull);
+                    Icons.DrawIconOnLastItem(Icon.Comment, UiColors.ForegroundFull);
                     CustomComponents.TooltipForLastItem( UiColors.Text, childUi.Comment, null, false);
                 }
                     

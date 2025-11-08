@@ -582,7 +582,7 @@ internal sealed partial class MagGraphView
                     context.EditCommentDialog.ShowNextFrame();
                 }
 
-                Icons.DrawIconCenter(Icon.Comment, UiColors.ForegroundFull);
+                Icons.DrawIconOnLastItem(Icon.Comment, UiColors.ForegroundFull);
                 CustomComponents.TooltipForLastItem(UiColors.Text, item.ChildUi.Comment, null, false);
             }
         }
@@ -1026,7 +1026,7 @@ internal sealed partial class MagGraphView
                                         IStatusProvider.StatusLevel.Error   => UiColors.StatusError,
                                         _                                   => UiColors.StatusError
                                     };
-                    Icons.DrawIconCenter(Icon.Warning, color);
+                    Icons.DrawIconOnLastItem(Icon.Warning, color);
                     CustomComponents.TooltipForLastItem(UiColors.StatusWarning, statusLevel.ToString(), statusProvider.GetStatusMessage(), false);
                 }
             }
@@ -1036,7 +1036,7 @@ internal sealed partial class MagGraphView
                 var s = item.Size.Y * 0.15f * CanvasScale;
                 ImGui.SetCursorScreenPos(pMinVisible + new Vector2(s, pMaxVisible.Y - pMinVisible.Y - s));
                 ImGui.InvisibleButton("#status", new Vector2(s, s));
-                Icons.DrawIconCenter(Icon.HelpOutline, Color.White with {A = 0.1f});
+                Icons.DrawIconOnLastItem(Icon.HelpOutline, Color.White with {A = 0.1f});
 
                 if (ImGui.BeginItemTooltip())
                 {

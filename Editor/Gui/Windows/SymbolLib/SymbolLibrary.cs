@@ -360,7 +360,7 @@ internal sealed class SymbolLibrary : Window
         ImGui.SameLine(x,10);
         if (symbolSet.Count > 0)
         {
-            icon.Draw();
+            icon.DrawAtCursor();
             CustomComponents.TooltipForLastItem(DrawTooltip);
             ImGui.SameLine(0, 0);
         }

@@ -84,14 +84,14 @@ internal static class AppMenuBar
             if (!hasErrors)
             {
                 ImGui.PushStyleColor(ImGuiCol.Text, UiColors.TextMuted.Rgba);
-                Icon.Checkmark.Draw();
+                Icon.Checkmark.DrawAtCursor();
                 ImGui.PopStyleColor();
             }
             else
             {
                 var timeSinceChange = (float)(ImGui.GetTime() - OperatorDiagnostics.LastChangeTime).Clamp(0, 1);
                 ImGui.PushStyleVar(ImGuiStyleVar.Alpha, MathUtils.Lerp(1, 0.4f, timeSinceChange));
-                Icon.Warning.Draw();
+                Icon.Warning.DrawAtCursor();
                 isHovered = ImGui.IsItemHovered();
 
                 ImGui.SameLine(0, 0);

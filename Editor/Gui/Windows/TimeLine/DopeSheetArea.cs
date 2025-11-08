@@ -312,7 +312,7 @@ internal sealed class DopeSheetArea : AnimationParameterEditing, ITimeObjectMani
             var posOnScreen = new Vector2(
                                           TimeLineCanvas.Current.TransformX(hoverTime) - KeyframeIconWidth / 2 + 1,
                                           layerArea.Min.Y);
-            Icons.Draw(Icon.DopeSheetKeyframeLinear, posOnScreen);
+            Icons.DrawIconAtScreenPosition(Icon.DopeSheetKeyframeLinear, posOnScreen);
         }
 
         ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
@@ -547,23 +547,23 @@ internal sealed class DopeSheetArea : AnimationParameterEditing, ITimeObjectMani
             var isSelected = SelectedKeyframes.Contains(vDef);
             if (vDef.OutEditMode == VDefinition.EditMode.Constant)
             {
-                Icons.Draw(isSelected ? Icon.ConstantKeyframeSelected : Icon.ConstantKeyframe, posOnScreen);
+                Icons.DrawIconAtScreenPosition(isSelected ? Icon.ConstantKeyframeSelected : Icon.ConstantKeyframe, posOnScreen);
             }
             else if (vDef.OutEditMode == VDefinition.EditMode.Horizontal)
             {
-                Icons.Draw(isSelected ? Icon.DopeSheetKeyframeHorizontalSelected : Icon.DopeSheetKeyframeHorizontal, posOnScreen);
+                Icons.DrawIconAtScreenPosition(isSelected ? Icon.DopeSheetKeyframeHorizontalSelected : Icon.DopeSheetKeyframeHorizontal, posOnScreen);
             }
             else if (vDef.OutEditMode == VDefinition.EditMode.Cubic)
             {
-                Icons.Draw(isSelected ? Icon.DopeSheetKeyframeCubicSelected : Icon.DopeSheetKeyframeCubic, posOnScreen);
+                Icons.DrawIconAtScreenPosition(isSelected ? Icon.DopeSheetKeyframeCubicSelected : Icon.DopeSheetKeyframeCubic, posOnScreen);
             }
             else if (vDef.OutEditMode == VDefinition.EditMode.Smooth)
             {
-                Icons.Draw(isSelected ? Icon.DopeSheetKeyframeSmoothSelected : Icon.DopeSheetKeyframeSmooth, posOnScreen);
+                Icons.DrawIconAtScreenPosition(isSelected ? Icon.DopeSheetKeyframeSmoothSelected : Icon.DopeSheetKeyframeSmooth, posOnScreen);
             }
             else
             {
-                Icons.Draw(isSelected ? Icon.DopeSheetKeyframeLinearSelected : Icon.DopeSheetKeyframeLinear, posOnScreen);
+                Icons.DrawIconAtScreenPosition(isSelected ? Icon.DopeSheetKeyframeLinearSelected : Icon.DopeSheetKeyframeLinear, posOnScreen);
             }
 
             ImGui.PopStyleColor();

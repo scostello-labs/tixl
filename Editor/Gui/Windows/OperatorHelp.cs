@@ -304,7 +304,7 @@ internal sealed class OperatorHelp
                 if (icon.HasValue)
                 {
                     ImGui.Button("    " + title);
-                    Icons.DrawIconCenter(icon.Value, UiColors.StatusAutomated, 0);
+                    Icons.DrawIconOnLastItem(icon.Value, UiColors.StatusAutomated, 0);
                     clicked = ImGui.IsItemClicked();
                 }
                 else
