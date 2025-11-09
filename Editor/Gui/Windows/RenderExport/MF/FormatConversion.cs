@@ -2,9 +2,9 @@ using System.IO;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
 
-namespace T3.Editor.Gui.Windows.RenderExport;
+namespace T3.Editor.Gui.Windows.RenderExport.MF;
 
-public static class FormatConversion
+static class FormatConversion
 {
     private static readonly byte[] _bytes = new byte[4];
 

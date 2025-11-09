@@ -32,9 +32,8 @@ SOFTWARE.
 
 using System.Runtime.InteropServices;
 using SharpDX;
-using MF = SharpDX.MediaFoundation;
 
-namespace T3.Editor.Gui.Windows.RenderExport;
+namespace T3.Editor.Gui.Windows.RenderExport.MF;
 
 internal struct WaveFormatExtension
 {

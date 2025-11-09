@@ -14,7 +14,7 @@ using T3.Core.DataTypes;
 using T3.Core.DataTypes.Vector;
 using T3.Core.Resource;
 
-namespace T3.Editor.Gui.Windows.RenderExport;
+namespace T3.Editor.Gui.Windows.RenderExport.MF;
 
 internal abstract class MfVideoWriter : IDisposable
 {

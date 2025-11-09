@@ -366,9 +366,9 @@ internal sealed class OutputWindow : Window
         _evaluationContext.BackgroundColor = _backgroundColor;
 
         const string overrideSampleVariableName = "OverrideMotionBlurSamples";
-        if (BaseRenderWindow.IsToollRenderingSomething)
+        if (RenderWindow.IsToollRenderingSomething)
         {
-            var samples = BaseRenderWindow.OverrideMotionBlurSamples;
+            var samples = RenderWindow.OverrideMotionBlurSamples;
             if (samples >= 0)
             {
                 _evaluationContext.IntVariables[overrideSampleVariableName] = samples;
