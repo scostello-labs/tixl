@@ -88,10 +88,11 @@ internal static partial class CustomComponents
 
     public static void MenuGroupHeader(string text)
     {
-        FormInputs.AddVerticalSpace(1);
+        FormInputs.AddVerticalSpace();
         ImGui.PushFont(Fonts.FontSmall);
         ImGui.PushStyleColor(ImGuiCol.Text, UiColors.TextMuted.Rgba);
-        ImGui.TextUnformatted(text);
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + ImGui.GetFrameHeight());
+            ImGui.TextUnformatted(text);
         ImGui.PopStyleColor();
         ImGui.PopFont();
     }
@@ -102,6 +103,7 @@ internal static partial class CustomComponents
     public static void SeparatorLine()
     {
         FormInputs.AddVerticalSpace(4);
+        var x = ImGui.GetCursorPosX();
         ImGui.SetCursorPosX(0);
         var p = ImGui.GetCursorScreenPos();
 
@@ -111,6 +113,8 @@ internal static partial class CustomComponents
                             p + new Vector2(ImGui.GetWindowSize().X, 1), UiColors.ForegroundFull.Fade(0.1f));
 
         FormInputs.AddVerticalSpace(5);
+        ImGui.SetCursorPosX(x);
+        
     }
 
     /// <summary>

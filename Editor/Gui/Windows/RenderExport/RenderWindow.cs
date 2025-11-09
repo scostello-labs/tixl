@@ -258,7 +258,8 @@ namespace T3.Editor.Gui.Windows.RenderExport
             int effectiveFrameCount = _renderMode == RenderMode.Video ? FrameCount : FrameCount + 2;
             int currentFrame = _renderMode == RenderMode.Video ? GetRealFrame() : FrameIndex + 1;
 
-            if (currentFrame >= effectiveFrameCount || !success)
+            var completed = currentFrame >= effectiveFrameCount || !success;
+            if (completed)
             {
                 FinishRendering(success, durationSoFar);
             }

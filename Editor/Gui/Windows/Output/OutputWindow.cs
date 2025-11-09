@@ -88,11 +88,11 @@ internal sealed class OutputWindow : Window
         ImGui.BeginChild("##content",
                          new Vector2(0, ImGui.GetWindowHeight()),
                          false,
-                         ImGuiWindowFlags.NoScrollbar | 
-                         ImGuiWindowFlags.NoMove | 
-                         ImGuiWindowFlags.NoScrollWithMouse| 
+                         ImGuiWindowFlags.NoScrollbar |
+                         ImGuiWindowFlags.NoMove |
+                         ImGuiWindowFlags.NoScrollWithMouse |
                          ImGuiWindowFlags.NoBackground
-                         );
+                        );
         {
             // Very ugly hack to prevent scaling the output above window size
             var keepScale = T3Ui.UiScaleFactor;
@@ -124,7 +124,7 @@ internal sealed class OutputWindow : Window
 
                 T3Ui.UiScaleFactor = keepScale;
 
-                if (KeyActionHandling.Triggered(UserActions.FocusSelection))
+                if (UserActions.FocusSelection.Triggered())
                 {
                     if (drawnType == typeof(Texture2D))
                     {
@@ -136,7 +136,14 @@ internal sealed class OutputWindow : Window
                     }
                 }
 
+                ImGui.PushStyleColor(ImGuiCol.Text, UiColors.Text.Rgba);
+                ImGui.PushStyleColor(ImGuiCol.FrameBg, UiColors.BackgroundButton.Rgba);
+                ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, UiColors.BackgroundHover.Rgba);
+                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.BackgroundHover.Rgba);
+                ImGui.PushStyleColor(ImGuiCol.ChildBg, Vector4.Zero);
+                ImGui.PushStyleColor(ImGuiCol.ScrollbarBg, new Vector4(0.3f, 0.3f, 0.3f, 0.1f));
                 DrawToolbar(drawnType);
+                ImGui.PopStyleColor(6);
             }
 
             CustomComponents.DrawWindowFocusFrame();
@@ -146,13 +153,6 @@ internal sealed class OutputWindow : Window
 
     private void DrawToolbar(Type drawnType)
     {
-        ImGui.PushStyleColor(ImGuiCol.Text, UiColors.Text.Rgba);
-        ImGui.PushStyleColor(ImGuiCol.FrameBg, UiColors.BackgroundButton.Rgba);
-        ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, UiColors.BackgroundHover.Rgba);
-        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.BackgroundHover.Rgba);
-        ImGui.PushStyleColor(ImGuiCol.ChildBg, Vector4.Zero);
-        ImGui.PushStyleColor(ImGuiCol.ScrollbarBg, new Vector4(0.3f, 0.3f, 0.3f, 0.1f));
-
         // Set cursor to top of window
         ImGui.SetCursorPos(ImGui.GetWindowContentRegionMin());
 
@@ -162,151 +162,169 @@ internal sealed class OutputWindow : Window
         // Begin a horizontally scrollable child region
         ImGui.BeginChild("##toolbar_scroll", new Vector2(availableWidth, 40), false, ImGuiWindowFlags.HorizontalScrollbar);
 
+        Pinning.DrawPinning();
+
+        if (CustomComponents.StateButton("1:1",
+                                         Math.Abs(_imageCanvas.Scale.X - 1f) < 0.001f
+                                             ? CustomComponents.ButtonStates.Disabled
+                                             : CustomComponents.ButtonStates.Normal))
         {
-            Pinning.DrawPinning();
-
-            if (CustomComponents.StateButton("1:1",
-                                             Math.Abs(_imageCanvas.Scale.X - 1f) < 0.001f
-                                                 ? CustomComponents.ButtonStates.Disabled
-                                                 : CustomComponents.ButtonStates.Normal))
-            {
-                _imageCanvas.SetScaleToMatchPixels();
-                _imageCanvas.SetViewMode(ImageOutputCanvas.Modes.Pixel);
-            }
-
-            ImGui.SameLine();
-
-            {
-                if (CustomComponents.StateButton("Fit",
-                                                 _imageCanvas.ViewMode == ImageOutputCanvas.Modes.Fitted
-                                                     ? CustomComponents.ButtonStates.Disabled
-                                                     : CustomComponents.ButtonStates.Normal))
-                {
-                    if (drawnType == typeof(Texture2D))
-                    {
-                        _imageCanvas.SetViewMode(ImageOutputCanvas.Modes.Fitted);
-                    }
-                    else if (drawnType == typeof(Command))
-                    {
-                        _camSelectionHandling.ResetView();
-                    }
-                }
-
-                var label = drawnType == typeof(Texture2D) ? "Fit image to view" : "Reset view or camera position";
-                var shortCut = KeyActionHandling.ListShortcuts(UserActions.FocusSelection);
-                CustomComponents.TooltipForLastItem(label, shortCut);
-            }
-
-            // Show gizmos
-            {
-                ImGui.SameLine();
-               
-                var showGizmos = _evaluationContext.ShowGizmos != GizmoVisibility.Off;
-                if (CustomComponents.ToggleIconButton(ref showGizmos, Icon.Grid, Vector2.One * ImGui.GetFrameHeight()))
-                {
-                    _evaluationContext.ShowGizmos = showGizmos
-                                                        ? GizmoVisibility.On
-                                                        : GizmoVisibility.Off;
-                }
-
-                CustomComponents.TooltipForLastItem("Toggle gizmos and floor grid.",
-                                                    "Gizmos are available for selected transform operators and can be dragged to adjust their position.");
-            }
-
-            // Gizmo Transform mode
-            if (_evaluationContext.ShowGizmos != GizmoVisibility.Off)
-            {
-                var size = Vector2.One * ImGui.GetFrameHeight(); // Calculate before pushing font
-
-                var icon = _evaluationContext.TransformGizmoMode switch
-                {
-                    TransformGizmoModes.None => "" + (char)Icon.Hidden,
-                    TransformGizmoModes.Select => "" + (char)Icon.Pipette,
-                    TransformGizmoModes.Move => "" + (char)Icon.Move,
-                    TransformGizmoModes.Rotate => "" + (char)Icon.Rotate,
-                    TransformGizmoModes.Scale => "" + (char)Icon.Scale,
-                    _ => throw new ArgumentOutOfRangeException()
-                };
-
-                ImGui.SameLine();
-                ImGui.PushFont(Icons.IconFont);
-                if (ImGui.Button(icon, size))
-                    ImGui.OpenPopup("_TransformGizmoSelection");
-
-                ImGui.PopFont();
-
-                if (ImGui.BeginPopup("_TransformGizmoSelection"))
-                {
-                    if (ImGui.MenuItem("Move", null, _evaluationContext.TransformGizmoMode == TransformGizmoModes.Move))
-                    {
-                        _evaluationContext.TransformGizmoMode = TransformGizmoModes.Move;
-                    }
-
-                    if (ImGui.MenuItem("Rotate", null, _evaluationContext.TransformGizmoMode == TransformGizmoModes.Rotate))
-                    {
-                        _evaluationContext.TransformGizmoMode = TransformGizmoModes.Rotate;
-                    }
-
-                    if (ImGui.MenuItem("Scale", null, _evaluationContext.TransformGizmoMode == TransformGizmoModes.Scale))
-                    {
-                        _evaluationContext.TransformGizmoMode = TransformGizmoModes.Scale;
-                    }
-
-                    ImGui.EndPopup();
-                }
-            }
-
-            ImGui.SameLine();
-
-            _camSelectionHandling.DrawCameraControlSelection();
-
-            ResolutionHandling.DrawSelector(ref _selectedResolution, _resolutionDialog);
-
-            ImGui.SameLine();
-            // the background color button got me confused as it has no effect for Texture2D so I decided to only show it for Command
-            if (drawnType == typeof(Command))
-            {
-                ColorEditButton.Draw(ref _backgroundColor, new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight()));
-                CustomComponents.TooltipForLastItem("Adjust background color of view");
-            }
-            
-        }
-
-        ImGui.PopStyleColor(6);
-
-        var texture = GetCurrentTexture();
-        if (drawnType == typeof(Texture2D) || drawnType == typeof(Command))
-        {
-            ImGui.SameLine();
-
-            var project = ProjectView.Focused?.OpenedProject;
-            var projectFolder = project.Package.Folder;
-            var folder = Path.Combine(projectFolder, "Screenshots");
-
-            if (CustomComponents.IconButton(Icon.Snapshot, new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight())))
-            {
-                if (!Directory.Exists(folder))
-                {
-                    Directory.CreateDirectory(folder);
-                }
-
-                var filename = Path.Join(folder, $"{DateTime.Now:yyyy_MM_dd-HH_mm_ss_fff}.png");
-                ScreenshotWriter.StartSavingToFile(texture, filename, ScreenshotWriter.FileFormats.Png);
-                Log.Assert("Screenshot saved in: " + folder);
-            }
-
-            CustomComponents.TooltipForLastItem("Save screenshot");
+            _imageCanvas.SetScaleToMatchPixels();
+            _imageCanvas.SetViewMode(ImageOutputCanvas.Modes.Pixel);
         }
 
         ImGui.SameLine();
-        ImGui.PushID("CamSpeed");
-        var result = SingleValueEdit.Draw(ref UserSettings.Config.CameraSpeed, new Vector2(ImGui.GetFrameHeight() * 2, ImGui.GetFrameHeight()), min: 0.001f, max: 100,
-                                          clampMin: true,
-                                          clampMax: true,
-                                          scale: 0.01f,
-                                          format: "{0:G3}");
-        CustomComponents.TooltipForLastItem("Camera speed when flying with WASD keys.", "TIP: Use mouse wheel while flying to adjust on the fly.");
-        ImGui.PopID();
+
+        {
+            if (CustomComponents.StateButton("Fit",
+                                             _imageCanvas.ViewMode == ImageOutputCanvas.Modes.Fitted
+                                                 ? CustomComponents.ButtonStates.Disabled
+                                                 : CustomComponents.ButtonStates.Normal))
+            {
+                if (drawnType == typeof(Texture2D))
+                {
+                    _imageCanvas.SetViewMode(ImageOutputCanvas.Modes.Fitted);
+                }
+                else if (drawnType == typeof(Command))
+                {
+                    _camSelectionHandling.ResetView();
+                }
+            }
+
+            var label = drawnType == typeof(Texture2D) ? "Fit image to view" : "Reset view or camera position";
+            var shortCut = UserActions.FocusSelection.ListShortcuts();
+            CustomComponents.TooltipForLastItem(label, shortCut);
+        }
+
+        // Show gizmos
+        {
+            ImGui.SameLine();
+
+            var showGizmos = _evaluationContext.ShowGizmos != GizmoVisibility.Off;
+            if (CustomComponents.ToggleIconButton(ref showGizmos, Icon.Grid, Vector2.One * ImGui.GetFrameHeight()))
+            {
+                _evaluationContext.ShowGizmos = showGizmos
+                                                    ? GizmoVisibility.On
+                                                    : GizmoVisibility.Off;
+            }
+
+            CustomComponents.TooltipForLastItem("Toggle gizmos and floor grid.",
+                                                "Gizmos are available for selected transform operators and can be dragged to adjust their position.");
+        }
+
+        // Gizmo Transform mode
+        if (_evaluationContext.ShowGizmos != GizmoVisibility.Off)
+        {
+            var size = Vector2.One * ImGui.GetFrameHeight(); // Calculate before pushing font
+
+            var icon = _evaluationContext.TransformGizmoMode switch
+                           {
+                               TransformGizmoModes.None   => "" + (char)Icon.Hidden,
+                               TransformGizmoModes.Select => "" + (char)Icon.Pipette,
+                               TransformGizmoModes.Move   => "" + (char)Icon.Move,
+                               TransformGizmoModes.Rotate => "" + (char)Icon.Rotate,
+                               TransformGizmoModes.Scale  => "" + (char)Icon.Scale,
+                               _                          => throw new ArgumentOutOfRangeException()
+                           };
+
+            ImGui.SameLine();
+            ImGui.PushFont(Icons.IconFont);
+            if (ImGui.Button(icon, size))
+                ImGui.OpenPopup("_TransformGizmoSelection");
+
+            ImGui.PopFont();
+
+            if (ImGui.BeginPopup("_TransformGizmoSelection"))
+            {
+                if (CustomComponents.DrawMenuItem((int)Icon.Move, "Move", isChecked: _evaluationContext.TransformGizmoMode == TransformGizmoModes.Move))
+                {
+                    _evaluationContext.TransformGizmoMode = TransformGizmoModes.Move;
+                }
+
+                if (CustomComponents.DrawMenuItem((int)Icon.Rotate, "Rotate",
+                                                  isChecked: _evaluationContext.TransformGizmoMode == TransformGizmoModes.Rotate))
+                {
+                    _evaluationContext.TransformGizmoMode = TransformGizmoModes.Rotate;
+                }
+
+                if (CustomComponents.DrawMenuItem((int)Icon.Scale, "Scale", isChecked: _evaluationContext.TransformGizmoMode == TransformGizmoModes.Scale))
+                {
+                    _evaluationContext.TransformGizmoMode = TransformGizmoModes.Scale;
+                }
+
+                ImGui.EndPopup();
+            }
+        }
+
+        ImGui.SameLine();
+
+        _camSelectionHandling.DrawCameraControlSelection();
+
+        // Camera speed
+        {
+            ImGui.SameLine();
+            ImGui.PushID("CamSpeed");
+            var result = SingleValueEdit.Draw(ref UserSettings.Config.CameraSpeed, new Vector2(ImGui.GetFrameHeight() * 2, ImGui.GetFrameHeight()), min: 0.001f,
+                                              max: 100,
+                                              clampMin: true,
+                                              clampMax: true,
+                                              scale: 0.01f,
+                                              format: "    {0:G3}");
+
+            Icons.DrawIconOnLastItem(Icon.CameraSpeed,
+                                     Math.Abs(UserSettings.Config.CameraSpeed - UserSettings.Defaults.CameraSpeed) < 0.001f
+                                         ? UiColors.TextMuted
+                                         : UiColors.Text, 0.1f);
+            CustomComponents.TooltipForLastItem("Camera speed when flying with WASD keys.", "TIP: Use mouse wheel while flying to adjust on the fly.");
+            ImGui.PopID();
+        }
+
+        // the background color button got me confused as it has no effect for Texture2D so I decided to only show it for Command
+        if (drawnType == typeof(Command))
+        {
+            ImGui.SameLine();
+            ColorEditButton.Draw(ref _backgroundColor, Vector2.Zero);
+            CustomComponents.TooltipForLastItem("Adjust background color of view");
+        }
+
+        ImGui.SameLine();
+
+        ResolutionHandling.DrawSelector(ref _selectedResolution, _resolutionDialog);
+
+        // Screenshot
+        {
+            var texture = GetCurrentTexture();
+            if (drawnType == typeof(Texture2D) || drawnType == typeof(Command))
+            {
+                ImGui.SameLine();
+
+                var project = ProjectView.Focused?.OpenedProject;
+                var projectFolder = project.Package.Folder;
+                var folder = Path.Combine(projectFolder, "Screenshots");
+
+                if (CustomComponents.IconButton(Icon.Snapshot, Vector2.Zero))
+                {
+                    if (!Directory.Exists(folder))
+                    {
+                        Directory.CreateDirectory(folder);
+                    }
+
+                    var filename = Path.Join(folder, $"{DateTime.Now:yyyy_MM_dd-HH_mm_ss_fff}.png");
+                    ScreenshotWriter.StartSavingToFile(texture, filename, ScreenshotWriter.FileFormats.Png);
+                    Log.Debug("Screenshot saved in: " + folder);
+                }
+
+                CustomComponents.TooltipForLastItem("Save screenshot");
+                
+                ImGui.SameLine();
+
+                if (CustomComponents.IconButton(Icon.RenderAnimation, Vector2.Zero))
+                {
+                    WindowManager.ToggleInstanceVisibility<RenderWindow>();
+                }
+
+            }
+        }
 
         ImGui.EndChild();
     }

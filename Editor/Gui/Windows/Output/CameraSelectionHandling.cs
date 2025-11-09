@@ -299,7 +299,10 @@ internal sealed class CameraSelectionHandling
         if (ImGui.BeginPopup("cameraPopup", ImGuiWindowFlags.None))
         {
             ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(6, 6) * T3Ui.UiScaleFactor);
-            if (ImGui.MenuItem("Auto", "", _controlMode == ControlModes.AutoUseFirstCam, true))
+            
+            if(CustomComponents.DrawMenuItem(42+0, "Auto", 
+                                             isChecked:_controlMode == ControlModes.AutoUseFirstCam, 
+                                             isEnabled:true))
             {
                 _controlMode = ControlModes.AutoUseFirstCam;
                 _pickedCameraId = Guid.Empty;
@@ -309,10 +312,9 @@ internal sealed class CameraSelectionHandling
             if (ImGui.IsItemHovered() && _firstCamInGraph is Instance camInstance && NodeSelection != null)
                 FrameStats.AddHoveredId(camInstance.SymbolChildId);
 
-            if (ImGui.MenuItem("Viewer",
-                               "",
-                               _controlMode == ControlModes.UseViewer,
-                               _drawnTypeIsCommand))
+            if(CustomComponents.DrawMenuItem(42+1, "Viewer", 
+                                             isChecked:_controlMode == ControlModes.UseViewer, 
+                                             isEnabled:_drawnTypeIsCommand))
             {
                 _controlMode = ControlModes.UseViewer;
                 _pickedCameraId = Guid.Empty;
@@ -320,11 +322,10 @@ internal sealed class CameraSelectionHandling
 
             CustomComponents.TooltipForLastItem("Ignores scene cameras. This can be useful in combination with [ShowCamGizmos].");
 
-            if (ImGui.MenuItem("Viewer (Following)",
-                               "",
-                               _controlMode == ControlModes.SceneViewerFollowing,
-                               _drawnTypeIsCommand
-                              ))
+            if(CustomComponents.DrawMenuItem(42+2, "Viewer (Following)", 
+                                             isChecked:_controlMode == ControlModes.SceneViewerFollowing, 
+                                             isEnabled:_drawnTypeIsCommand))
+
             {
                 _controlMode = ControlModes.SceneViewerFollowing;
                 _pickedCameraId = Guid.Empty;
@@ -339,20 +340,23 @@ internal sealed class CameraSelectionHandling
             if (_recentlyUsedCameras.Count > 0)
             {
                 ImGui.Separator();
-                CustomComponents.HintLabel("Active Cameras...");
+                CustomComponents.MenuGroupHeader("Active Cameras");
             }
 
             if (_drawnInstance?.Parent != null)
             {
-                foreach (var cam in _recentlyUsedCameras)
+                for (var index = 0; index < _recentlyUsedCameras.Count; index++)
                 {
+                    var cam = _recentlyUsedCameras[index];
                     if (cam is not Instance cameraInstance ||
                         !_drawnInstance.Parent.Symbol.Children.TryGetValue(cameraInstance.SymbolChildId, out var symbolChild))
                         continue;
 
                     ImGui.PushID(cameraInstance.SymbolChildId.GetHashCode());
                     {
-                        if (symbolChild != null && ImGui.MenuItem(symbolChild.ReadableName, "", cameraInstance.SymbolChildId == _pickedCameraId, true))
+                        if (symbolChild != null 
+                              && CustomComponents.DrawMenuItem(9999+index, symbolChild.ReadableName, isChecked:cameraInstance.SymbolChildId == _pickedCameraId) 
+                            )
                         {
                             _lastControlMode = _controlMode;
                             _controlMode = ControlModes.PickedACamera;
