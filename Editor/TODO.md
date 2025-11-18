@@ -34,21 +34,28 @@
 
 # Skill Quest
 
-- [ ] Design for HUB, title, etc.
-- [ ] serialize user progress
-- [ ] Model for a level progression map (JSON?)
-- [ ] List zones and levels with status
+- [x] Design for HUB, title, etc.
+- [ ] Serialize user progress
+- [ ] Model for a level progression map (JSON?
 - [ ] model for user progress
+- [ ] HUB Area
+  - [ ] Show nest Topic/Level with action
+  - [ ] Fake button for complete
+  - [ ] Serialize button (fake)
+  - [ ] Toolbar with reset
+    - Later: [ ] List zones and levels with status
 - [ ] introduce "playmode" with a custom layout
   - [ ] override layout switching etc. in playmode
-- [ ] add state machine for playmode (design flow in figma first)
+- [ ] add state machine for playmode 
+  - [x] design flow in figma
   - [ ] Intro page
   - [ ] Play level tutorial
   - [ ] Level completed
-  - [ ] Tips and time out?
+  - [ ] Tips after time out?
+  - [ ] Later: Player feedback
 - [ ] Difficulty modes (start with simple user settings)
-- [ ] Create TiXL learning project
-- [ ] Create PlayResult-Op
+- [x] Create TiXL learning project
+- [x] Create PlayResult-Op
 - [ ] Implement some kind of back-channel so PlayResult-Op can send events to the editor
 - [ ] Tour-Points (Should probably be orthogonal from SkillQuest)
   - [ ] extend model
@@ -58,6 +65,9 @@
   - [ ] Implement tour mode with popup / continue / back, etc. 
 - Add some kind of dropdown mode to switch between gradient presets.
 - Save gradient presets of symbol child op
+
+- Ideas for later:
+  - [ ] Somehow reference ops to solution for indicating incorrect changes 
 
 - Add CustomUi for [Time]
 

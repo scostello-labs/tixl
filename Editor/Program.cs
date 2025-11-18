@@ -167,7 +167,9 @@ internal static class Program
         Log.Debug("Initialize User Interface...");
         KeyActionHandling.InitializeFrame();
         KeyMapSwitching.Initialize();
+        SkillQuest.SkillManager.Initialize();
 
+        // ReSharper disable once JoinDeclarationAndInitializer
         bool forceRecompileProjects;
             
         #if DEBUG

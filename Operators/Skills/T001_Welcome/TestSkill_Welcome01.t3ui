@@ -1,0 +1,57 @@
+{
+  "Id": "4f9eb54f-1b81-4a6b-a842-f80c423e5843"/*TestSkill_Welcome01*/,
+  "Description": "",
+  "InputUis": [],
+  "SymbolChildUis": [
+    {
+      "ChildId": "9e41ad89-7070-46b3-8a92-e2132a2c9593"/*ImageResult*/,
+      "Position": {
+        "X": 1609.7146,
+        "Y": 2018.4391
+      }
+    },
+    {
+      "ChildId": "b9d9145e-12e4-48ac-9008-f111580bd685"/*RoundedRect*/,
+      "Position": {
+        "X": 1291.7075,
+        "Y": 2067.2524
+      }
+    },
+    {
+      "ChildId": "c560820f-fc83-4026-8966-65ab12e90d4b"/*RoundedRect*/,
+      "Position": {
+        "X": 1291.7074,
+        "Y": 1950.3478
+      }
+    }
+  ],
+  "OutputUis": [
+    {
+      "OutputId": "bfa820e6-ac48-41de-9303-d07d004744e1"/*ColorBuffer*/,
+      "Position": {
+        "X": 1609.7146,
+        "Y": 2088.439
+      }
+    }
+  ],
+  "Annotations": [
+    {
+      "Id": "d2d45d3a-4033-42d4-907d-47ffb5ccb42b",
+      "Label": "Solution",
+      "Color": {
+        "X": 0.6,
+        "Y": 0.6,
+        "Z": 0.6,
+        "W": 1.0
+      },
+      "Position": {
+        "X": 1260.0,
+        "Y": 2037.8667
+      },
+      "Size": {
+        "X": 196.44336,
+        "Y": 97.1333
+      }
+    }
+  ]
+}

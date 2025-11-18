@@ -16,21 +16,27 @@ namespace T3.Editor.SkillQuest.Data;
 //
 // }
 
+/// <summary>
+/// The state of the active user progress for serialization to settings.
+/// </summary>
 public sealed class SkillProgress
 {
     public QuestTopic ActiveTopicId;
+    
     public List<LevelResult> Results =[];
     
     public sealed class LevelResult
     {
+        public Guid LevelId;
+        
         public DateTime StartTime;
         public DateTime EndTime;
         
-        [JsonConverter(typeof(SafeEnumConverter<Results>))]
-        public Results Result;
+        [JsonConverter(typeof(SafeEnumConverter<States>))]
+        public States State;
         public int Rating;
         
-        public enum Results {
+        public enum States {
             Started,
             Skipped,
             Completed,
