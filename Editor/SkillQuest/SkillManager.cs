@@ -2,8 +2,10 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using T3.Core.UserData;
+using T3.Editor.Gui.Graph.Window;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.SkillQuest.Data;
+using T3.Editor.UiModel;
 using T3.Editor.UiModel.ProjectHandling;
 using T3.Serialization;
 
@@ -53,34 +55,40 @@ internal static partial class SkillManager
         level = activeTopic.Levels[0];
         return true;
     }
-    
-    
-    public static void StartGame(QuestTopic activeTopic, QuestLevel activeLevel)
+
+    public static bool TryGetSkillsProject([NotNullWhen(true)] out EditableSymbolProject? skillProject)
     {
-        // var isOpened = OpenedProject.OpenedProjects.TryGetValue(package, out var openedProject);
-        //
-        // if (!isOpened)
-        // {
-        //     if (!OpenedProject.TryCreate(package, out openedProject, out var error))
-        //     {
-        //         Log.Warning($"Failed to load project: {error}");
-        //         return;
-        //     }
-        // }
-        //
-        // if (openedProject != null)
-        // {
-        //     window.TrySetToProject(openedProject);
-        // }
+        skillProject = null;
+        foreach (var p in EditableSymbolProject.AllProjects)
+        {
+            if (p.Alias == "Skills")
+            {
+                skillProject = p;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static void StartGame(GraphWindow window, QuestLevel activeLevel)
+    {
+        if (!TryGetSkillsProject(out var skillProject))
+            return;
+
+        if (!OpenedProject.TryCreateWithExplicitHome(skillProject,
+                                                     activeLevel.SymbolId,
+                                                     out var openedProject,
+                                                     out var failureLog))
+        {
+            Log.Warning(failureLog);
+            return;
+        }
+
+        window.TrySetToProject(openedProject);
     }
 
     //private static bool isOpened;
-    
-    
-    
-    
-    
-    
 
     private static void LoadUserData()
     {
@@ -112,6 +120,4 @@ internal static partial class SkillManager
 
     private static readonly SkillQuestContext _context = new();
     private static readonly StateMachine<SkillQuestContext> _stateMachine = new(SkillQuestStates.InActive);
-
-
 }

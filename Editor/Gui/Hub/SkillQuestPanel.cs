@@ -1,6 +1,7 @@
 ﻿#nullable enable
 
 using ImGuiNET;
+using T3.Editor.Gui.Graph.Window;
 using T3.Editor.Gui.Styling;
 using T3.Editor.SkillQuest;
 
@@ -8,7 +9,7 @@ namespace T3.Editor.Gui.Hub;
 
 internal static class SkillQuestPanel
 {
-    internal static void Draw()
+    internal static void Draw(GraphWindow window)
     {
         if (!SkillManager.TryGetActiveTopic(out var activeTopic)
             || !SkillManager.TryGetActiveLevel(out var activeLevel))
@@ -34,7 +35,7 @@ internal static class SkillQuestPanel
                     ImGui.TextUnformatted(activeTopic.Title);
                     ImGui.PopStyleColor();
                     ImGui.PopFont();
-                    
+
                     ImGui.Text(activeLevel.Title);
                 }
                 ImGui.EndChild();
@@ -43,8 +44,10 @@ internal static class SkillQuestPanel
                 {
                     ImGui.Button("Skip");
                     ImGui.SameLine(0, 10);
-                    ImGui.Button("Start");
-                    SkillManager.StartGame(activeTopic, activeLevel);
+                    if (ImGui.Button("Start"))
+                    {
+                        SkillManager.StartGame(window, activeLevel);
+                    }
                 }
                 ImGui.EndChild();
             }

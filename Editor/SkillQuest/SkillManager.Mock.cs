@@ -17,7 +17,7 @@ internal static partial class SkillManager
                                 new QuestLevel
                                     {
                                         Title = "Let's get started",
-                                        SymbolId = new Guid("3F287D6C-8871-46BD-A7DF-FA6DFC8CD18D")
+                                        SymbolId = new Guid("4f9eb54f-1b81-4a6b-a842-f80c423e5843")
                                     },
                                 new QuestLevel
                                     {
