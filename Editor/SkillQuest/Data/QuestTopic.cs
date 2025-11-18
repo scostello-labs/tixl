@@ -1,45 +1,22 @@
 ﻿using Newtonsoft.Json;
+using T3.Serialization;
 
-namespace T3.Editor.SkillQuest;
-
-// Maybe useful for later structuring
-// public sealed class QuestZone
-// {
-//     public string Title = string.Empty;
-//     public List<QuestTopic> Topics = [];
-//     
-//     
-//     public static List<QuestZone> CreateZones()
-//     {
-//
-//
-// }
-
-public struct QuestTopicLink
-{
-    public Guid SourceTopicId;
-    public Guid TargetTopicId;
-    
-    [JsonIgnore]
-    public QuestTopic SourceTopic;
-    
-    [JsonIgnore]
-    public QuestTopic TargetTopic;
-
-    [JsonIgnore]
-    public bool Unlocked;
-}
+namespace T3.Editor.SkillQuest.Data;
 
 public sealed class QuestTopic
 {
+    // TODO: Color, style, etc. 
+    
     public Guid Id = Guid.Empty;
     public string Title= string.Empty;
     public List<QuestLevel> Levels = [];
     public List<Guid> PathsFromId=[];
+    
+    [JsonConverter(typeof(SafeEnumConverter<Requirements>))]
     public Requirements Requirement = Requirements.None;
     
     [JsonIgnore]
-    public List<LevelResult>  UserResults=[];
+    public List<SkillProgress.LevelResult>  ResultsForTopic=[];
 
     public enum Requirements
     {
@@ -103,31 +80,3 @@ public sealed class QuestTopic
             ];
     }
 }
-
-public sealed class QuestLevel
-{
-    public string Title = string.Empty;
-    public Guid SymbolId = Guid.Empty;
-}
-
-public sealed class UserProgress
-{
-    public QuestTopic ActiveTopicId;
-    public List<LevelResult> Results =[];
-}
-
-public sealed class LevelResult
-{
-    public DateTime StartTime;
-    public DateTime EndTime;
-    public Results Result;
-    public int Rating;
-    
-    public enum Results {
-        Started,
-        Skipped,
-        Completed,
-    }
-}
-
-
