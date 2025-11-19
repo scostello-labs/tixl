@@ -2,6 +2,7 @@
 using T3.Core.DataTypes.Vector;
 using T3.Core.Operator;
 using T3.Editor.Gui.Input;
+using T3.Editor.Gui.MagGraph.Interaction;
 using T3.Editor.Gui.Styling;
 using T3.Editor.UiModel;
 using T3.Editor.UiModel.Modification;
@@ -26,86 +27,93 @@ internal static class EditTourPointsDialog
         if (!_isOpen)
             return ChangeSymbol.SymbolModificationResults.Nothing;
 
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1);
         if (ImGui.Begin("Edit tour points", ref _isOpen))
         {
+            ImGui.PushStyleColor(ImGuiCol.ChildBg, UiColors.WindowBackground.Fade(0.8f).Rgba);
+
             ImGui.BeginChild("Inner", Vector2.Zero, false, ImGuiWindowFlags.NoMove);
-            //ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(4 * T3Ui.UiScaleFactor));
-
-            _compositionUi = operatorSymbol.GetSymbolUi();
-
-            // Handle selection
-            _selectedChildIds.Clear();
-            _firstSelectedChildId = Guid.Empty;
-            ImGui.Indent(20);
-            FormInputs.AddVerticalSpace(20);
-
-            foreach (var c in projectView.NodeSelection.GetSelectedChildUis())
             {
-                if (_firstSelectedChildId == Guid.Empty)
-                    _firstSelectedChildId = c.Id;
+                _compositionUi = operatorSymbol.GetSymbolUi();
 
-                _selectedChildIds.Add(c.Id);
-            }
+                // Handle selection
+                _selectedChildIds.Clear();
+                _firstSelectedChildId = Guid.Empty;
+                ImGui.Indent(20);
+                FormInputs.AddVerticalSpace(20);
 
-            var modified = false;
-            _completedDragging = false;
+                foreach (var c in projectView.NodeSelection.GetSelectedChildUis())
+                {
+                    if (_firstSelectedChildId == Guid.Empty)
+                        _firstSelectedChildId = c.Id;
 
-            // List...
-            if (!_isDragging && _listOrderWhileDragging.Count != _compositionUi.TourPoints.Count)
-            {
-                _listOrderWhileDragging.Clear();
+                    _selectedChildIds.Add(c.Id);
+                }
+
+                var modified = false;
+                _completedDragging = false;
+
+                // List...
+                if (!_isDragging && _listOrderWhileDragging.Count != _compositionUi.TourPoints.Count)
+                {
+                    _listOrderWhileDragging.Clear();
+                    for (var index = 0; index < _compositionUi.TourPoints.Count; index++)
+                    {
+                        _listOrderWhileDragging.Add(index);
+                    }
+                }
+
                 for (var index = 0; index < _compositionUi.TourPoints.Count; index++)
                 {
-                    _listOrderWhileDragging.Add(index);
-                }
-            }
+                    var tourPoint = _compositionUi.TourPoints[index];
 
-            for (var index = 0; index < _compositionUi.TourPoints.Count; index++)
-            {
-                var tourPoint = _compositionUi.TourPoints[index];
-
-                ImGui.PushID(tourPoint.Id.GetHashCode());
-                // Draw floating + button...
-                {
-                    var keepCursorPos = ImGui.GetCursorPos();
-                    var h = ImGui.GetFrameHeight();
-                    ImGui.SetCursorPos(keepCursorPos - new Vector2(h, h * 0.5f));
-
-                    if (CustomComponents.TransparentIconButton(Icon.Plus, Vector2.Zero, CanAdd
-                                                                                            ? CustomComponents.ButtonStates.Normal
-                                                                                            : CustomComponents.ButtonStates.Disabled) && CanAdd)
+                    ImGui.PushID(tourPoint.Id.GetHashCode());
+                    // Draw floating + button...
                     {
-                        InsertNewTourPoint(index);
+                        var keepCursorPos = ImGui.GetCursorPos();
+                        var h = ImGui.GetFrameHeight();
+                        ImGui.SetCursorPos(keepCursorPos - new Vector2(h, h * 0.5f));
+
+                        if (CustomComponents.TransparentIconButton(Icon.Plus, Vector2.Zero, CanAdd
+                                                                                                ? CustomComponents.ButtonStates.Normal
+                                                                                                : CustomComponents.ButtonStates.Disabled) && CanAdd)
+                        {
+                            InsertNewTourPoint(index);
+                        }
+
+                        ImGui.SetCursorPos(keepCursorPos);
                     }
 
-                    ImGui.SetCursorPos(keepCursorPos);
+                    modified |= DrawItem(tourPoint, index);
+                    FormInputs.AddVerticalSpace(2);
+
+                    ImGui.PopID();
                 }
 
-                modified |= DrawItem(tourPoint, index);
-                FormInputs.AddVerticalSpace(2);
-                
-                ImGui.PopID();
+                if (_completedDragging)
+                {
+                    _isDragging = false;
+                    _listOrderWhileDragging.Clear();
+                    modified = true;
+                }
+
+                if (CustomComponents.DisablableButton("Add Tour Point", CanAdd))
+                {
+                    InsertNewTourPoint(_compositionUi.TourPoints.Count);
+                }
+
+                if (modified)
+                    _compositionUi.FlagAsModified();
             }
 
-            if (_completedDragging)
-            {
-                _isDragging = false;
-                _listOrderWhileDragging.Clear();
-                modified = true;
-            }
-
-            if (CustomComponents.DisablableButton("Add Tour Point", CanAdd))
-            {
-                InsertNewTourPoint(_compositionUi.TourPoints.Count);
-            }
-
-            if (modified)
-                _compositionUi.FlagAsModified();
+            ImGui.EndChild();
+            ImGui.PopStyleColor();
         }
 
-        //ImGui.PopStyleVar();
-        ImGui.EndChild();
+        ImGui.PopStyleColor();
+
         ImGui.End();
+        ImGui.PopStyleVar();
         return result;
     }
 
@@ -246,6 +254,12 @@ internal static class EditTourPointsDialog
             }
 
             ImGui.Unindent(10);
+
+            // Activate tour point
+            if (ImGui.IsWindowHovered() && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
+            {
+                TourInteraction.SetProgressIndex(_compositionUi.Symbol.Id, index);
+            }
         }
         ImGui.EndChild();
         ImGui.PopStyleVar(2);

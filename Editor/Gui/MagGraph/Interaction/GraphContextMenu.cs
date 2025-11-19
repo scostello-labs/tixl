@@ -23,7 +23,6 @@ internal static class GraphContextMenu
 {
     internal static void DrawContextMenuContent(GraphUiContext context, ProjectView projectView)
     {
-        var clickPosition = ImGui.GetMousePosOnOpeningCurrentPopup();
         var compositionSymbolUi = context.CompositionInstance.GetSymbolUi();
 
         var nodeSelection = context.Selector;

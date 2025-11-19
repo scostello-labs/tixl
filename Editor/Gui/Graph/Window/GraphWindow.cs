@@ -5,6 +5,7 @@ using T3.Editor.Gui.Dialogs;
 using T3.Editor.Gui.Hub;
 using T3.Editor.Gui.Interaction;
 using T3.Editor.Gui.Interaction.TransformGizmos;
+using T3.Editor.Gui.MagGraph.Interaction;
 using T3.Editor.Gui.MagGraph.Ui;
 using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.UiHelpers;
@@ -257,6 +258,8 @@ internal sealed class GraphWindow : Windows.Window
             if (UserSettings.Config.ShowTitleAndDescription)
                 GraphTitleAndBreadCrumbs.Draw(ProjectView);
 
+            TourInteraction.Draw(ProjectView);
+            
             // Breadcrumbs may have requested close...
             if (ProjectView == null)
                 return;
