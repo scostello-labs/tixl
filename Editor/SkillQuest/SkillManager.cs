@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using ImGuiNET;
 using T3.Editor.Gui;
 using T3.Editor.Gui.Input;
+using T3.Editor.Gui.MagGraph.Interaction;
 using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.Window;
 using T3.Editor.Gui.UiHelpers;
@@ -59,15 +60,26 @@ internal static partial class SkillManager
 
         if (!OutputWindow.TryGetPrimaryOutputWindow(out var outputWindow))
         {
+            Log.Debug("Can't access primary output window");
             UiState.ApplyUiState(_context.PreviousUiState);
             _context.StateMachine.SetState(SkillQuestStates.Inactive,_context);
+            return;
         }
+        
                          
         UiState.HideAllUiElements();
                          
         // Pin output
         var rootInstance = _context.OpenedProject.Structure.GetRootInstance();
+        if (rootInstance == null)
+        {
+            Log.Debug("Failed to load root");
+            UiState.ApplyUiState(_context.PreviousUiState);
+            _context.StateMachine.SetState(SkillQuestStates.Inactive,_context);
+            return;
+        }
         outputWindow.Pinning.PinInstance(rootInstance);
+        TourInteraction.SetProgressIndex(rootInstance.Symbol.Id, 0);
         
         _context.StateMachine.SetState(SkillQuestStates.Playing, _context);
     }
