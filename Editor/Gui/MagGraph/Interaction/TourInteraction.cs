@@ -2,6 +2,7 @@
 using T3.Core.DataTypes.Vector;
 using T3.Editor.Gui.Input;
 using T3.Editor.Gui.Styling;
+using T3.Editor.SkillQuest;
 using T3.Editor.UiModel;
 using T3.Editor.UiModel.ProjectHandling;
 
@@ -14,6 +15,9 @@ internal static class TourInteraction
 {
     internal static void Draw(ProjectView projectView)
     {
+        if (projectView == null || projectView.GraphView.Destroyed)
+            return;
+        
         if (projectView.CompositionInstance == null)
             return;
 
@@ -23,12 +27,12 @@ internal static class TourInteraction
         if (compositionUi.TourPoints.Count == 0)
             return;
 
-        var dl = ImGui.GetWindowDrawList();
+        SkillManager.DrawLevelHeader();
 
         FormInputs.AddVerticalSpace(10);
         
         var cursorPos2 = ImGui.GetCursorScreenPos();
-        ImGui.Indent(20);
+        ImGui.Indent(40 * T3Ui.UiScaleFactor- 5);
         
         var timeSinceInteraction = (float)(ImGui.GetTime() - _lastClickTime);
         
@@ -51,17 +55,16 @@ internal static class TourInteraction
         }
         else
         {
+            var dl = ImGui.GetWindowDrawList();
+            
             FormInputs.AddVerticalSpace(10);
             var point = compositionUi.TourPoints[progressIndex];
             
 
             // Draw tip
             ImGui.SameLine(0, 4);
-            //ImGui.SetNextItemWidth(100 * T3Ui.UiScaleFactor);
-            //ImGui.TextWrapped(point.Title);
             
             ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + 300 * T3Ui.UiScaleFactor);
-            //ImGui.TextUnformatted(point.Title);
             TextParagraphs(point.Title);
             ImGui.PopTextWrapPos();
 
@@ -69,7 +72,8 @@ internal static class TourInteraction
             var tourPointsCount = compositionUi.TourPoints.Count;
 
             var h = ImGui.GetFrameHeight();
-            cursorPos2 += new Vector2(0.5f,0.3f) * h;
+            cursorPos2 += new Vector2(0.9f,0.3f) * h;
+            
             for (int dotIndex = 0; dotIndex < tourPointsCount; dotIndex++)
             {
                 var pos = cursorPos2 
@@ -125,7 +129,6 @@ internal static class TourInteraction
         }
     }
 
-    
     private static void TextParagraphs(ReadOnlySpan<char> text, float paragraphSpacing = 6f)
     {
         int start = 0;

@@ -1,6 +1,10 @@
 ﻿#nullable enable
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using ImGuiNET;
+using T3.Editor.Gui;
+using T3.Editor.Gui.Input;
+using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.Window;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.Gui.Windows.Output;
@@ -63,8 +67,8 @@ internal static partial class SkillManager
 
     private static void InitializeLevels()
     {
-        // TODO: Load from Json
-        SkillQuestContext.Topics = CreateMockLevelStructure();
+        //SkillQuestContext.Topics = CreateMockLevelStructure();
+        SkillQuestContext.Topics = CreateLevelStructureFromSymbols();
     }
 
     public static bool TryGetActiveTopic([NotNullWhen(true)] out QuestTopic? topic)
@@ -91,7 +95,7 @@ internal static partial class SkillManager
         return true;
     }
 
-    private static bool TryGetSkillsProject([NotNullWhen(true)] out EditableSymbolProject? skillProject)
+    public static bool TryGetSkillsProject([NotNullWhen(true)] out EditableSymbolProject? skillProject)
     {
         skillProject = null;
         foreach (var p in EditableSymbolProject.AllProjects)
@@ -144,6 +148,51 @@ internal static partial class SkillManager
         _context.StateMachine.SetState(SkillQuestStates.Inactive, _context);
     }
 
+    
+    public static void DrawLevelHeader()
+    {
+        if (!IsInPlaymode)
+            return;
+        
+        if (!TryGetActiveTopic(out var topic) || !TryGetActiveLevel(out var level))
+            return;
+
+        var levelIndex = topic.Levels.IndexOf(level);
+
+        var indentation = 40*T3Ui.UiScaleFactor;
+        
+        FormInputs.AddVerticalSpace();
+        ImGui.Indent(indentation);
+        
+        ImGui.PushFont(Fonts.FontSmall);
+        ImGui.PushStyleColor(ImGuiCol.Text, UiColors.TextMuted.Rgba);
+        ImGui.TextUnformatted($"{level.Title}  {levelIndex+1}/{topic.Levels.Count} ");
+        ImGui.PopStyleColor();
+        ImGui.PopFont();
+
+        var keepCursor = ImGui.GetCursorPos();
+        ImGui.SetCursorPos(keepCursor - new Vector2(1f,-0.15f) * ImGui.GetFrameHeight());
+
+        if (CustomComponents.TransparentIconButton(Icon.Exit, Vector2.Zero))
+        {
+            _context.ProjectView?.Close();
+        }
+        
+        ImGui.SetCursorPos(keepCursor);
+        
+        //ImGui.SameLine(0,10);
+        
+        ImGui.PushFont(Fonts.FontLarge);
+        ImGui.TextUnformatted(level.Title);
+        ImGui.PopFont();
+        
+        ImGui.Unindent(indentation);
+        
+        
+    }
+
+    public static bool IsInPlaymode => _context.StateMachine.CurrentState == SkillQuestStates.Playing;
+    
     
     private static readonly SkillQuestContext _context = new()
                                                              {

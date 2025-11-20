@@ -36,6 +36,13 @@
       }
     },
     {
+      "ChildId": "19f8e31f-48db-4b6f-970a-f6039329da0f"/*BoolToFloat*/,
+      "Position": {
+        "X": -122.01077,
+        "Y": -198.92274
+      }
+    },
+    {
       "ChildId": "1d1132ab-c0d6-4a66-9275-04c59b88dcae"/*BoolToFloat*/,
       "Position": {
         "X": 389.16577,
@@ -54,6 +61,14 @@
       "Position": {
         "X": -71.85089,
         "Y": 295.30212
+      }
+    },
+    {
+      "ChildId": "3197aa72-621a-4e16-bdbe-e40eb0d83e11"/*StopWatch*/,
+      "Comment": "..keep resetting",
+      "Position": {
+        "X": -127.16235,
+        "Y": -20.907013
       }
     },
     {
@@ -97,6 +112,13 @@
       "Position": {
         "X": 11.28067,
         "Y": -447.7264
+      }
+    },
+    {
+      "ChildId": "5d430d9d-95f2-4bb3-9ebd-6309c0300baf"/*Boolean*/,
+      "Position": {
+        "X": 193.95288,
+        "Y": -233.92274
       }
     },
     {
@@ -156,6 +178,13 @@
       }
     },
     {
+      "ChildId": "84851b76-7206-4e9d-920e-b9e0565f9d33"/*Compare*/,
+      "Position": {
+        "X": -127.16235,
+        "Y": 14.092987
+      }
+    },
+    {
       "ChildId": "852a26c8-a0f9-45f6-8258-c76f1ff85682"/*CacheBoolean*/,
       "Position": {
         "X": 882.955,
@@ -177,6 +206,13 @@
       }
     },
     {
+      "ChildId": "882aebd6-f5aa-4dc9-8069-08f9cdfec43b"/*DelayTriggerChange*/,
+      "Position": {
+        "X": -122.01077,
+        "Y": -233.92274
+      }
+    },
+    {
       "ChildId": "948404af-da80-4e93-b61c-fea14bf3d490"/*ProgressBar*/,
       "Position": {
         "X": 389.16577,
@@ -188,6 +224,13 @@
       "Position": {
         "X": 562.4359,
         "Y": -244.13156
+      }
+    },
+    {
+      "ChildId": "a92bbab0-c6c2-4b54-b29c-94288d0f0199"/*DelayTriggerChange*/,
+      "Position": {
+        "X": -127.16235,
+        "Y": -55.907013
       }
     },
     {
@@ -209,6 +252,14 @@
       "Position": {
         "X": 562.4359,
         "Y": -409.02884
+      }
+    },
+    {
+      "ChildId": "bdefac12-89dd-49ab-9bab-2704876426cc"/*Compare*/,
+      "Comment": "If Difference too large...",
+      "Position": {
+        "X": -122.01077,
+        "Y": -268.92273
       }
     },
     {

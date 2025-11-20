@@ -1,16 +1,78 @@
-﻿using T3.Editor.SkillQuest.Data;
+﻿#nullable enable
+using ImGuiNET;
+using T3.Editor.Gui.Styling;
+using T3.Editor.SkillQuest.Data;
+using T3.Editor.UiModel;
 
 namespace T3.Editor.SkillQuest;
 
 internal static partial class SkillManager
 {
+    private static List<QuestTopic> CreateLevelStructureFromSymbols()
+    {
+        if (!TryGetSkillsProject(out var skills))
+            return [];
+
+        var topics = new List<QuestTopic>();
+
+        var lastNamespace = string.Empty;
+        
+        QuestTopic? topic = null;
+        QuestTopic? lastTopic = null;
+        
+        foreach (var symbol in skills.Symbols.Values.OrderBy(c => c.Namespace))
+        {
+            var startingNewTopic = symbol.Namespace != lastNamespace;
+            if (startingNewTopic)
+            {
+                if (topic != null)
+                {
+                    lastTopic = topic;
+                }
+
+                var topicNamespace = symbol.Namespace.Split(".").Last();
+                
+                topic = new QuestTopic
+                            {
+                                Id = Guid.NewGuid(),
+                                Title = topicNamespace,
+                                Levels = [],
+                                PathsFromTopicIds = lastTopic != null ? [lastTopic.Id] : [],
+                                Requirement = QuestTopic.Requirements.None,
+                                ResultsForTopic = [],
+                            };
+                topics.Add(topic);
+                
+                
+                lastNamespace = symbol.Namespace;
+            }
+
+            if (topic == null)
+                continue;
+
+            var symbolUi = symbol.GetSymbolUi();
+            var topicName = string.IsNullOrEmpty(symbolUi.Description)
+                                ? symbol.Name
+                                : symbolUi.Description;
+            
+            topic.Levels.Add(new QuestLevel
+                                 {
+                                     Title = topicName,
+                                     SymbolId = symbol.Id,
+                                 });
+
+        }
+        
+        return topics;
+    }
+    
     private static List<QuestTopic> CreateMockLevelStructure()
     {
         return
             [
                 new QuestTopic
                     {
-                        Title = "Welcome",
+                        Title = "Welcome to TiXL",
                         Id = new Guid("D5E76A36-DEB8-42D8-A1BB-6B85B7848662"),
                         Levels =
                             [

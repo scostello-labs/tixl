@@ -15,12 +15,12 @@
         {
           "Id": "202340b4-0629-40a1-9399-0cda047df116"/*Rotate*/,
           "Type": "System.Single",
-          "Value": -224.0
+          "Value": 45.0
         },
         {
           "Id": "d2401798-593b-4cc3-85d8-3570ddec1f2a"/*Scale*/,
           "Type": "System.Single",
-          "Value": 0.53
+          "Value": 0.5
         }
       ],
       "Outputs": []

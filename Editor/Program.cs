@@ -167,7 +167,6 @@ internal static class Program
         Log.Debug("Initialize User Interface...");
         KeyActionHandling.InitializeFrame();
         KeyMapSwitching.Initialize();
-        SkillQuest.SkillManager.Initialize();
 
         // ReSharper disable once JoinDeclarationAndInitializer
         bool forceRecompileProjects;
@@ -198,6 +197,7 @@ internal static class Program
             
         // Setup file watching the operator source
         T3Ui.InitializeEnvironment();
+        SkillQuest.SkillManager.Initialize();
             
         Log.RemoveWriter(splashScreen);
             

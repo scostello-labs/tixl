@@ -10,7 +10,7 @@ public sealed class QuestTopic
     public Guid Id = Guid.Empty;
     public string Title= string.Empty;
     public List<QuestLevel> Levels = [];
-    public List<Guid> PathsFromId=[];
+    public List<Guid> PathsFromTopicIds=[];
     
     [JsonConverter(typeof(SafeEnumConverter<Requirements>))]
     public Requirements Requirement = Requirements.None;
