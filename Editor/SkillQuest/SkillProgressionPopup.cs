@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using ImGuiNET;
-using SharpDX;
 using T3.Core.Utils;
 using T3.Editor.Gui;
 using T3.Editor.Gui.Input;
@@ -20,12 +19,12 @@ internal static class SkillProgressionPopup
 {
     internal static void Draw()
     {
-        var windowSize = new Vector2(600, 260) * T3Ui.UiScaleFactor;
+        var popUpSize = new Vector2(600, 260) * T3Ui.UiScaleFactor;
 
         // Center the popup in the main viewport
         var vp = ImGui.GetMainViewport();
-        var pos = vp.Pos + (vp.Size - windowSize) * 0.5f;
-        ImGui.SetNextWindowSize(windowSize, ImGuiCond.Always);
+        var pos = vp.Pos + (vp.Size - popUpSize) * 0.5f;
+        ImGui.SetNextWindowSize(popUpSize, ImGuiCond.Always);
         ImGui.SetNextWindowPos(pos);
 
         if (!SkillManager.TryGetActiveTopicAndLevel(out var topic, out var previousLevel))
@@ -38,6 +37,10 @@ internal static class SkillProgressionPopup
         {
             var index = topic.Levels.IndexOf(previousLevel);
             Debug.Assert(index >= 0);
+            // if (ImGui.Button("Test"))
+            // {
+            //     StarShowerEffect.Reset();
+            // }
 
             if (index < topic.Levels.Count - 1)
             {
@@ -48,6 +51,7 @@ internal static class SkillProgressionPopup
             DrawActionBar();
 
             ImGui.EndPopup();
+            StarShowerEffect.DrawAndUpdate();
         }
 
         ImGui.PopStyleColor();
@@ -179,7 +183,62 @@ internal static class SkillProgressionPopup
     internal static void Show()
     {
         ImGui.OpenPopup(ProgressionPopupId);
+        StarShowerEffect.Reset();
+        _appearTime = ImGui.GetTime();
     }
 
     private const string ProgressionPopupId = "ProgressionPopup";
+    private static double _appearTime;
+}
+
+/// <summary>
+/// A simple "celebration" effect that can be shown on events like "level completed".
+/// </summary>
+internal static class StarShowerEffect
+{
+    static internal void DrawAndUpdate()
+    {
+        var center = GetCenter();
+        var dl = ImGui.GetForegroundDrawList();
+
+        for (var index = 0; index < _positions.Length; index++)
+        {
+            // Update position
+            var rand = MathUtils.Hash01((uint)index);
+            var p = _positions[index];
+            var dFromCenter = p - center;
+            var l = dFromCenter.Length();
+            var dNorm = Vector2.Normalize(dFromCenter);
+            var f = 50f / (l + 5f) + 0.2f * rand;
+            p += f * dNorm * 40f * f + new Vector2(0, 6f) * (f + 0.7f);
+
+            _positions[index] = p;
+
+            Icons.DrawIconAtScreenPosition(Icon.Star, p, dl, Color.Orange.Fade((2 * f).Clamp(0, 1)));
+        }
+    }
+
+    internal static void Reset()
+    {
+        float radius = 30;
+        var center = GetCenter() + new Vector2(0, -10);
+        for (var index = 0; index < _positions.Length; index++)
+        {
+            var f = (float)index / Count + 0.223f;
+            _positions[index] = center + new Vector2(MathF.Sin(f * MathF.Tau),
+                                                     MathF.Cos(f * MathF.Tau)) * radius;
+        }
+    }
+
+    private static Vector2 GetCenter()
+    {
+        var vp = ImGui.GetMainViewport();
+        var windowSize = vp.Size;
+        var center = windowSize * 0.5f;
+        return center + new Vector2(-220, -40) * T3Ui.UiScaleFactor;
+    }
+
+    private static readonly Vector2[] _positions = new Vector2[Count];
+
+    private const int Count = 30;
 }
