@@ -44,6 +44,22 @@ internal sealed class SkillMap
         questTopic = null;
         return false;
     }
+    
+    public static bool TryGetTopic(Guid id, [NotNullWhen(true)] out QuestTopic? questTopic)
+    {
+        foreach (var t in AllTopics)
+        {
+            if (t.Id != id)
+                continue;
+
+            questTopic = t;
+            return true;
+        }
+
+        questTopic = null;
+        return false;
+    }
+    
 
     public static bool TryGetZone(Guid id, [NotNullWhen(true)] out QuestZone? zone)
     {

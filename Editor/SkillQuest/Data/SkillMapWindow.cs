@@ -33,6 +33,7 @@ internal static class SkillMapPopup
             return;
 
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1);
+        ImGui.SetNextWindowSize(new Vector2(500,500) * T3Ui.UiScaleFactor, ImGuiCond.Once); 
         if (ImGui.Begin("Edit skill map", ref _isOpen))
         {
             if (ImGui.IsWindowAppearing())
@@ -82,6 +83,7 @@ internal static class SkillMapPopup
                 {
                     InitMap();
                 }
+                ImGui.SameLine();
 
                 if (ImGui.Button("Save"))
                 {
@@ -123,11 +125,28 @@ internal static class SkillMapPopup
         }
     }
 
+    private static States State;
+    
+    private enum States
+    {
+        Default,
+        SelectingUnlocked,
+    }
+    
     private static void DrawSidebar()
     {
         if (_activeTopic == null)
             return;
 
+        var isSelectingUnlocked = State == States.SelectingUnlocked;
+
+        if (CustomComponents.ToggleIconButton(ref isSelectingUnlocked, Icon.ConnectedOutput, Vector2.Zero))
+        {
+            State = isSelectingUnlocked ? States.SelectingUnlocked : States.Default;
+        }
+        
+        
+        ImGui.Indent(5);
         var autoFocus = false;
         if (_focusTopicNameInput)
         {
@@ -135,9 +154,11 @@ internal static class SkillMapPopup
             _focusTopicNameInput = false;
         }
 
+        FormInputs.DrawFieldSetHeader("Topic");
         ImGui.PushID(_activeTopic.Id.GetHashCode());
         FormInputs.AddStringInput("##Topic", ref _activeTopic.Title, autoFocus: autoFocus);
-
+        FormInputs.AddVerticalSpace();
+        
         if (FormInputs.AddDropdown<Type>(ref _activeTopic.Type,
                 [
                     typeof(Texture2D),
@@ -148,20 +169,40 @@ internal static class SkillMapPopup
                 ], "##Type", x => x.Name))
         {
         }
+        
+        FormInputs.DrawFieldSetHeader("Namespace");
+        FormInputs.AddStringInput("##NameSpace", ref _activeTopic.Namespace);
 
+        FormInputs.DrawFieldSetHeader("Description");
+        //FormInputs.AddStringInput("##Description", ref _activeTopic.Description);
+        _activeTopic.Description ??= string.Empty;
+        DrawMultilineTextEdit(ref _activeTopic.Description);
+        
         ImGui.PopID();
+    }
+
+    
+    private static bool DrawMultilineTextEdit(ref string value)
+    {
+        var lineCount = value.LineCount().Clamp(1, 30) + 1;
+        var lineHeight = Fonts.Code.FontSize;
+        ImGui.PushStyleColor(ImGuiCol.FrameBg, UiColors.BackgroundInputField.Rgba);
+        var requestedContentHeight = lineCount * lineHeight;
+        var clampedToWindowHeight = MathF.Min(requestedContentHeight, ImGui.GetWindowSize().Y * 0.5f);
+        
+        var changed = ImGui.InputTextMultiline("##textEdit", ref value, 16384, new Vector2(-10, clampedToWindowHeight));
+        ImGui.PopStyleColor();
+        FormInputs.AddVerticalSpace(3);
+        return changed;
     }
 
     private static void DrawItem(ImDrawListPtr dl, float rOnScreen, int x, int y)
     {
         var cellHash = y * 16384 + x;
-
-        var scale = 136;
-        var offSetX = (y % 2) * 0.5f;
+        var posOnScreen = ScreenPosForCell(x, y);
 
         var mousePos = ImGui.GetMousePos();
-        var radius = rOnScreen * 0.56f * scale;
-        var posOnScreen = _canvas.TransformPosition(new Vector2(x + offSetX, y * 0.87f) * scale);
+        var radius = rOnScreen * 0.56f * BaseScale;
         var isMouseInside = Vector2.Distance(posOnScreen, mousePos) < radius * 0.7f && !ImGui.IsMouseDown(ImGuiMouseButton.Right);
         var isCellHovered = ImGui.IsWindowHovered() && !ImGui.IsMouseDown(ImGuiMouseButton.Right) && isMouseInside;
 
@@ -174,7 +215,7 @@ internal static class SkillMapPopup
                 return;
 
             var hoverColor = topic == null ? UiColors.ForegroundFull.Fade(0.05f) : Color.Orange;
-            dl.AddVerticalHexagon(posOnScreen, radius, hoverColor.Fade(isMouseInside ? 0.3f : 0.15f));
+            dl.AddNgonRotated(posOnScreen, radius, hoverColor.Fade(isMouseInside ? 0.3f : 0.15f));
 
             
             if (ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
@@ -216,17 +257,35 @@ internal static class SkillMapPopup
             return;
         }
 
-        // Existing topic
-
+        // Existing topic....
         var typeColor = TypeUiRegistry.GetTypeOrDefaultColor(topic.Type);
+        dl.AddNgonRotated(posOnScreen, radius, typeColor.Fade(isMouseInside ? 0.3f : 0.15f));
         
-        //UiColors.ForegroundFull.Fade(0.05f) : Color.Orange;
-        dl.AddVerticalHexagon(posOnScreen, radius, typeColor.Fade(isMouseInside ? 0.3f : 0.15f));
-
         var isSelected = _activeTopic == topic;
         if (isSelected)
         {
-            dl.AddVerticalHexagon(posOnScreen, radius, UiColors.StatusActivated, false);
+            dl.AddNgonRotated(posOnScreen, radius, UiColors.StatusActivated, false);
+        }
+
+        foreach (var unlockTargetId in topic.UnlocksTopics)
+        {
+            if (SkillMap.TryGetTopic(unlockTargetId, out var target))
+            {
+                var targetPos = ScreenPosForTopic(target);
+                var delta =  posOnScreen - targetPos;
+                var direction = Vector2.Normalize(delta);
+                var angle = -MathF.Atan2(delta.X, delta.Y) -MathF.PI/2;
+                dl.AddLine(posOnScreen - direction * radius, 
+                           targetPos + direction * radius*0.9f, 
+                           typeColor, 
+                           2);
+                dl.AddNgonRotated(targetPos + direction * radius*0.9f, 
+                                  10 * _canvas.Scale.X, 
+                                  typeColor, 
+                                  true, 
+                                  3, 
+                                  startAngle:angle );
+            }
         }
 
         if (!string.IsNullOrEmpty(topic.Title))
@@ -234,23 +293,68 @@ internal static class SkillMapPopup
             var labelAlpha = _canvas.Scale.X.RemapAndClamp(0.3f, 2f, 0, 1);
             if (labelAlpha > 0.01f)
             {
-                var labelSize = ImGui.CalcTextSize(topic.Title);
-                dl.AddText(posOnScreen - labelSize * 0.5f, UiColors.ForegroundFull.Fade(labelAlpha), topic.Title);
+                AddWrappedCenteredText(dl, topic.Title, posOnScreen, 13, UiColors.ForegroundFull.Fade(labelAlpha));
             }
+        }
+
+        if (topic.Status == QuestTopic.Statuses.Locked)
+        {
+            Icons.DrawIconAtScreenPosition(Icon.RotateClockwise, posOnScreen);
         }
 
         if (isCellHovered)
         {
             ImGui.BeginTooltip();
             ImGui.TextUnformatted(topic.Title);
+            if (!string.IsNullOrEmpty(topic.Description))
+            {
+                CustomComponents.StylizedText(topic.Description, Fonts.FontSmall, UiColors.TextMuted);
+            }
             ImGui.EndTooltip();
 
             if (ImGui.IsMouseDown(ImGuiMouseButton.Left))
             {
-                _activeTopic = topic;
-                _draggedTopicId = topic.Id;
+                if (State == States.Default)
+                {
+                    _activeTopic = topic;
+                    _draggedTopicId = topic.Id;
+                }
+                else if (State == States.SelectingUnlocked)
+                {
+                    if (_activeTopic == null)
+                    {
+                        State = States.Default;
+                    }
+                    else
+                    {
+                        if (_activeTopic != topic && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
+                        {
+                            if (_activeTopic.UnlocksTopics.Contains(topic.Id))
+                            {
+                                _activeTopic.UnlocksTopics.Remove(topic.Id);
+                            }
+                            else
+                            {
+                                _activeTopic.UnlocksTopics.Add(topic.Id);
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+
+    private static Vector2 ScreenPosForTopic(QuestTopic target)
+    {
+        var targetPos = ScreenPosForCell((int)target.MapCoordinate.X, (int)target.MapCoordinate.Y);
+        return targetPos;
+    }
+
+    private static Vector2 ScreenPosForCell(int x, int y)
+    {
+        var offSetX = (y % 2) * 0.5f;
+        var posOnScreen = _canvas.TransformPosition(new Vector2(x + offSetX, y * 0.87f) * BaseScale);
+        return posOnScreen;
     }
 
     private static QuestZone GetActiveZone()
@@ -266,8 +370,10 @@ internal static class SkillMapPopup
                    : SkillMap.FallbackZone;
     }
 
+    private const float BaseScale = 136;
+
     private static bool _focusTopicNameInput;
-    private static Dictionary<int, QuestTopic> _gridTopics = new();
+    private static readonly Dictionary<int, QuestTopic> _gridTopics = new();
 
     private static void DrawContent()
     {
@@ -345,30 +451,99 @@ internal static class SkillMapPopup
         }
     }
 
-    private static readonly Vector2[] _pointsForHexagon = new Vector2[6];
+    private static readonly Vector2[] _pointsForNgon = new Vector2[MaxNgonCorners];
+    private const int MaxNgonCorners = 8;
 
-    private static void AddVerticalHexagon(this ImDrawListPtr dl, Vector2 center, float radius, uint color, bool filled = true)
+    private static void AddNgonRotated(this ImDrawListPtr dl, Vector2 center, float radius, uint color, bool filled = true, int count =6, float startAngle= -MathF.PI / 2f)
     {
-        var startAngle = -MathF.PI / 2f;
+        count = count.ClampMax(MaxNgonCorners);
 
-        for (var i = 0; i < 6; i++)
+        for (var i = 0; i < count; i++)
         {
-            var angle = startAngle + i * (MathF.PI / 3f); // 60° steps
-            _pointsForHexagon[i] = new Vector2(
-                                               center.X + MathF.Cos(angle) * radius,
-                                               center.Y + MathF.Sin(angle) * radius
+            var a = startAngle + i * (2*MathF.PI / count); 
+            _pointsForNgon[i] = new Vector2(
+                                               center.X + MathF.Cos(a) * radius,
+                                               center.Y + MathF.Sin(a) * radius
                                               );
         }
 
         if (filled)
         {
-            dl.AddConvexPolyFilled(ref _pointsForHexagon[0], _pointsForHexagon.Length, color);
+            dl.AddConvexPolyFilled(ref _pointsForNgon[0], count, color);
         }
         else
         {
-            dl.AddPolyline(ref _pointsForHexagon[0], _pointsForHexagon.Length, color, ImDrawFlags.Closed, 5);
+            dl.AddPolyline(ref _pointsForNgon[0], count, color, ImDrawFlags.Closed, 2);
         }
     }
 
+    private static readonly int[] _wrapLineIndices = new int[10];  
+    
+    // The method now accepts a Span of ReadOnlySpans for the wrapped lines to avoid allocations
+    public static void AddWrappedCenteredText(ImDrawListPtr dl, string text, Vector2 position, int wrapCharCount, Color color)
+    {
+        var textLength = text.Length;
+        var currentLineStart = 0;
+        var lineCount = 0;
+
+        // Step 1: Calculate wrap indices
+        while (currentLineStart < textLength && lineCount < _wrapLineIndices.Length)
+        {
+            var lineEnd = currentLineStart + wrapCharCount;
+
+            if (lineEnd > textLength)
+            {
+                _wrapLineIndices[lineCount] = currentLineStart;
+                lineCount++;
+                break;
+            }
+
+            // Search backwards to find the last space or punctuation within the wrap length
+            var wrapPoint = (lineEnd-1).ClampMin(0);
+            while (wrapPoint > 0 && wrapPoint > currentLineStart && !IsValidLineBreakCharacter(text[wrapPoint]))
+            {
+                wrapPoint--;
+            }
+
+            if (wrapPoint == currentLineStart)
+            {
+                wrapPoint = lineEnd; // Force wrap at max length if no valid break found
+            }
+
+            _wrapLineIndices[lineCount] = currentLineStart;
+            currentLineStart = wrapPoint;
+            lineCount++;
+        }
+
+        // Step 2: Draw wrapped text centered horizontally and vertically
+        var lineHeight = ImGui.GetTextLineHeight();
+        var totalHeight = lineHeight * lineCount;
+        var yStart = position.Y - totalHeight / 2.0f; // Center vertically
+
+        for (var i = 0; i < lineCount; i++)
+        {
+            // Calculate the slice for the line using the stored indices
+            var startIdx = _wrapLineIndices[i];
+            var endIdx = (i + 1 < lineCount) ? _wrapLineIndices[i + 1] : text.Length;
+            var lineSpan = text.AsSpan(startIdx, endIdx - startIdx); // Slice the original text
+
+            var textWidth = ImGui.CalcTextSize(lineSpan).X;
+            var xStart = position.X - textWidth / 2.0f; // Center horizontally
+
+            // Draw the line at the correct position
+            dl.AddText(new Vector2(xStart, yStart + i * lineHeight), color, lineSpan);
+        }
+    }
+
+    // Step 5: Check if a character is a valid line break character (space, special characters, etc.)
+    private static bool IsValidLineBreakCharacter(char c)
+    {
+        // Consider spaces, hyphens, periods, commas, semicolons, etc., as line break characters.
+        return char.IsWhiteSpace(c) || c == '-' || c == '.' || c == ',' || c == ';' || c == '!' || c == '?';
+    }
+
+
+    
+    
     private static readonly ScalableCanvas _canvas = new();
 }

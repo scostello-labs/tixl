@@ -10,6 +10,7 @@ public sealed class QuestTopic
     public Guid Id = Guid.Empty;
     
     public string Title = string.Empty;
+    public string Description = string.Empty;
     public List<QuestLevel> Levels = [];
     public Vector2 MapCoordinate;
     public Guid ZoneId;

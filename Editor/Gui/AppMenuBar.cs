@@ -281,6 +281,9 @@ internal static class AppMenuBar
 
             if (ImGui.BeginMenu("Development Tools"))
             {
+                if (ImGui.MenuItem("Skill map"))
+                    SkillMapPopup.ShowNextFrame();
+                
                 if (ImGui.BeginMenu("Clear shader cache"))
                 {
                     if (ImGui.MenuItem("Editor only"))
@@ -308,10 +311,7 @@ internal static class AppMenuBar
 
                 if (ImGui.BeginMenu("Debug"))
                 {
-                    if (ImGui.MenuItem("Skill map"))
-                    {
-                        SkillMapPopup.ShowNextFrame();
-                    }
+
                     
                     if (ImGui.MenuItem("ImGUI Demo", "", WindowManager.DemoWindowVisible))
                         WindowManager.DemoWindowVisible = !WindowManager.DemoWindowVisible;
