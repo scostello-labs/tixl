@@ -1,5 +1,6 @@
 ﻿using ImGuiNET;
 using T3.Core.Utils;
+using T3.Editor.Gui.Input;
 using T3.Editor.Gui.UiHelpers;
 
 namespace T3.Editor.Gui.Styling;
@@ -162,5 +163,19 @@ internal static partial class CustomComponents
         }
 
         ImGui.PopStyleVar(2);
+    }
+
+    public static bool DrawMultilineTextEdit(ref string value)
+    {
+        var lineCount = value.LineCount().Clamp(1, 30) + 1;
+        var lineHeight = Fonts.Code.FontSize;
+        ImGui.PushStyleColor(ImGuiCol.FrameBg, UiColors.BackgroundInputField.Rgba);
+        var requestedContentHeight = lineCount * lineHeight;
+        var clampedToWindowHeight = MathF.Min(requestedContentHeight, ImGui.GetWindowSize().Y * 0.5f);
+
+        var changed = ImGui.InputTextMultiline("##textEdit", ref value, 16384, new Vector2(-10, clampedToWindowHeight));
+        ImGui.PopStyleColor();
+        FormInputs.AddVerticalSpace(3);
+        return changed;
     }
 }
