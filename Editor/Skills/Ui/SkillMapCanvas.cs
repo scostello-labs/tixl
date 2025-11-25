@@ -29,6 +29,31 @@ internal sealed class SkillMapCanvas :HexCanvas
         return isAnyItemHovered;
     }
 
+    public void FocusToActiveTopics(HashSet<QuestTopic> selection)
+    {
+        if (selection.Count == 0)
+            return;
+        
+        var isFirst = true;
+        ImRect canvasArea = new ImRect();
+        foreach (var topic in selection)
+        {
+            var posOnCanvas = CanvasPosFromCell(topic.Cell);
+            if (isFirst)
+            {
+                canvasArea= ImRect.RectWithSize(posOnCanvas, Vector2.One);
+                isFirst = false;
+            }
+            else
+            {
+                canvasArea.Add(posOnCanvas);
+            }
+        }
+        
+        canvasArea.Expand(200);
+        FitAreaOnCanvas(canvasArea);
+    }
+
     /// <returns>
     /// return true if hovered
     /// </returns>

@@ -240,7 +240,7 @@
         "8a27a6a7-c8c7-4012-916f-f7ecdfebae8e",
         "d400abe2-0113-4793-a289-da3515646082"
       ],
-      "Namespace": null,
+      "Namespace": "Skills.T002_BasicShapes",
       "TopicType": "Image",
       "Status": "Locked",
       "Requirement": "AllInputPaths"
@@ -1914,6 +1914,23 @@
       "TopicType": "Command",
       "Status": "Locked",
       "Requirement": "AllInputPaths"
+    },
+    {
+      "Id": "10d851f2-770f-4cce-a707-8dae8f0e0d6b",
+      "Title": "BasicShapes",
+      "Description": "",
+      "MapCoordinate": {
+        "X": 0.0,
+        "Y": 0.0
+      },
+      "ZoneId": "717505b4-0c6e-4708-85d8-54e202f9bbdf",
+      "UnlocksTopics": [
+        "6493fa07-2741-4712-b02f-e3f9e795b658"
+      ],
+      "Namespace": "Skills.T002_BasicShapes",
+      "TopicType": "Image",
+      "Status": "None",
+      "Requirement": "None"
     }
   ]
 }

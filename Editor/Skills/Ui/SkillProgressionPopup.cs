@@ -7,6 +7,7 @@ using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.Skills.Training;
 using T3.Editor.Skills.Data;
+using T3.Editor.Skills.Ui;
 using Color = T3.Core.DataTypes.Vector.Color;
 using Vector2 = System.Numerics.Vector2;
 using Vector4 = System.Numerics.Vector4;
@@ -18,9 +19,23 @@ namespace T3.Editor.Skills;
 /// </summary>
 internal static class SkillProgressionPopup
 {
+    internal static void Show()
+    {
+        ImGui.OpenPopup(ProgressionPopupId);
+        StarShowerEffect.Reset();
+        _appearTime = ImGui.GetTime();
+        
+        if (!SkillTraining.TryGetActiveTopicAndLevel(out var topic, out var previousLevel))
+            return;
+
+        _topicSelection.Clear();
+        _topicSelection.Add(topic);
+        _mapCanvas.FocusToActiveTopics(_topicSelection);
+    }    
+    
     internal static void Draw()
     {
-        var popUpSize = new Vector2(600, 260) * T3Ui.UiScaleFactor;
+        var popUpSize = new Vector2(700, 260) * T3Ui.UiScaleFactor;
 
         // Center the popup in the main viewport
         var vp = ImGui.GetMainViewport();
@@ -49,7 +64,7 @@ internal static class SkillProgressionPopup
                 DrawNextLevelContent(topic, previousLevel, nextLevel, index);
             }
 
-            DrawActionBar();
+            DrawActions();
 
             ImGui.EndPopup();
             StarShowerEffect.DrawAndUpdate();
@@ -58,50 +73,60 @@ internal static class SkillProgressionPopup
         ImGui.PopStyleColor();
     }
 
+    private static HashSet<QuestTopic>  _topicSelection = [];
+    
     private static void DrawNextLevelContent(QuestTopic topic, QuestLevel previousLevel, QuestLevel nextLevel, int index)
     {
         var uiScale = T3Ui.UiScaleFactor;
         var dl = ImGui.GetWindowDrawList();
 
-        ImGui.BeginChild("UpperArea", new Vector2(0, -30 * uiScale), false, ImGuiWindowFlags.NoBackground);
+        var leftWidth = 240 * uiScale;
+        ImGui.BeginChild("UpperArea", new Vector2(0, -40 * uiScale), false, ImGuiWindowFlags.NoBackground);
         {
             var area = ImRect.RectWithSize(ImGui.GetWindowPos(), ImGui.GetWindowSize());
             area.Expand(-10);
-            dl.AddRectFilled(area.Min, area.Max, UiColors.WindowBackground, 7 * uiScale);
+            dl.AddRectFilled(area.Min + new Vector2(leftWidth,0), area.Max, UiColors.WindowBackground, 7 * uiScale);
 
-            var leftWidth = 180 * uiScale;
-            ImGui.BeginChild("Left", new Vector2(leftWidth, 0), false, ImGuiWindowFlags.NoBackground);
+            ImGui.BeginChild("Map", new Vector2(leftWidth, 0), false, ImGuiWindowFlags.NoBackground);
             {
-                var donutSize = 140 * uiScale;
-
-                // center the donut in the left column
-                var cp = ImGui.GetCursorPos();
-                cp.X += (leftWidth - donutSize) * 0.5f;
-                cp.Y += 10 * uiScale;
-                ImGui.SetCursorPos(cp);
-
-                var torusCenter = ImGui.GetCursorScreenPos() + new Vector2(100, 120);
-                var progress = (index + 1f) / topic.Levels.Count;
-                DrawTorusProgress(dl, torusCenter, 100, 1, UiColors.BackgroundFull.Fade(0.6f));
-                DrawTorusProgress(dl, torusCenter, 100, progress, UiColors.StatusActivated);
-
-                ImGui.SetCursorPos(cp + new Vector2(0, donutSize * 0.5f - Fonts.FontNormal.FontSize * 0.5f));
-                ImGui.PushFont(Fonts.FontLarge);
-                CenteredText($"{index + 1} / {topic.Levels.Count}");
-                ImGui.PopFont();
-
-                ImGui.PushFont(Fonts.FontNormal);
-                CenteredText(topic.Title);
-                ImGui.PopFont();
+                _topicSelection??= new();
+                _mapCanvas.DrawContent(null, out _, _topicSelection);
             }
             ImGui.EndChild();
+            ImGui.SameLine();
+            
+            // ImGui.BeginChild("Left", new Vector2(leftWidth, 0), false, ImGuiWindowFlags.NoBackground);
+            // {
+            //     var donutSize = 60 * uiScale;
+            //
+            //     // center the donut in the left column
+            //     var cp = ImGui.GetCursorPos();
+            //     cp.X += (leftWidth - donutSize) * 0.5f;
+            //     cp.Y += 10 * uiScale;
+            //     ImGui.SetCursorPos(cp);
+            //
+            //     var torusCenter = ImGui.GetCursorScreenPos() + new Vector2(100, 120);
+            //     var progress = (index + 1f) / topic.Levels.Count;
+            //     DrawTorusProgress(dl, torusCenter, donutSize, 1, UiColors.BackgroundFull.Fade(0.6f));
+            //     DrawTorusProgress(dl, torusCenter, donutSize, progress, UiColors.StatusActivated);
+            //
+            //     ImGui.SetCursorPos(cp + new Vector2(0, donutSize * 0.5f - Fonts.FontNormal.FontSize * 0.5f));
+            //     ImGui.PushFont(Fonts.FontLarge);
+            //     CenteredText($"{index + 1} / {topic.Levels.Count}");
+            //     ImGui.PopFont();
+            //
+            //     ImGui.PushFont(Fonts.FontNormal);
+            //     CenteredText(topic.Title);
+            //     ImGui.PopFont();
+            // }
+            // ImGui.EndChild();
 
             ImGui.SameLine(0, 4);
 
             ImGui.BeginChild("Right", new Vector2(0, 0), false, ImGuiWindowFlags.NoBackground);
             {
                 FormInputs.AddVerticalSpace(30);
-                ImGui.Indent(10 * T3Ui.UiScaleFactor);
+                ImGui.Indent(20 * T3Ui.UiScaleFactor);
 
                 // COMPLETED section
                 CustomComponents.StylizedText("COMPLETED", Fonts.FontSmall, UiColors.Text.Fade(0.3f));
@@ -122,14 +147,16 @@ internal static class SkillProgressionPopup
         ImGui.EndChild();
     }
 
-    private static void DrawActionBar()
+    private static void DrawActions()
     {
+        var indent = 10;
+        ImGui.Indent(indent);
         var style = ImGui.GetStyle();
         var btnH = ImGui.GetFrameHeight();
         //var wBack = ImGui.CalcTextSize("Back to Hub").X + style.FramePadding.X * 2;
         var wSkip = ImGui.CalcTextSize("Skip").X + style.FramePadding.X * 2;
         var wCont = ImGui.CalcTextSize("Continue").X + style.FramePadding.X * 2;
-        var totalW = wSkip + wCont + style.ItemSpacing.X * 2;
+        var totalW = wSkip + wCont + style.ItemSpacing.X * 2 + indent;
 
         ImGui.PushStyleColor(ImGuiCol.Button, Color.Transparent.Rgba);
         if (ImGui.Button("Back to Hub", Vector2.Zero))
@@ -181,15 +208,11 @@ internal static class SkillProgressionPopup
         dl.PathStroke(color, ImDrawFlags.None, 6);
     }
 
-    internal static void Show()
-    {
-        ImGui.OpenPopup(ProgressionPopupId);
-        StarShowerEffect.Reset();
-        _appearTime = ImGui.GetTime();
-    }
+
 
     private const string ProgressionPopupId = "ProgressionPopup";
     private static double _appearTime;
+    private static SkillMapCanvas _mapCanvas = new();
 }
 
 /// <summary>

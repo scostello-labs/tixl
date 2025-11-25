@@ -1,0 +1,100 @@
+{
+  "Id": "e2f54c8c-2507-4b55-bc94-22a242ddf0ff"/*T002a_Shapes2*/,
+  "Description": "",
+  "InputUis": [],
+  "SymbolChildUis": [
+    {
+      "ChildId": "2646fba5-5289-4ae3-a2e0-85fec51ded1a"/*Multiply*/,
+      "Position": {
+        "X": 1219.9551,
+        "Y": 1833.475
+      }
+    },
+    {
+      "ChildId": "3c5be7bc-2cc9-4243-8751-8f1f47ba10ff"/*Time*/,
+      "AnnotationId": "d2d45d3a-4033-42d4-907d-47ffb5ccb42b",
+      "Position": {
+        "X": 1063.3497,
+        "Y": 2183.051
+      }
+    },
+    {
+      "ChildId": "55e78d83-4594-4383-9732-324c63a081b0"/*ImageResult*/,
+      "Position": {
+        "X": 1609.7146,
+        "Y": 2018.4391
+      }
+    },
+    {
+      "ChildId": "8ed19911-dace-4057-beef-0f225faf2b66"/*RoundedRect*/,
+      "Position": {
+        "X": 1291.7075,
+        "Y": 1921.6766
+      }
+    },
+    {
+      "ChildId": "c52bafb2-94f4-4b69-9efa-638bbd84f0ea"/*Multiply*/,
+      "AnnotationId": "d2d45d3a-4033-42d4-907d-47ffb5ccb42b",
+      "Position": {
+        "X": 1203.35,
+        "Y": 2183.051
+      }
+    },
+    {
+      "ChildId": "d5e1ae91-9071-4f4e-bc37-cce8f37c97b7"/*RoundedRect*/,
+      "AnnotationId": "d2d45d3a-4033-42d4-907d-47ffb5ccb42b",
+      "Position": {
+        "X": 1343.35,
+        "Y": 2148.051
+      }
+    },
+    {
+      "ChildId": "d8eb0294-3162-4cb7-b58c-8b0f99482715"/*Time*/,
+      "Position": {
+        "X": 1151.7075,
+        "Y": 1956.6766
+      }
+    }
+  ],
+  "OutputUis": [
+    {
+      "OutputId": "4948c028-db5e-4e38-8f8d-a3b114bfeaa1"/*ColorBuffer*/,
+      "Position": {
+        "X": 1609.7146,
+        "Y": 2088.439
+      }
+    }
+  ],
+  "Annotations": [
+    {
+      "Id": "e721438d-4362-4b32-a0f7-e654b4cddc4a",
+      "Label": "Solution",
+      "Color": {
+        "X": 0.6,
+        "Y": 0.6,
+        "Z": 0.6,
+        "W": 1.0
+      },
+      "Position": {
+        "X": 1042.6677,
+        "Y": 2065.0
+      },
+      "Size": {
+        "X": 468.55768,
+        "Y": 181.79468
+      }
+    }
+  ],
+  "TourPoints": [
+    {
+      "Id": "64c62f04-2ebd-4313-83a7-28159bd1d89e",
+      "ChildId": "00000000-0000-0000-0000-000000000000",
+      "Title": "Is this [RoundedRect] is rotating?! It's sooo slow that it's barely noticable.\nThat's because TiXL uses degrees for angles and wait 360 seconds for one turn takes a looong time."
+    },
+    {
+      "Id": "51fcf00b-0e3a-4f26-8de7-14ebe6fac824",
+      "ChildId": "00000000-0000-0000-0000-000000000000",
+      "Title": "Maybe we can speed things up be inserting that [Multiply] operator...\nTry dragging it between [Time] and [RoundedRect]."
+    }
+  ]
+}

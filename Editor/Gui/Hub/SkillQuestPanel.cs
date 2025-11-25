@@ -24,11 +24,8 @@ internal static class SkillQuestPanel
         if (projectViewJustClosed)
         {
             _selectedTopic.Clear();
-            //var activeTopic = SkillMapData.AllTopics.First();
             _selectedTopic.Add(activeTopic);
-            var area = ImRect.RectWithSize(_mapCanvas.CanvasPosFromCell(activeTopic.Cell), Vector2.One);
-            area.Expand(200);
-            _mapCanvas.FitAreaOnCanvas(area);
+            _mapCanvas.FocusToActiveTopics(_selectedTopic);
         }
 
         ContentPanel.Begin("Skill Quest", "some sub title", DrawIcons, Height);
