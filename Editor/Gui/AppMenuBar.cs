@@ -282,7 +282,7 @@ internal static class AppMenuBar
 
             if (ImGui.BeginMenu("Development Tools"))
             {
-                if (ImGui.MenuItem("Skill map"))
+                if (ImGui.MenuItem("Skill Map Editor"))
                     SkillMapEditor.ShowNextFrame();
                 
                 if (ImGui.BeginMenu("Clear shader cache"))

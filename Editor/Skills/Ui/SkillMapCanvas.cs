@@ -21,7 +21,7 @@ internal sealed class SkillMapCanvas :HexCanvas
         mouseCell = CellFromScreenPos(mousePos);
 
         var isAnyItemHovered = false;
-        foreach (var topic in SkillMapData.AllTopics)
+        foreach (var topic in SkillMapData.Data.Topics)
         {
             isAnyItemHovered |= DrawTopicCell(dl, topic, mouseCell, selection, topicAction);
         }

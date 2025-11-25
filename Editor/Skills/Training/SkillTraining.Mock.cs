@@ -30,21 +30,24 @@ internal static partial class SkillTraining
 
                 if (!SkillMapData.TryGetTopicWithNamespace(symbol.Namespace, out topic))
                 {
+                    Log.Warning($"Can't map skill topic '{symbol.Namespace}' to skill map.");
+                    
                     topic = new QuestTopic
                                 {
                                     Id = Guid.NewGuid(),
                                     Title = RemovePrefix(symbol.Namespace.Split(".").Last()),
-                                    Levels = [],
                                     UnlocksTopics = lastTopic != null ? [lastTopic.Id] : [],
                                     Requirement = QuestTopic.Requirements.None,
-                                    ResultsForTopic = [],
+                                    Levels = [],
                                     Namespace = symbol.Namespace,
                                     ZoneId = SkillMapData.FallbackZone.Id,
                                 };
-                    SkillMapData.FallbackZone.Topics.Add(topic);
+                    
+                    //SkillMapData.FallbackZone.Topics.Add(topic);
+                    SkillMapData.Data.Topics.Add(topic);
                 }
                 
-                // If we found a prefined topic with the given names, we can assume that it
+                // If we found a predefined topic with the given names, we can assume that it
                 // is already defined in the skill map.
                 
                 lastNamespace = symbol.Namespace;

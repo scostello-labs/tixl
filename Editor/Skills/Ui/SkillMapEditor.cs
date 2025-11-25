@@ -29,36 +29,24 @@ internal static class SkillMapEditor
         {
             ImGui.BeginChild("LevelList", new Vector2(120 * T3Ui.UiScaleFactor, 0));
             {
-                foreach (var zone in SkillMapData.Data.Zones)
+                ImGui.Indent(10);
+
+                for (var index = 0; index < SkillMapData.Data.Topics.Count; index++)
                 {
-                    ImGui.PushID(zone.Id.GetHashCode());
-                    if (ImGui.Selectable($"{zone.Title}", zone == _activeZone))
+                    var t = SkillMapData.Data.Topics[index];
+                    ImGui.PushID(index);
+
+                    if (ImGui.Selectable($"{t.Title}", _selectedTopics.Contains(t)))
                     {
-                        _activeZone = zone;
                         _selectedTopics.Clear();
+                        _selectedTopics.Add(t);
                     }
-
-                    ImGui.Indent(10);
-
-                    for (var index = 0; index < zone.Topics.Count; index++)
-                    {
-                        var t = zone.Topics[index];
-                        ImGui.PushID(index);
-
-                        if (ImGui.Selectable($"{t.Title}", _selectedTopics.Contains(t)))
-                        {
-                            _selectedTopics.Clear();
-                            _selectedTopics.Add(t);
-                        }
-
-                        ImGui.PopID();
-                    }
-
-                    ImGui.Unindent(10);
-                    FormInputs.AddVerticalSpace();
 
                     ImGui.PopID();
                 }
+
+                ImGui.Unindent(10);
+                FormInputs.AddVerticalSpace();
             }
             ImGui.EndChild();
 
@@ -186,15 +174,12 @@ internal static class SkillMapEditor
 
     private static void HandleSelectionFenceUpdate(ImRect bounds, SelectionFence.SelectModes selectMode)
     {
-        //var boundsInScreen = _canvas.InverseTransformRect(bounds);
-
         if (selectMode == SelectionFence.SelectModes.Replace)
         {
             _selectedTopics.Clear();
         }
 
-        // Add items
-        foreach (var topic in SkillMapData.AllTopics)
+        foreach (var topic in SkillMapData.Data.Topics)
         {
             var centerOnScreen = _canvas.ScreenPosFromCell(topic.Cell);
             if (!bounds.Contains(centerOnScreen))
@@ -283,16 +268,13 @@ internal static class SkillMapEditor
                                {
                                    Id = Guid.NewGuid(),
                                    MapCoordinate = new Vector2(cell.X, cell.Y),
-                                   Title = "New topic" + SkillMapData.AllTopics.Count(),
+                                   Title = "New topic" + SkillMapData.Data.Topics.Count(),
                                    ZoneId = activeTopic?.ZoneId ?? Guid.Empty,
                                    TopicType = _lastType,
                                    Status = activeTopic?.Status ?? QuestTopic.Statuses.Locked,
                                    Requirement = activeTopic?.Requirement ?? QuestTopic.Requirements.AllInputPaths,
                                };
 
-            var relevantZone = GetActiveZone();
-            relevantZone.Topics.Add(newTopic);
-            newTopic.ZoneId = relevantZone.Id;
             _selectedTopics.Clear();
             _selectedTopics.Add(newTopic);
             _focusTopicNameInput = true;
@@ -340,7 +322,7 @@ internal static class SkillMapEditor
 
                     // Initialize blocked cells to avoid collisions
                     _blockedCellIds.Clear();
-                    foreach (var t in SkillMapData.AllTopics)
+                    foreach (var t in SkillMapData.Data.Topics)
                     {
                         if (_selectedTopics.Contains(t))
                             continue;
@@ -377,24 +359,8 @@ internal static class SkillMapEditor
     }
 
     private static QuestTopic? _draggedTopic;
-
-    private static QuestZone GetActiveZone()
-    {
-        if (_activeZone != null)
-            return _activeZone;
-
-        if (_selectedTopics.Count == 0)
-            return SkillMapData.FallbackZone;
-
-        return SkillMapData.TryGetZone(_selectedTopics.First().Id, out var zone)
-                   ? zone
-                   : SkillMapData.FallbackZone;
-    }
-
     private static bool _isOpen;
-    private static QuestZone? _activeZone;
     private static readonly HashSet<QuestTopic> _selectedTopics = new();
-
     private static bool _focusTopicNameInput;
     private static QuestTopic.TopicTypes _lastType = QuestTopic.TopicTypes.Numbers;
     private static States _state;

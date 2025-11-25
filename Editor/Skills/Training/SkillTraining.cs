@@ -165,12 +165,7 @@ internal static partial class SkillTraining
                                                                        Rating = -1,
                                                                    });
     }
-
-    private static void InitializeLevels()
-    {
-        //SkillMap.Data.Topics = CreateMockLevelStructure();
-
-    }
+    
 
     /// <summary>
     /// Update active topic and level from the last completed or skipped level in skill progression 
@@ -182,12 +177,11 @@ internal static partial class SkillTraining
 
         if (!SkillProgress.TryGetLastResult(out var lastResult)
             || !TryGetTopicAndLevelForResult(lastResult,
-                                             out var lastCompletedZone,
                                              out var lastCompletedTopic, 
                                              out var lastCompletedLevel))
         {
             // Start with the first topic and first zone
-            _context.ActiveTopic = SkillMapData.AllTopics.FirstOrDefault();
+            _context.ActiveTopic = SkillMapData.Data.Topics.FirstOrDefault();
             if (_context.ActiveTopic == null || _context.ActiveTopic.Levels.Count == 0)
             {
                 return false;
@@ -230,34 +224,30 @@ internal static partial class SkillTraining
     }
 
     private static bool TryGetTopicAndLevelForResult(SkillProgress.LevelResult result,
-                                                     [NotNullWhen(true)] out QuestZone? zone,
+                                                     
                                                      [NotNullWhen(true)] out QuestTopic? topic,
                                                      [NotNullWhen(true)] out QuestLevel? level)
     {
-        zone = null;
+        
         topic = null;
         level = null;
 
-        foreach (var z in SkillMapData.Data.Zones)
+        foreach (var t in SkillMapData.Data.Topics)
         {
-            foreach (var t in z.Topics)
+            if (t.Id != result.TopicId)
+                continue;
+
+            foreach (var l in t.Levels)
             {
-                if (t.Id != result.TopicId)
-                    continue;
-
-                foreach (var l in t.Levels)
+                if (l.SymbolId == result.LevelSymbolId)
                 {
-                    if (l.SymbolId == result.LevelSymbolId)
-                    {
-                        zone = z;
-                        topic = t;
-                        level = l;
-                        return true;
-                    }
+                    topic = t;
+                    level = l;
+                    return true;
                 }
-
-                return false;
             }
+
+            return false;
         }
 
         return false;
