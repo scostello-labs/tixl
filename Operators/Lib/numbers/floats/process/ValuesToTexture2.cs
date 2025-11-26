@@ -1,19 +1,28 @@
 #nullable enable
 using SharpDX;
+using T3.Core.Utils;
 using Utilities = T3.Core.Utils.Utilities;
 
 namespace Lib.numbers.floats.process;
 
-[Guid("55cc0f79-96c9-482e-9794-934dc0f87708")]
-internal sealed class ValuesToTexture : Instance<ValuesToTexture>
+[Guid("78aee2e7-9fe6-44c4-bde3-57618007480f")]
+internal sealed class ValuesToTexture2 : Instance<ValuesToTexture2>
 {
-    [Output(Guid = "f01099a0-a196-4689-9900-edac07908714")]
+    [Output(Guid = "f136acfa-4429-4121-8d36-57c6b1d26dde")]
     public readonly Slot<Texture2D> ValuesTexture = new();
 
-    public ValuesToTexture()
+    public ValuesToTexture2()
     {
         ValuesTexture.UpdateAction += Update;
     }
+    
+    // public static Vector2 Remap(this Vector2 value2, Vector2 inMin, Vector2 inMax, Vector2 outMin, Vector2 outMax)
+    // {
+    //     var factor = (value2 - inMin) / (inMax - inMin);
+    //     var v = factor;
+    //     return v;
+    // }    
+    
 
     private void Update(EvaluationContext context)
     {
@@ -21,6 +30,11 @@ internal sealed class ValuesToTexture : Instance<ValuesToTexture>
 
         var useHorizontal = Direction.GetValue(context) == 0;
 
+        var inputRange = InputRange.GetValue(context);
+        var outputRange = OutputRange.GetValue(context);
+        var gainAndBias = GainAndBias.GetValue(context);
+        var clamp = Clamp.GetValue(context);
+        
         int listCount;
         if (Values.HasInputConnections)
         {
@@ -56,11 +70,11 @@ internal sealed class ValuesToTexture : Instance<ValuesToTexture>
         if (sampleCount == 0)
             return;
 
-        var gain = Gain.GetValue(context);
-        var offset = Offset.GetValue(context);
-        var pow = Pow.GetValue(context);
-        if (Math.Abs(pow) < 0.001f)
-            return;
+        // var gain = Gain.GetValue(context);
+        // var offset = Offset.GetValue(context);
+        // var pow = Pow.GetValue(context);
+        // if (Math.Abs(pow) < 0.001f)
+        //     return;
 
         var requiredFloats = listCount * sampleCount;
         if (_uploadBuffer.Length < requiredFloats)
@@ -81,8 +95,7 @@ internal sealed class ValuesToTexture : Instance<ValuesToTexture>
             {
                 for (int i = 0; i < sampleCount; i++)
                 {
-                    float v = i < list.Count ? (float)Math.Pow((list[i] + offset) * gain, pow) : 0f;
-                    _uploadBuffer[o++] = v;
+                    o = NormalizeAndMapValue(i, list);
                 }
             }
         }
@@ -92,8 +105,15 @@ internal sealed class ValuesToTexture : Instance<ValuesToTexture>
             {
                 foreach (var list in _valueListsTmp)
                 {
-                    float v = i < list.Count ? (float)Math.Pow((list[i] + offset) * gain, pow) : 0f;
-                    _uploadBuffer[o++] = v;
+                    o = NormalizeAndMapValue(i, list);
+                    // var orgValue = i < list.Count ? list[i] : float.NaN;
+                    // var normalized = (orgValue - inputRange.X) / (inputRange.Y - inputRange.X);
+                    // if (clamp)
+                    // {
+                    //     normalized = normalized.Clamp(0,1).ApplyGainAndBias(gainAndBias.X, gainAndBias.Y);
+                    // }
+                    // var v = normalized * (outputRange.Y - outputRange.X) + outputRange.X;                    
+                    // _uploadBuffer[o++] = v;
                 }
             }
         }
@@ -132,6 +152,20 @@ internal sealed class ValuesToTexture : Instance<ValuesToTexture>
         ResourceManager.Device.ImmediateContext.UpdateSubresource(dataBox, ValuesTexture.Value, 0);
 
         Values.DirtyFlag.Clear();
+        return;
+
+        int NormalizeAndMapValue(int i, List<float> list)
+        {
+            var orgValue = i < list.Count ? list[i] : float.NaN;
+            var normalized = (orgValue - inputRange.X) / (inputRange.Y - inputRange.X);
+            if (clamp)
+            {
+                normalized = normalized.Clamp(0,1).ApplyGainAndBias(gainAndBias.X, gainAndBias.Y);
+            }
+            var v = normalized * (outputRange.Y - outputRange.X) + outputRange.X;
+            _uploadBuffer[o++] = v;
+            return o;
+        }
     }
     
     // Reused, pinned upload buffer (avoid per-frame allocations)
@@ -141,19 +175,22 @@ internal sealed class ValuesToTexture : Instance<ValuesToTexture>
 
     private readonly List<List<float>> _valueListsTmp = new();
 
-    [Input(Guid = "092C8D1F-A70E-4298-B5DF-52C9D62F8E04")]
+    [Input(Guid = "a80458c5-685a-434e-989b-9212324d0e14")]
     public readonly MultiInputSlot<List<float>> Values = new();
-
-    [Input(Guid = "748FE756-C7EE-4CC1-929E-078F99BEA628")]
-    public readonly InputSlot<float> Offset = new();
     
-    [Input(Guid = "CC812393-F080-4E17-A525-15B09F8ACDD0")]
-    public readonly InputSlot<float> Gain = new();
+    [Input(Guid = "D533F4E8-F0A9-4535-B843-107C19BD3CD5")]
+    public readonly InputSlot<Vector2> InputRange = new();
 
-    [Input(Guid = "51545316-69FC-441F-B59F-44979E32972C")]
-    public readonly InputSlot<float> Pow = new();
+    [Input(Guid = "B07EAB3E-C16D-461F-BA5E-A3F34FE6F0BA")]
+    public readonly InputSlot<bool> Clamp = new();
+    
+    [Input(Guid = "DBFD49E3-C357-4D07-963D-6DF985A2F66E")]
+    public readonly InputSlot<Vector2> GainAndBias = new();
 
-    [Input(Guid = "63E90D86-5AD5-4333-8B99-7F8D285C4913", MappedType = typeof(Directions))]
+    [Input(Guid = "2D1517AA-D22D-4588-B208-774FFECBFA9D")]
+    public readonly InputSlot<Vector2> OutputRange = new();
+    
+    [Input(Guid = "8d5cd7bb-e349-4e22-8402-6dca63728b35", MappedType = typeof(Directions))]
     public readonly InputSlot<int> Direction = new();
 
     private enum Directions
