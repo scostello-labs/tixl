@@ -8,21 +8,8 @@ using System.Threading;
 
 namespace Lib.flow.skillQuest{
     [Guid("b1cb8864-0d51-4b7f-96eb-4c6267d4b216")]
-    internal sealed class ImageResult : Instance<ImageResult>
+    internal sealed class ImageQuiz : Instance<ImageQuiz>
     {
-        public ImageResult()
-        {
-            Output.UpdateAction += Update;
-            Completed.UpdateAction = null;
-        }
-        
-
-        private void Update(EvaluationContext context)
-        {
-            //Completed.DirtyFlag.Clear();
-            Completed.UpdateAction = null;
-        }
-
         [Output(Guid = "25709fa8-cbd8-4e54-9f9e-f92a4b3e2f65")]
         public readonly Slot<Texture2D> Output = new Slot<Texture2D>();
 

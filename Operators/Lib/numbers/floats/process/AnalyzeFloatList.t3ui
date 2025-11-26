@@ -1,0 +1,37 @@
+{
+  "Id": "9a46ab17-a523-4378-b118-54ab904e184a"/*AnalyzeFloatList*/,
+  "Description": "",
+  "InputUis": [
+    {
+      "InputId": "3cca8600-2e04-48a7-819f-acb23eb3d49d"/*UpperLimit*/,
+      "Position": {
+        "X": 0.0,
+        "Y": 45.0
+      }
+    },
+    {
+      "InputId": "54fa9e73-6669-4b98-b12e-8f6f06ac936f"/*Input*/,
+      "Position": {
+        "X": 0.0,
+        "Y": 0.0
+      }
+    },
+    {
+      "InputId": "d986adea-5b69-4cda-bc16-64be76dcf03b"/*LowerLimit*/,
+      "Position": {
+        "X": 0.0,
+        "Y": 0.0
+      }
+    }
+  ],
+  "SymbolChildUis": [],
+  "OutputUis": [
+    {
+      "OutputId": "cab7bd9d-c6cb-4b81-872c-d99b91905c41"/*Selected*/,
+      "Position": {
+        "X": 0.0,
+        "Y": 0.0
+      }
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "Id": "702f1f75-df90-44ca-b567-78ba9d1613b5"/*ValueQuiz*/,
+  "Description": "Computes a visual comparison between a \"solution\" and a \"goal\" value animation.\n\nConnect your solution to the upper input.",
+  "InputUis": [
+    {
+      "InputId": "270bda80-7f81-4f31-adb4-9cd5e8aea693"/*Yours*/,
+      "Relevancy": "Required",
+      "Position": {
+        "X": 782.41724,
+        "Y": -957.7543
+      }
+    },
+    {
+      "InputId": "ba4714ca-594a-4fab-aa01-bf02d1164eb2"/*DifferenceRange*/,
+      "Position": {
+        "X": 922.41724,
+        "Y": -887.7543
+      },
+      "GroupTitle": "Additional Parameters...",
+      "Min": 0.003,
+      "Max": 1.0,
+      "Scale": 0.001
+    },
+    {
+      "InputId": "c09a529a-dfe2-4bf8-86ce-369aeadbee4a"/*Goal*/,
+      "Relevancy": "Required",
+      "Position": {
+        "X": 782.41724,
+        "Y": -922.7543
+      }
+    }
+  ],
+  "SymbolChildUis": [
+    {
+      "ChildId": "176abda2-2366-44ed-9c16-8b342187ccd0"/*_ValueQuizGraph*/,
+      "Position": {
+        "X": 922.41724,
+        "Y": -957.7543
+      }
+    },
+    {
+      "ChildId": "71012196-b196-4aec-a225-278201d50180"/*ImageQuiz*/,
+      "Position": {
+        "X": 1062.4172,
+        "Y": -957.7543
+      }
+    },
+    {
+      "ChildId": "a58041c7-1de9-4bf5-99a0-7e738a29af34"/*_ValueQuizGraph*/,
+      "Position": {
+        "X": 922.41724,
+        "Y": -922.7543
+      }
+    }
+  ],
+  "OutputUis": [
+    {
+      "OutputId": "6fbc9fd1-58c2-4b0b-accb-9850a8835120"/*Output*/,
+      "Position": {
+        "X": 1062.4172,
+        "Y": -852.7543
+      }
+    }
+  ]
+}

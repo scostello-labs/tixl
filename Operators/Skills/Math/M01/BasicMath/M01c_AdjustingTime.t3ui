@@ -1,0 +1,117 @@
+{
+  "Id": "e3375df2-3475-4d76-970c-4c8fa3dcc941"/*M01c_AdjustingTime*/,
+  "Description": "",
+  "InputUis": [],
+  "SymbolChildUis": [
+    {
+      "ChildId": "088e0254-1517-4827-8324-08498e09b618"/*Time*/,
+      "AnnotationId": "2f87abd2-2372-4260-8c30-0368b426a9ca",
+      "Position": {
+        "X": 1063.3497,
+        "Y": 2183.051
+      }
+    },
+    {
+      "ChildId": "134ad549-f281-453a-a400-04af03d1342d"/*Value*/,
+      "Position": {
+        "X": 1163.4437,
+        "Y": 1898.3619
+      }
+    },
+    {
+      "ChildId": "1d91c206-7060-4463-8b83-2322c0a684b1"/*RoundedRect*/,
+      "AnnotationId": "2f87abd2-2372-4260-8c30-0368b426a9ca",
+      "Position": {
+        "X": 1343.35,
+        "Y": 2148.051
+      }
+    },
+    {
+      "ChildId": "577d278b-7a55-4c22-b603-d13ad241751a"/*Layer2d*/,
+      "AnnotationId": "2f87abd2-2372-4260-8c30-0368b426a9ca",
+      "Position": {
+        "X": 1089.7831,
+        "Y": 2160.586
+      }
+    },
+    {
+      "ChildId": "a9311fcc-24dd-450a-9df9-e2fc108e3072"/*ValueQuiz*/,
+      "Position": {
+        "X": 1580.2582,
+        "Y": 1895.0925
+      }
+    },
+    {
+      "ChildId": "bf506e8a-e173-4b38-b4a2-7282eb88fa06"/*Value*/,
+      "AnnotationId": "2f87abd2-2372-4260-8c30-0368b426a9ca",
+      "Position": {
+        "X": 1139.7532,
+        "Y": 2110.1172
+      }
+    },
+    {
+      "ChildId": "c45b55c0-d00e-4545-ba1b-c7b157266a76"/*Multiply*/,
+      "AnnotationId": "2f87abd2-2372-4260-8c30-0368b426a9ca",
+      "Position": {
+        "X": 1203.35,
+        "Y": 2183.051
+      }
+    }
+  ],
+  "OutputUis": [
+    {
+      "OutputId": "608d1972-b533-43ca-93fe-b1747f0ec231"/*ColorBuffer*/,
+      "Position": {
+        "X": 1580.2582,
+        "Y": 1965.0925
+      }
+    }
+  ],
+  "Annotations": [
+    {
+      "Id": "aac7d66b-9522-46ba-835d-fee499a83356",
+      "Label": "Solution",
+      "Color": {
+        "X": 0.6,
+        "Y": 0.6,
+        "Z": 0.6,
+        "W": 1.0
+      },
+      "Position": {
+        "X": 1042.6677,
+        "Y": 2065.0
+      },
+      "Size": {
+        "X": 468.55768,
+        "Y": 181.79468
+      }
+    }
+  ],
+  "TourPoints": [
+    {
+      "Id": "53f70aea-220f-4c5f-afc7-4c41e9e2ae30",
+      "ChildId": "00000000-0000-0000-0000-000000000000",
+      "Title": "If you're like me, you might have terrible memories about math. Maybe it was your teachers, the distracting crush on the table nearby. Or it was the all to prominent question \n\"What do it need that for?!\"\nIn TiXL working with Math can be fun and intuitive. This section of the Skill Quest will bring back everything you need to know..."
+    },
+    {
+      "Id": "cceb426c-b8c5-49d6-a069-6204d17222fc",
+      "ChildId": "00000000-0000-0000-0000-000000000000",
+      "Title": "In TiXL you  can use math-operators to control parameters and animation.\nThere are different type of numbers. We will start with float-values and cover other types later."
+    },
+    {
+      "Id": "1d996789-71aa-4c83-a088-f96a7207ed7f",
+      "ChildId": "00000000-0000-0000-0000-000000000000",
+      "Title": "The most basic Operator is [Value].\nBecause it's quite important, you can edit it's parameters with different methods:\n1. Selecting the op and adjusting using the parameter window.\n2. Holding the CTRL key and dragging the op.\n"
+    },
+    {
+      "Id": "a3bedfba-213a-4c7c-90b8-db30e02d44b9",
+      "ChildId": "00000000-0000-0000-0000-000000000000",
+      "Title": "Connect this op to the [ValueQuiz]."
+    },
+    {
+      "Id": "112bf9a4-1bbd-43b3-8f37-95b403bef3bd",
+      "ChildId": "00000000-0000-0000-0000-000000000000",
+      "Title": "The [ValueQuiz] show a value and a graph at the bottom.\nTry to find the value, the to solve that goal..."
+    }
+  ]
+}
