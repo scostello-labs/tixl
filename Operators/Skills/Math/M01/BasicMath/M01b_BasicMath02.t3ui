@@ -136,7 +136,7 @@
     {
       "Id": "6af48546-4d4b-47ac-9d7e-cfb2ff68859b",
       "ChildId": "b3209a3b-6176-46be-9a5e-477aaedb088e",
-      "Title": "Try to multiply all tree values...\nThe connect the second input remember to drag the output connectors onto the [Multiply] operatoprs and look for the blinking dot. ",
+      "Title": "Try to multiply all tree values...\nTo connect the second input remember to drag the output connectors onto the [Multiply] operatoprs and look for the blinking dot. ",
       "Style": "TourPoint"
     }
   ]

@@ -80,7 +80,7 @@
     {
       "Id": "c0bb0832-5284-4ea0-a8d3-07e06bc74bc5",
       "ChildId": "3f18bcb0-0929-44f7-b948-a8413b0deec6",
-      "Title": "You will need to connect an animated value like this [Time] to get it moving...",
+      "Title": "You will need to connect an animated value like this [Time] Operator to get it moving...",
       "Style": "TourPoint"
     },
     {
