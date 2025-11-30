@@ -1,6 +1,7 @@
 ﻿using ImGuiNET;
 using T3.Editor.Gui;
 using T3.Editor.Gui.Styling;
+using T3.Editor.Gui.UiHelpers;
 using T3.Editor.Skills.Data;
 using T3.Editor.Skills.Training;
 using Vector2 = System.Numerics.Vector2;
@@ -55,18 +56,16 @@ internal static class SkillMapPopup
             {
                 _topicSelection ??= [];
                 _mapCanvas.DrawContent(HandleTopicInteraction, out _, _topicSelection);
-
+            
             }
             
             ImGui.EndChild();
             
-            var clickedOutside =
-                !ImGui.IsWindowHovered(ImGuiHoveredFlags.ChildWindows) &&
-                !ImGui.IsWindowAppearing() &&
-                ImGui.IsMouseClicked(ImGuiMouseButton.Left);
-
-            if (clickedOutside)
+            if (UiHelpers.IsClickedOutsideWindow())
+            {
+                Log.Debug("Closed?!");
                 _open = false;
+            }
         }
 
         ImGui.End();

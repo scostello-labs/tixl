@@ -1,6 +1,7 @@
 ﻿using ImGuiNET;
 using T3.Editor.Gui;
 using T3.Editor.Gui.Styling;
+using T3.Editor.Gui.UiHelpers;
 using T3.Editor.Skills.Training;
 using Color = T3.Core.DataTypes.Vector.Color;
 using Vector2 = System.Numerics.Vector2;
@@ -55,7 +56,7 @@ internal static class SkillProgressionPopup
                                            SkillProgressionUi.ContentModes.PopUp,
                                            SkillTraining.CompleteAndProgressToNextLevel);
             
-            if (IsClickedOutsideWindow())
+            if (UiHelpers.IsClickedOutsideWindow())
             {
                 IsOpen = false;
             }
@@ -67,24 +68,6 @@ internal static class SkillProgressionPopup
         ImGui.PopStyleColor();
     }
 
-    private static bool IsClickedOutsideWindow()
-    {
-        if(!ImGui.IsMouseClicked(ImGuiMouseButton.Left))
-            return false;
-        
-        var winPos  = ImGui.GetWindowPos();
-        var winSize = ImGui.GetWindowSize();
-        
-        var mouse = ImGui.GetMousePos();
-
-        var inside =
-            mouse.X >= winPos.X &&
-            mouse.X <= winPos.X + winSize.X &&
-            mouse.Y >= winPos.Y &&
-            mouse.Y <= winPos.Y + winSize.Y;
-
-        return !inside;
-    }
     
 
     private const string ProgressionPopupId = "ProgressionPopup";
