@@ -1,6 +1,6 @@
 {
   "Id": "e6d13d72-1c00-4cd1-8911-4fc0526fe4d6"/*MidiSysexOutputExample*/,
-  "Description": "This is an example of how to use the MidiSysexOutput node",
+  "Description": "This is an example of how to use the [MidiSysexOutput] node",
   "InputUis": [],
   "SymbolChildUis": [
     {
@@ -109,7 +109,7 @@
     {
       "Id": "2b078b92-234f-4c94-8ce4-c3242636d996",
       "ChildId": "e3f8adc1-7b93-499c-a16b-01d57e595c37",
-      "Title": "MidiSysex Output requires:\n1. A Midi Device to connect to\n2. A proper Midi sysex string\n\nIn this case, the below strings in Sysex Command group are Initialization strings. These can be sent to change the device mode of the APC40 Mk1 and Mk2."
+      "Title": "MidiSysex Output requires:\n1. A Midi Device to connect to\n2. A proper Midi sysex string\n\nThe below strings in Sysex Command groups are Initialization strings. These can be sent to change the device mode of the APC40 Mk1 and Mk2."
     },
     {
       "Id": "21176720-5dfe-4f3d-a046-4a913d29b011",

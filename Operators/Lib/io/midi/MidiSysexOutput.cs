@@ -67,16 +67,16 @@ internal sealed class MidiSysexOutput : Instance<MidiSysexOutput>
             var characters = contextval.Split(' ');
                     
             // Iterate and build our byte list
-            foreach (string word in characters)
+            foreach (string c in characters)
             {
                 try
                 {
-                    byte byteValue = byte.Parse(word, System.Globalization.NumberStyles.HexNumber);
+                    byte byteValue = byte.Parse(c, System.Globalization.NumberStyles.HexNumber);
                     _bytes.Add(byteValue);
                 }                
                 catch (Exception e)
                 {
-                    _lastErrorMessage = $"Failed to convert [{word}] to a byte: " + e.Message;
+                    _lastErrorMessage = $"Failed to convert [{c}] to a byte: " + e.Message;
                     Log.Warning(_lastErrorMessage, this);
                     
                     // Set initialized so we do not loop
