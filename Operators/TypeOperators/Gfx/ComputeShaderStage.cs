@@ -40,7 +40,7 @@ public sealed class ComputeShaderStage : Instance<ComputeShaderStage>, IRenderSt
             return;
 
         
-        _prevRenderTargetViews = device.ImmediateContext.OutputMerger.GetRenderTargets(1);
+        _prevRenderTargetViews = device.ImmediateContext.OutputMerger.GetRenderTargets(2);
         device.ImmediateContext.OutputMerger.GetRenderTargets(out _prevDepthStencilView);
         
         csStage.Set(_cs);

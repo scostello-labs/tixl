@@ -596,7 +596,7 @@ internal sealed class _ExecuteBloomPasses : Instance<_ExecuteBloomPasses>
             
             // Suggested API doesn't exist.
             //context.OutputMerger.GetRenderTargets(OutputMergerStage.SimultaneousRenderTargetCount, _renderTargetViews, out _depthStencilView);
-            _renderTargetViews = context.OutputMerger.GetRenderTargets(1);
+            _renderTargetViews = context.OutputMerger.GetRenderTargets(2);
             context.OutputMerger.GetRenderTargets(out _depthStencilView);
             _isSaved = true;
         }
