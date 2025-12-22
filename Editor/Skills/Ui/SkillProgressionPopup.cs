@@ -33,42 +33,38 @@ internal static class SkillProgressionPopup
         if (!SkillTraining.TryGetActiveTopicAndLevel(out var topic, out var activeLevel))
             return;
 
-        //bool open = true;
-        var open = IsOpen;
         if (IsOpen)
         {
             ImGui.OpenPopup(ProgressionPopupId);
         }
 
         ImGui.PushStyleColor(ImGuiCol.PopupBg, Color.Mix(UiColors.BackgroundFull, UiColors.ForegroundFull, 0.06f).Rgba);
+
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(10));
         if (ImGui.BeginPopupModal("ProgressionPopup", ref IsOpen,
                                   ImGuiWindowFlags.NoResize
                                   | ImGuiWindowFlags.NoMove
-                                  | ImGuiWindowFlags.NoTitleBar))
+                                  | ImGuiWindowFlags.NoTitleBar
+                                  | ImGuiWindowFlags.AlwaysUseWindowPadding
+                                 ))
         {
-            // Fake border to separate from background...
-            var dl = ImGui.GetWindowDrawList();
-            var p = ImGui.GetCursorScreenPos();
-            dl.AddRect(p, p + ImGui.GetWindowSize(), UiColors.BackgroundFull, 8, ImDrawFlags.None, 5);
-
             SkillProgressionUi.DrawContent(topic,
                                            activeLevel,
                                            SkillProgressionUi.ContentModes.PopUp,
                                            SkillTraining.CompleteAndProgressToNextLevel);
-            
+
             if (UiHelpers.IsClickedOutsideWindow())
             {
                 IsOpen = false;
             }
-            
+
             ImGui.EndPopup();
             StarShowerEffect.DrawAndUpdate();
         }
 
         ImGui.PopStyleColor();
+        ImGui.PopStyleVar();
     }
-
-    
 
     private const string ProgressionPopupId = "ProgressionPopup";
     public static bool IsOpen;

@@ -51,7 +51,7 @@ internal static class TourInteraction
 
         if (completed)
         {
-            if (DrawCtaButton("Restart Tour", Icon.None, UiColors.TextMuted, Color.Transparent, UiColors.ForegroundFull.Fade(0.2f)))
+            if (CustomComponents.DrawCtaButton("Restart Tour", Icon.None, UiColors.TextMuted, Color.Transparent, UiColors.ForegroundFull.Fade(0.2f)))
                 SetProgressIndex(compositionUi, 0);
         }
         else
@@ -111,11 +111,11 @@ internal static class TourInteraction
             {
                 FormInputs.AddVerticalSpace();
 
-                if (DrawCtaButton(style.ButtonLabel,
-                                  isLast ? Icon.None : Icon.ArrowRight,
-                                  textColor: style.ButtonLabelColor,
-                                  bgColor: style.ButtonBackground,
-                                  borderColor: style.ButtonBorder))
+                if (CustomComponents.DrawCtaButton(style.ButtonLabel,
+                                     isLast ? Icon.None : Icon.ArrowRight,
+                                     textColor: style.ButtonLabelColor,
+                                     bgColor: style.ButtonBackground,
+                                     borderColor: style.ButtonBorder))
                 {
                     SetProgressIndex(compositionUi, activeIndex + 1);
                 }
@@ -123,8 +123,8 @@ internal static class TourInteraction
 
             FormInputs.AddVerticalSpace();
             _lastContentHeight = ImGui.GetCursorPosY();
-            ImGui.EndChild();
         }
+        ImGui.EndChild();
 
         ImGui.PopStyleVar(3);
         ImGui.PopStyleColor(2);
@@ -164,7 +164,7 @@ internal static class TourInteraction
             var isCurrent = dotIndex == activeIndex;
             var radius = 3 + (isCurrent ? 2 + 5 * AttentionScaleFactor : 0);
 
-            var color = isCurrent ? UiColors.StatusActivated : UiColors.ForegroundFull.Fade(0.3f);
+            var color = isCurrent ? UiColors.BackgroundActive : UiColors.ForegroundFull.Fade(0.3f);
             dl.AddCircleFilled(dotPos, radius, color, 16);
         }
 
@@ -202,7 +202,7 @@ internal static class TourInteraction
             var xx = (float)((t * 0.1f + fadeIndex / (float)fadeCount) % 1);
             xx = MathF.Pow(1 - xx, 2.5f);
 
-            dl.AddCircleFilled(posOnScreen, (1 - xx) * dotRadius, UiColors.StatusActivated.Fade(0.3f * xx));
+            dl.AddCircleFilled(posOnScreen, (1 - xx) * dotRadius, UiColors.BackgroundActive.Fade(0.3f * xx));
         }
     }
 
@@ -269,38 +269,6 @@ internal static class TourInteraction
                         UiColors.ForegroundFull,
                         "Got it"
                        );
-    }
-
-    private static bool DrawCtaButton(string label, Icon icon, Color textColor, Color bgColor, Color borderColor)
-    {
-        var showIcon = icon != Icon.None;
-        var padding = new Vector2(10, 2);
-        ImGui.PushFont(Fonts.FontLarge);
-        var size = ImGui.CalcTextSize(label) + padding * 2;
-        if (showIcon)
-            size.X += Icons.FontSize;
-
-        ImGui.PopFont();
-
-        var clicked = ImGui.InvisibleButton(label, size);
-        var min = ImGui.GetItemRectMin();
-        var max = ImGui.GetItemRectMax();
-        var dl = ImGui.GetWindowDrawList();
-        var isHovered = ImGui.IsItemHovered();
-
-        dl.AddRectFilled(min, max, bgColor.Fade(isHovered ? 0.8f : 1f), 5);
-        dl.AddRect(min, max, borderColor, 5);
-        dl.AddText(Fonts.FontLarge, Fonts.FontLarge.FontSize, min + padding,
-                   textColor,
-                   label);
-
-        var screenPos = new Vector2(max.X - Icons.FontSize - padding.X / 2,
-                                    (max.Y + min.Y) / 2f - Icons.FontSize / 2f + 1
-                                   ).Floor();
-
-        if (showIcon)
-            Icons.DrawIconAtScreenPosition(icon, screenPos, dl, textColor);
-        return clicked;
     }
 
     private static void DrawTextWithParagraphs(ReadOnlySpan<char> text, float paragraphSpacing = 6f)

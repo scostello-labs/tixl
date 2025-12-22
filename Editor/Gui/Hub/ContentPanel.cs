@@ -30,6 +30,7 @@ internal static class ContentPanel
             ImGui.TextUnformatted(subtitle);
             ImGui.PopFont();
             ImGui.PopStyleColor();
+            FormInputs.AddVerticalSpace();
         }
         
         ImGui.BeginChild(title, Vector2.Zero,false, ImGuiWindowFlags.NoBackground);

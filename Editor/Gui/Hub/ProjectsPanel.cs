@@ -38,8 +38,13 @@ internal static class ProjectsPanel
 
     private static void DrawProjectTools()
     {
-        //var iconSize = new Vector2(Fonts.FontLarge.FontSize);
-        if (CustomComponents.IconButton(Icon.Plus, Vector2.Zero))
+        var addProject = "Add Project...";
+        var size = CustomComponents.GetCtaButtonSize(addProject);
+        var state = EditableSymbolProject.AllProjects.Any() 
+                        ? CustomComponents.ButtonStates.Dimmed : 
+                        CustomComponents.ButtonStates.Activated;
+        CustomComponents.RightAlign(size.X + 10 * T3Ui.UiScaleFactor);
+        if(CustomComponents.DrawCtaButton(addProject, Icon.None, state))
         {
             T3Ui.NewProjectDialog.ShowNextFrame();
         }

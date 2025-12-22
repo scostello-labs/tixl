@@ -1,5 +1,6 @@
 ﻿using ImGuiNET;
 using T3.Core.DataTypes.Vector;
+using T3.Core.Utils;
 using T3.SystemUi;
 
 namespace T3.Editor.Gui.Styling;
@@ -248,7 +249,72 @@ internal static partial class CustomComponents
 
         return false;
     }
+
+    internal static Vector2 GetCtaButtonSize(string label, Icon icon = Icon.None)
+    {
+        var showIcon = icon != Icon.None;
+        //var padding = new Vector2(10, 2);
+        ImGui.PushFont(Fonts.FontLarge);
+        var size = ImGui.CalcTextSize(label) + CtaButtonPadding * 2;
+        if (showIcon)
+            size.X += Icons.FontSize;
+
+        ImGui.PopFont();
+        return size;
+    }
     
+    private static Vector2 CtaButtonPadding => new Vector2(10, 2);
+    
+    internal static bool DrawCtaButton(string label, Icon icon, Color textColor, Color bgColor, Color borderColor)
+    {
+        var size = GetCtaButtonSize(label, icon);
+
+        var clicked = ImGui.InvisibleButton(label, size);
+        var min = ImGui.GetItemRectMin();
+        var max = ImGui.GetItemRectMax();
+        var dl = ImGui.GetWindowDrawList();
+        var isHovered = ImGui.IsItemHovered();
+
+        dl.AddRectFilled(min, max, bgColor.Fade(isHovered ? 0.8f : 1f), 5);
+        dl.AddRect(min, max, borderColor, 5);
+        dl.AddText(Fonts.FontLarge, Fonts.FontLarge.FontSize, min + CtaButtonPadding,
+                   textColor,
+                   label);
+
+        var screenPos = new Vector2(max.X - Icons.FontSize - CtaButtonPadding.X / 2,
+                                    (max.Y + min.Y) / 2f - Icons.FontSize / 2f + 1
+                                   ).Floor();
+
+        if (icon != Icon.None)
+            Icons.DrawIconAtScreenPosition(icon, screenPos, dl, textColor);
+        
+        return clicked;
+    }
+
+    internal static bool DrawCtaButton(string label, Icon icon = Icon.None, ButtonStates state = ButtonStates.Normal)
+    {
+        var textColor = UiColors.Text;
+        var bgColor = UiColors.BackgroundButton;
+        var borderColor = Color.Transparent;
+
+        switch (state)
+        {
+            case ButtonStates.Activated:
+                textColor = UiColors.ForegroundFull;
+                bgColor = UiColors.BackgroundActive;
+                borderColor = Color.Transparent;
+                break;
+            case ButtonStates.Dimmed:
+                textColor = UiColors.Text;
+                bgColor = Color.Transparent;
+                borderColor = UiColors.ForegroundFull.Fade(0.3f);
+                break;
+        }
+
+        return DrawCtaButton(label, icon, textColor, bgColor, borderColor);
+    }
+
+
     public enum ButtonStates
     {
         Normal,

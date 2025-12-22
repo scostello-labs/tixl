@@ -1,6 +1,7 @@
 ﻿#nullable enable
 
 using ImGuiNET;
+using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.Gui.Window;
 using T3.Editor.Skills.Data;
@@ -52,7 +53,7 @@ internal static class SkillQuestPanel
         
         ContentPanel.Begin("Skill Quest", 
                            "An interactive journey from playful TiXL basics to advanced real-time graphics design.", 
-                           () => ImGui.Dummy(new Vector2()), Height);
+                           DrawPanelActions, Height);
         
         SkillProgressionUi.DrawContent(activeTopic, 
                                        activeLevel, 
@@ -64,9 +65,24 @@ internal static class SkillQuestPanel
         ContentPanel.End();
     }
 
-    internal static float Height => 230 * T3Ui.UiScaleFactor;
 
-    //private static readonly HashSet<QuestTopic> _selectedTopic = [];
+    
+    private static void DrawPanelActions()
+    {
+        CustomComponents.RightAlign(ImGui.GetFrameHeight());
+        if (CustomComponents.TransparentIconButton(Icon.Cross, Vector2.Zero))
+        {
+            UserSettings.Config.ShowSkillQuestInHub = false;
+            UserSettings.Save();
+        }
+        CustomComponents.TooltipForLastItem("""
+                                            Hides Skill Quest panel. 
+                                            You can enable it again in the Settings.
+                                            """);
+        
+    }
+
+    internal static float Height => 230 * T3Ui.UiScaleFactor;
     private static readonly SkillMapCanvas _mapCanvas = new();
     public static bool NeedsUpdate;
 }

@@ -332,4 +332,14 @@ internal static partial class CustomComponents
         if (addPadding)
             ImGui.Dummy(new Vector2(1, 5 * T3Ui.UiScaleFactor));
     }
+
+    public static void RightAlign(float itemWidth, bool sameLine = true)
+    {
+        if(sameLine)
+            ImGui.SameLine();
+
+        var padding = ImGui.GetStyle().WindowPadding.X;
+        var avail = ImGui.GetContentRegionAvail().X;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + avail - itemWidth - padding);
+    }
 }

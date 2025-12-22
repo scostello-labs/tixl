@@ -1,6 +1,7 @@
 ﻿#nullable enable
 using ImGuiNET;
 using T3.Core.DataTypes.Vector;
+using T3.Core.Utils;
 using T3.Editor.Gui;
 using T3.Editor.Gui.Input;
 using T3.Editor.Gui.Styling;
@@ -57,17 +58,17 @@ internal static class SkillProgressionUi
         _mapCanvas.FocusTopics(TopicSelection);
     }
 
-    private static void DrawNextLevelContent(QuestTopic topic, QuestLevel? previousLevel, QuestLevel nextLevel, int index, ContentModes mode,
+    private static void DrawNextLevelContent(QuestTopic topic, 
+                                             QuestLevel? previousLevel, 
+                                             QuestLevel nextLevel, 
+                                             int activeIndex, 
+                                             ContentModes mode,
                                              Action? startAction)
     {
         var uiScale = T3Ui.UiScaleFactor;
-        var dl = ImGui.GetWindowDrawList();
+        
 
         var leftWidth = 240 * uiScale;
-        var area = ImRect.RectWithSize(ImGui.GetWindowPos(), ImGui.GetWindowSize());
-        area.Expand(-10);
-        dl.AddRectFilled(area.Min + new Vector2(leftWidth, 0), area.Max, UiColors.WindowBackground, 7 * uiScale);
-
         ImGui.BeginChild("Map", new Vector2(leftWidth, 0), false, ImGuiWindowFlags.NoBackground);
         {
             _mapCanvas.DrawContent(null, out _, TopicSelection);
@@ -77,16 +78,31 @@ internal static class SkillProgressionUi
             }
         }
         ImGui.EndChild();
-        ImGui.SameLine();
+        
+        var padding = new Vector2(10, 5);
+        ImGui.SameLine(0,padding.X);
 
-        ImGui.BeginChild("Right", new Vector2(0, 0), false, ImGuiWindowFlags.NoBackground);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, padding);
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, 5);
+        ImGui.BeginChild("Right", new Vector2(-padding.X, 0), false
+                       , ImGuiWindowFlags.AlwaysUseWindowPadding 
+                         );
         {
+            var dl = ImGui.GetWindowDrawList();
+            var hoveredIndex = -1;
+            
             ImGui.BeginChild("TopContent", new Vector2(0, -HeightActionsArea), false,
                              ImGuiWindowFlags.NoBackground);
             {
-                FormInputs.AddVerticalSpace(20);
-                ImGui.Indent(20 * T3Ui.UiScaleFactor);
-                DrawProgressHeader(topic, index, dl);
+                if (DrawProgressHeader(topic, activeIndex, dl, out hoveredIndex))
+                {
+                    SkillTraining.StartTopicLevel(topic, topic.Levels[hoveredIndex]);
+                }
+
+                if (hoveredIndex != -1)
+                {
+                    nextLevel = topic.Levels[hoveredIndex.Clamp(0, topic.Levels.Count - 1)];
+                }
 
                 if (mode == ContentModes.PopUp)
                 {
@@ -98,27 +114,28 @@ internal static class SkillProgressionUi
                     }
                 }
 
-                CustomComponents.StylizedText("NEXT UP", Fonts.FontSmall, UiColors.Text.Fade(0.3f));
+                CustomComponents.StylizedText("NEXT LEVEL", Fonts.FontSmall, UiColors.Text.Fade(0.3f));
 
                 ImGui.PushFont(Fonts.FontLarge);
                 ImGui.TextWrapped(nextLevel.Title);
                 ImGui.PopFont();
             }
             ImGui.EndChild();
-            
-            bool isFirst = index == 0;
-            ImGui.BeginChild("Actions2", new Vector2(0, HeightActionsArea), false, ImGuiWindowFlags.NoBackground);
+
+            bool isFirst = activeIndex == 0;
+
+            if (ImGui.BeginChild("Actions2", new Vector2(0, HeightActionsArea), false,
+                                 ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoScrollbar))
             {
-                var indent = 10;
-                ImGui.Indent(indent);
-                var style = ImGui.GetStyle();
-                var btnH = ImGui.GetFrameHeight();
-                var wSkip = ImGui.CalcTextSize("Skip").X + style.FramePadding.X * 2;
-                var labelCTA = isFirst ? "Start" : "Continue";
-
-                var wCont = ImGui.CalcTextSize(labelCTA).X + style.FramePadding.X * 2;
-                var totalW = wSkip + wCont + style.ItemSpacing.X * 2 + indent;
-
+                var skipSize = CustomComponents.GetCtaButtonSize("Skip");
+                var isHovered = hoveredIndex != -1;
+                
+                var callToActionLabel = isHovered ? "Play this" 
+                                            : (isFirst ? "Start" : "Continue");
+                
+                
+                var actionSize = CustomComponents.GetCtaButtonSize(callToActionLabel, Icon.ArrowRight);
+                
                 if (mode == ContentModes.PopUp)
                 {
                     ImGui.PushStyleColor(ImGuiCol.Button, Color.Transparent.Rgba);
@@ -134,43 +151,34 @@ internal static class SkillProgressionUi
                     if (previousLevel != null && ImGui.Button("Replay", Vector2.Zero))
                     {
                         SkillTraining.ReplayLevel(previousLevel);
-                        //SkillTraining.SaveNewResult(SkillProgress.LevelResult.States.Skipped);
-                        //SkillTraining.ExitPlayMode();
                     }
-                    //ImGui.PopStyleColor();
-                    
                 }
 
-                ImGui.SameLine(ImGui.GetWindowWidth() - totalW - 20);
+                ImGui.SameLine(ImGui.GetWindowWidth() - skipSize.X - actionSize.X - 20);
 
-                if (ImGui.Button("Skip", new Vector2(wSkip, btnH)))
+                if(CustomComponents.DrawCtaButton("Skip"))
                 {
                     SkillTraining.SaveNewResult(SkillProgress.LevelResult.States.Skipped);
                     SkillTraining.UpdateTopicStatesAndProgression();
                 }
 
                 ImGui.SameLine(0, 10);
-                ImGui.PopStyleColor();
+                ImGui.PopStyleColor(2);
 
                 ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.20f, 0.45f, 0.95f, 1f));
                 ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.25f, 0.55f, 1.00f, 1f));
-                if (ImGui.Button(labelCTA, new Vector2(wCont, btnH)))
+                if(CustomComponents.DrawCtaButton(callToActionLabel, Icon.ArrowRight, CustomComponents.ButtonStates.Activated))
                 {
-                    if (mode == ContentModes.PopUp)
-                    {
-                        startAction?.Invoke();
-                    }
-                    else
-                    {
-                        startAction?.Invoke();
-                    }
+                    startAction?.Invoke();
                 }
 
                 ImGui.PopStyleColor(2);
             }
+
             ImGui.EndChild();
         }
         ImGui.EndChild();
+        ImGui.PopStyleVar(2);
     }
 
     private static void DrawTopicCompletedContent(QuestTopic topic, int index, ContentModes mode)
@@ -185,25 +193,26 @@ internal static class SkillProgressionUi
             if (mode == ContentModes.HubPanel && ImGui.IsWindowHovered() && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
             {
                 SkillMapPopup.Show();
-            }            
+            }
         }
         ImGui.EndChild();
         ImGui.SameLine();
 
         var area = ImRect.RectWithSize(ImGui.GetWindowPos(), ImGui.GetWindowSize());
         area.Expand(-10);
-        dl.AddRectFilled(area.Min + new Vector2(leftWidth, 0), area.Max, UiColors.WindowBackground, 7 * uiScale);
+        //dl.AddRectFilled(area.Min + new Vector2(leftWidth, 0), area.Max, UiColors.WindowBackground, 7 * uiScale);
 
         ImGui.SameLine(0, 4);
 
         var paddingForActions = mode == ContentModes.PopUp ? HeightActionsArea : 0;
-        
+
         ImGui.BeginChild("Right", new Vector2(0, -paddingForActions), false, ImGuiWindowFlags.NoBackground);
         {
             FormInputs.AddVerticalSpace(20);
             ImGui.Indent(20 * T3Ui.UiScaleFactor);
 
-            DrawProgressHeader(topic, index, dl);
+            var clicked=DrawProgressHeader(topic, index, dl, out var hoveredIndex);
+            
             CustomComponents.StylizedText("CONTINUE WITH THESE UNLOCKED TOPICS", Fonts.FontSmall, UiColors.Text.Fade(0.3f));
 
             FormInputs.AddVerticalSpace(5);
@@ -223,10 +232,8 @@ internal static class SkillProgressionUi
                     SkillTraining.SaveNewResult(SkillProgress.LevelResult.States.Skipped);
                     SkillTraining.ExitPlayMode();
                 }
-                
-                ImGui.SameLine(0,10);
-                
 
+                ImGui.SameLine(0, 10);
 
                 ImGui.PopStyleColor();
             }
@@ -246,8 +253,11 @@ internal static class SkillProgressionUi
         }
     }
 
-    private static void DrawProgressHeader(QuestTopic topic, int index, ImDrawListPtr dl)
+    private static bool DrawProgressHeader(QuestTopic topic, int activeIndex, ImDrawListPtr dl, out int hoveredIndex)
     {
+        var clicked = false;
+        hoveredIndex = -1;
+        
         var label = topic.Title;
         if (topic.ProgressionState == QuestTopic.ProgressStates.Completed)
         {
@@ -259,7 +269,7 @@ internal static class SkillProgressionUi
         }
 
         CustomComponents.StylizedText(label, Fonts.FontNormal, UiColors.Text.Fade(0.3f));
-        var countLabel = $"{index }/{topic.Levels.Count}";
+        var countLabel = $"{activeIndex}/{topic.Levels.Count}";
         var labelSize = ImGui.CalcTextSize(countLabel);
         ImGui.SameLine(ImGui.GetColumnWidth() - labelSize.X, 0);
         CustomComponents.StylizedText(countLabel, Fonts.FontNormal, UiColors.Text.Fade(0.3f));
@@ -268,10 +278,20 @@ internal static class SkillProgressionUi
         var padding = 3;
         var p = ImGui.GetCursorScreenPos();
         var width = (ImGui.GetContentRegionAvail().X - ImGui.GetCursorPosX() + padding) / topic.Levels.Count;
-        var blockSize = new Vector2(width - padding, 4);
-        for (int levelIndex = 0; levelIndex < topic.Levels.Count; levelIndex++)
+        var blockHeight = 4;
+        var blockSize = new Vector2(width - padding, blockHeight);
+
+        var isWindowHovered = ImGui.IsWindowHovered();
+        var mousePos = ImGui.GetMousePos();
+        
+        for (var levelIndex = 0; levelIndex < topic.Levels.Count; levelIndex++)
         {
             var pp = p + new Vector2(levelIndex * width, 0);
+            var hoverArea = ImRect.RectWithSize(pp- new Vector2(0, blockHeight*3), 
+                                                blockSize + new Vector2(3,blockHeight*4));
+            
+            var isHovered = isWindowHovered && hoveredIndex == -1 && hoverArea.Contains(mousePos);
+            
             var tickColor = topic.Levels[levelIndex].LevelState switch
                                 {
                                     SkillProgress.LevelResult.States.Undefined => UiColors.ForegroundFull.Fade(0.05f),
@@ -280,13 +300,27 @@ internal static class SkillProgressionUi
                                     SkillProgress.LevelResult.States.Completed => UiColors.ForegroundFull.Fade(0.3f),
                                     _                                          => throw new ArgumentOutOfRangeException()
                                 };
-            if (levelIndex == index)
+
+            if (isHovered)
+            {
+                if (ImGui.IsMouseClicked(ImGuiMouseButton.Left))
+                {
+                    clicked = true;
+                }
+
+                hoveredIndex = levelIndex;
+                tickColor = UiColors.ForegroundFull;
+            }
+            else if (levelIndex == activeIndex)
+            {
                 tickColor = UiColors.BackgroundActive;
+            }
 
             dl.AddRectFilled(pp, pp + blockSize, tickColor, 2);
         }
 
         FormInputs.AddVerticalSpace(20);
+        return clicked;
     }
 
     private static float HeightActionsArea => 40 * T3Ui.UiScaleFactor;
