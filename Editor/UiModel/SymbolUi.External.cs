@@ -77,16 +77,7 @@ public sealed partial class SymbolUi
     internal SymbolUi CloneForNewSymbol(Symbol newSymbol, Dictionary<Guid, Guid> oldToNewIds = null)
     {
         FlagAsModified();
-            
-        //var childUis = new List<SymbolUi.Child>(ChildUis.Count);
-        // foreach (var sourceChildUi in ChildUis)
-        // {
-        //     var clonedChildUi = sourceChildUi.Clone();
-        //     Guid newChildId = oldToNewIds[clonedChildUi.Id];
-        //     clonedChildUi.SymbolChild = newSymbol.Children.Single(child => child.Id == newChildId);
-        //     childUis.Add(clonedChildUi);
-        // }
-
+        
         var hasIdMap = oldToNewIds != null;
             
         Func<Guid, Guid> idMapper = hasIdMap ? id => oldToNewIds[id] : id => id;
@@ -110,13 +101,6 @@ public sealed partial class SymbolUi
             outputUis.Add(clonedOutputUi.Id, clonedOutputUi);
         }
 
-        var annotations = new OrderedDictionary<Guid, Annotation>(Annotations.Count);
-        foreach (var (_, annotation) in Annotations)
-        {
-            var clonedAnnotation = annotation.Clone();
-            annotations.Add(clonedAnnotation.Id, clonedAnnotation);
-        }
-
         var links = new OrderedDictionary<Guid, ExternalLink>(Links.Count);
         foreach (var (_, link) in Links)
         {
@@ -130,6 +114,6 @@ public sealed partial class SymbolUi
             tourPoints.Add(tp.Clone());
         }
 
-        return new SymbolUi(newSymbol, _ => [], inputUis, outputUis, annotations, links, tourPoints, hasIdMap);
+        return new SymbolUi(newSymbol, _ => [], inputUis, outputUis, [], links, tourPoints, hasIdMap);
     }
 }

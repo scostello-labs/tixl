@@ -303,7 +303,7 @@ internal sealed class LayersArea : ITimeObjectManipulation, IValueSnapAttractor
             var newPos = symbolChildUi.PosOnCanvas;
             newPos.Y += MagGraphItem.GridSize.Y;
             var cmd = new CopySymbolChildrenCommand(compositionSymbolUi,
-                                                    new[] { symbolChildUi },
+                                                    [symbolChildUi],
                                                     null,
                                                     compositionSymbolUi,
                                                     newPos);

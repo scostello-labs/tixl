@@ -47,13 +47,14 @@ internal static class Duplicate
         newSource = ReplaceGuidAttributeWith(newSymbolId, newSource);
         Log.Debug(newSource);
 
+        var sourceSymbolUi = sourceSymbol.GetSymbolUi();
+        
         if (!project.TryCompile(newSource, newTypeName, newSymbolId, nameSpace, out var newSymbol, out _, out var failureLog))
         {
             Log.Error($"Could not compile new symbol '{newTypeName}': {failureLog}");
             return null;
         }
-
-        var sourceSymbolUi = sourceSymbol.GetSymbolUi();
+        
         var newSymbolUi = sourceSymbolUi.CloneForNewSymbol(newSymbol, oldToNewIdMap);
         newSymbolUi.Description = description;
         newSymbolUi.ReadOnly = false;
@@ -63,7 +64,7 @@ internal static class Duplicate
         // Apply content to a new symbol
         var cmd = new CopySymbolChildrenCommand(sourceSymbolUi,
                                                 null,
-                                                new List<Annotation>(),
+                                                null,
                                                 newSymbolUi,
                                                 Vector2.One);
         cmd.Do();
