@@ -1,5 +1,6 @@
 using ManagedBass;
 using System.Numerics;
+using System.Collections.Generic;
 
 namespace Lib.io.audio{
     [Guid("65e95f77-4743-437f-ab31-f34b831d28d7")]
@@ -35,6 +36,10 @@ namespace Lib.io.audio{
         [Output(Guid = "b09d215a-bcf0-479a-a649-56f9c698ecb1")]
         private readonly Slot<float> GetLevel = new();
 
+        // Waveform: simple oscilloscope of the most recent audio window
+        [Output(Guid = "8f4e2d1a-3b7c-4d89-9e12-7a5b8c9d0e1f")]
+        private readonly Slot<List<float>> GetWaveform = new();
+
         private int _stream;
         private bool _prevPlay;
         private bool _prevStop;
@@ -42,6 +47,11 @@ namespace Lib.io.audio{
         private float _prevPanning;
         private float _prevSpeed = 1f;
         private float _prevSeek;
+
+        // Internal waveform buffer
+        private readonly List<float> _waveformBuffer = new();
+        private const int WaveformSamples = 256;          // samples exposed to UI
+        private const int WaveformWindowSamples = 1024;   // raw samples to read from BASS
 
         public BassAudioPlayer()
         {
@@ -70,6 +80,7 @@ namespace Lib.io.audio{
                 Log.Debug($"Stream {_stream} ended, freeing");
                 Bass.StreamFree(_stream);
                 _stream = 0;
+                _waveformBuffer.Clear();
             }
 
             // Stop trigger: stop and dispose the stream
@@ -79,6 +90,7 @@ namespace Lib.io.audio{
                 Bass.ChannelStop(_stream);
                 Bass.StreamFree(_stream);
                 _stream = 0;
+                _waveformBuffer.Clear();
             }
 
             // Apply controls only if stream exists and parameters changed
@@ -133,6 +145,7 @@ namespace Lib.io.audio{
                     Log.Debug($"Recreating stream {_stream} for restart");
                     Bass.StreamFree(_stream);
                     _stream = 0;
+                    _waveformBuffer.Clear();
                 }
 
                 Log.Debug($"Creating new stream {filePath}");
@@ -162,6 +175,7 @@ namespace Lib.io.audio{
                         Log.Debug($"ChannelPlay failed: {Bass.LastError}");
                         Bass.StreamFree(_stream);
                         _stream = 0;
+                        _waveformBuffer.Clear();
                     }
                     else
                     {
@@ -197,6 +211,73 @@ namespace Lib.io.audio{
             else
             {
                 GetLevel.Value = 0f;
+            }
+
+            // Waveform: grab recent PCM data if playing
+            if (_stream != 0 && Bass.ChannelIsActive(_stream) == PlaybackState.Playing)
+            {
+                UpdateWaveformFromPcm();
+            }
+            else
+            {
+                if (_waveformBuffer.Count == 0)
+                {
+                    // Ensure non-null, non-changing reference
+                    for (int i = 0; i < WaveformSamples; i++)
+                        _waveformBuffer.Add(0f);
+                }
+            }
+
+            GetWaveform.Value = _waveformBuffer;
+        }
+
+        private void UpdateWaveformFromPcm()
+        {
+            // Get channel info to know format & channels
+            var info = Bass.ChannelGetInfo(_stream);
+
+            // Use 16-bit integer PCM buffer (BASS will convert if needed)[web:5][web:10]
+            int sampleCount = WaveformWindowSamples * info.Channels;
+            var buffer = new short[sampleCount];
+
+            int bytesRequested = sampleCount * sizeof(short);
+            int bytesReceived = Bass.ChannelGetData(_stream, buffer, bytesRequested);
+
+            if (bytesReceived <= 0)
+                return;
+
+            int samplesReceived = bytesReceived / sizeof(short);
+            int frames = samplesReceived / info.Channels;
+
+            if (frames <= 0)
+                return;
+
+            _waveformBuffer.Clear();
+
+            // Downsample to WaveformSamples by stepping
+            float step = frames / (float)WaveformSamples;
+            float pos = 0f;
+
+            for (int i = 0; i < WaveformSamples; i++)
+            {
+                int frameIndex = (int)pos;
+                if (frameIndex >= frames)
+                    frameIndex = frames - 1;
+
+                // Compute mono amplitude as average abs across channels
+                int frameBase = frameIndex * info.Channels;
+                float sum = 0f;
+
+                for (int ch = 0; ch < info.Channels; ch++)
+                {
+                    short s = buffer[frameBase + ch];
+                    sum += Math.Abs(s / 32768f);
+                }
+
+                float amp = sum / info.Channels;
+                _waveformBuffer.Add(amp);
+
+                pos += step;
             }
         }
 
