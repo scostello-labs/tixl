@@ -11,11 +11,49 @@
       "Usage": "Default"
     },
     {
+      "InputId": "59b659c6-ca1f-4c2b-8dff-3a1da9abd352"/*StopAudio*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 150.0
+      }
+    },
+    {
       "InputId": "726bc4d3-df8b-4abe-a38e-2e09cf44ca10"/*PlayAudio*/,
       "Position": {
         "X": -200.0,
         "Y": 75.0
       }
+    },
+    {
+      "InputId": "a5de0d72-5924-4f3a-a02f-d5de7c03f07f"/*Seek*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 375.0
+      }
+    },
+    {
+      "InputId": "c0645e37-db4e-4658-9d65-96478851f6f6"/*Volume*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 225.0
+      },
+      "Min": 0.0,
+      "Max": 1.0,
+      "Scale": 0.01,
+      "ClampMin": true,
+      "ClampMax": true
+    },
+    {
+      "InputId": "d1a11c4c-9526-4f6b-873e-1798b9dd2b48"/*Speed*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 300.0
+      },
+      "Min": 0.0,
+      "Max": 2.0,
+      "Scale": 0.01,
+      "ClampMin": true,
+      "ClampMax": true
     }
   ],
   "SymbolChildUis": [],

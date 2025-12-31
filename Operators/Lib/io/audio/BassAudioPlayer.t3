@@ -6,8 +6,24 @@
       "DefaultValue": ""
     },
     {
+      "Id": "59b659c6-ca1f-4c2b-8dff-3a1da9abd352"/*StopAudio*/,
+      "DefaultValue": false
+    },
+    {
       "Id": "726bc4d3-df8b-4abe-a38e-2e09cf44ca10"/*PlayAudio*/,
       "DefaultValue": false
+    },
+    {
+      "Id": "a5de0d72-5924-4f3a-a02f-d5de7c03f07f"/*Seek*/,
+      "DefaultValue": 0.0
+    },
+    {
+      "Id": "c0645e37-db4e-4658-9d65-96478851f6f6"/*Volume*/,
+      "DefaultValue": 1.0
+    },
+    {
+      "Id": "d1a11c4c-9526-4f6b-873e-1798b9dd2b48"/*Speed*/,
+      "DefaultValue": 1.0
     }
   ],
   "Children": [],
