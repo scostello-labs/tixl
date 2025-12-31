@@ -1,0 +1,15 @@
+{
+  "Id": "65e95f77-4743-437f-ab31-f34b831d28d7"/*BassAudioPlayer*/,
+  "Inputs": [
+    {
+      "Id": "505139a0-71ce-4297-8440-5bf84488902e"/*AudioFile*/,
+      "DefaultValue": ""
+    },
+    {
+      "Id": "726bc4d3-df8b-4abe-a38e-2e09cf44ca10"/*PlayAudio*/,
+      "DefaultValue": false
+    }
+  ],
+  "Children": [],
+  "Connections": []
+}
