@@ -40,6 +40,10 @@ namespace Lib.io.audio{
         [Output(Guid = "8f4e2d1a-3b7c-4d89-9e12-7a5b8c9d0e1f")]
         private readonly Slot<List<float>> GetWaveform = new();
 
+        // Spectrum: frequency spectrum analysis of the most recent audio window
+        [Output(Guid = "7f8e9d2a-4b5c-3e89-8f12-6a5b9c8d0e2f")]
+        private readonly Slot<List<float>> GetSpectrum = new();
+
         private int _stream;
         private bool _prevPlay;
         private bool _prevStop;
@@ -48,10 +52,12 @@ namespace Lib.io.audio{
         private float _prevSpeed = 1f;
         private float _prevSeek;
 
-        // Internal waveform buffer
+        // Internal buffers
         private readonly List<float> _waveformBuffer = new();
-        private const int WaveformSamples = 256;          // samples exposed to UI
+        private readonly List<float> _spectrumBuffer = new();
+        private const int WaveformSamples = 512;          // samples exposed to UI
         private const int WaveformWindowSamples = 1024;   // raw samples to read from BASS
+        private const int SpectrumBands = 512;            // FFT bands exposed to UI
 
         public BassAudioPlayer()
         {
@@ -81,6 +87,7 @@ namespace Lib.io.audio{
                 Bass.StreamFree(_stream);
                 _stream = 0;
                 _waveformBuffer.Clear();
+                _spectrumBuffer.Clear();
             }
 
             // Stop trigger: stop and dispose the stream
@@ -91,6 +98,7 @@ namespace Lib.io.audio{
                 Bass.StreamFree(_stream);
                 _stream = 0;
                 _waveformBuffer.Clear();
+                _spectrumBuffer.Clear();
             }
 
             // Apply controls only if stream exists and parameters changed
@@ -146,6 +154,7 @@ namespace Lib.io.audio{
                     Bass.StreamFree(_stream);
                     _stream = 0;
                     _waveformBuffer.Clear();
+                    _spectrumBuffer.Clear();
                 }
 
                 Log.Debug($"Creating new stream {filePath}");
@@ -176,6 +185,7 @@ namespace Lib.io.audio{
                         Bass.StreamFree(_stream);
                         _stream = 0;
                         _waveformBuffer.Clear();
+                        _spectrumBuffer.Clear();
                     }
                     else
                     {
@@ -203,10 +213,18 @@ namespace Lib.io.audio{
             IsPlaying.Value = isPlaying;
 
             // Update audio levels (peak amplitude for left/right channels, normalized 0-1)
+
+            
+            
             if (_stream != 0 && Bass.ChannelIsActive(_stream) != PlaybackState.Stopped)
             {
                 var level = Bass.ChannelGetLevel(_stream);
-                GetLevel.Value = ((level & 0xFFFF) + ((level >> 16) & 0xFFFF)) / (2f * 32768f);
+                
+                if (level != -1) // exactly -1 is a capture error, do not measure it
+                {
+                    GetLevel.Value = (float)(((level & 0xffff) + ((level >> 16) & 0xffff))
+                                             * short.MaxValue * 0.00001);
+                }
             }
             else
             {
@@ -228,7 +246,23 @@ namespace Lib.io.audio{
                 }
             }
 
+            // Spectrum: compute frequency spectrum if playing
+            if (_stream != 0 && Bass.ChannelIsActive(_stream) == PlaybackState.Playing)
+            {
+                UpdateSpectrum();
+            }
+            else
+            {
+                if (_spectrumBuffer.Count == 0)
+                {
+                    // Ensure non-null, non-changing reference
+                    for (int i = 0; i < SpectrumBands; i++)
+                        _spectrumBuffer.Add(0f);
+                }
+            }
+
             GetWaveform.Value = _waveformBuffer;
+            GetSpectrum.Value = _spectrumBuffer;
         }
 
         private void UpdateWaveformFromPcm()
@@ -236,7 +270,7 @@ namespace Lib.io.audio{
             // Get channel info to know format & channels
             var info = Bass.ChannelGetInfo(_stream);
 
-            // Use 16-bit integer PCM buffer (BASS will convert if needed)[web:5][web:10]
+            // Use 16-bit integer PCM buffer (BASS will convert if needed)
             int sampleCount = WaveformWindowSamples * info.Channels;
             var buffer = new short[sampleCount];
 
@@ -278,6 +312,28 @@ namespace Lib.io.audio{
                 _waveformBuffer.Add(amp);
 
                 pos += step;
+            }
+        }
+
+        private void UpdateSpectrum()
+        {
+            // Use BASS_DATA_FFT256 for efficient 256-band FFT analysis
+            float[] spectrum = new float[SpectrumBands];
+            int bytes = Bass.ChannelGetData(_stream, spectrum, (int)DataFlags.FFT512);
+
+            if (bytes <= 0)
+                return;
+
+            _spectrumBuffer.Clear();
+
+            // Convert FFT magnitudes to dB-normalized values (0-1 range)
+            for (int i = 0; i < SpectrumBands; i++)
+            {
+                // Logarithmic scaling for perceptual uniformity
+                var db = 20f * Math.Log10(Math.Max(spectrum[i], 1e-5f));
+                // Normalize to 0-1 range (-60dB to 0dB -> 0-1)
+                var normalized = Math.Max(0f, Math.Min(1f, (db + 60f) / 60f));
+                _spectrumBuffer.Add((float)normalized);
             }
         }
 
