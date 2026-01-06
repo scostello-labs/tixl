@@ -38,7 +38,8 @@ internal static class Duplicate
         var classRenamer = new ClassRenameRewriter(newTypeName);
         root = classRenamer.Visit(root);
 
-        var memberRewriter = new Duplicate.MemberDuplicateRewriter(newTypeName);
+        var memberRewriter = new Duplicate.MemberDuplicateRewriter(sourceSymbol.Name, newTypeName);
+        
         root = memberRewriter.Visit(root);
         var oldToNewIdMap = memberRewriter.OldToNewGuidDict;
         var newSource = root.GetText().ToString();
@@ -197,24 +198,26 @@ internal static class Duplicate
 
     private sealed class MemberDuplicateRewriter : CSharpSyntaxRewriter
     {
+        private readonly string _oldSymbolName;
         private readonly string _newSymbolName;
 
-        public MemberDuplicateRewriter(string newSymbolName)
+        public MemberDuplicateRewriter(string oldSymbolName, string newSymbolName)
         {
+            _oldSymbolName = oldSymbolName;
             _newSymbolName = newSymbolName;
         }
 
         public override SyntaxNode VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
         {
-            return SyntaxFactory.ConstructorDeclaration(_newSymbolName)
-                                .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
-                                .NormalizeWhitespace()
-                                .WithTrailingTrivia(SyntaxFactory.SyntaxTrivia(SyntaxKind.EndOfLineTrivia, "\r\n"))
-                                .WithBody(node.Body)
-                                .WithLeadingTrivia(node.GetLeadingTrivia())
-                                .WithTrailingTrivia(node.GetTrailingTrivia());
-        }
+            // Only rewrite constructors of the original top-level class
+            if (node.Identifier.Text != _oldSymbolName)
+                return node;
 
+            return node.WithIdentifier(
+                                       SyntaxFactory.Identifier(_newSymbolName)
+                                                    .WithTriviaFrom(node.Identifier));
+        }
+        
         public override SyntaxNode VisitFieldDeclaration(FieldDeclarationSyntax node)
         {
             if (node.Declaration.Type is not GenericNameSyntax nameSyntax)
