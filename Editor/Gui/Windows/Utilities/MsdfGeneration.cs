@@ -458,7 +458,7 @@ namespace T3.Editor.Gui.Windows.Utilities
             return package;
         }
 
-        private static string? _fontFilePath = "";
+        private static string? _fontFilePath = null;
         private static SymbolPackage? _selectedPackage;
         private static string _statusMessage = "";
         private static string _lastOutputDir = "";
