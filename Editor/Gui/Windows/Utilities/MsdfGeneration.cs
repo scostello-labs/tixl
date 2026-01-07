@@ -233,13 +233,13 @@ namespace T3.Editor.Gui.Windows.Utilities
                     using var ft = FreetypeHandle.Initialize();
                     if (ft is null)
                     {
-                        throw new Exception("Failed to initialize FreeType.");
+                        throw new Exception("Failed to initialize FreeType library (MsdfGen.Extensions.FreetypeHandle.Initialize returned null).");
                     }
 
                     using var fontHandle = FontHandle.LoadFont(ft, settings.FontPath);
                     if (fontHandle is null)
                     {
-                        throw new Exception("Failed to load font.");
+                        throw new Exception($"Failed to load font from path '{settings.FontPath}'. Please ensure the file is a valid .ttf font.");
                     }
 
                     var fontGeometry = SetupFontGeometry(fontHandle, fontName, settings);
