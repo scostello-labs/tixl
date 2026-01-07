@@ -87,12 +87,9 @@ namespace T3.Editor.Gui.Windows.Utilities
 
                 FormInputs.ApplyIndent();
             }
-
             FormInputs.AddVerticalSpace();
-
-            FormInputs.AddVerticalSpace();
-            FormInputs.SetIndent(90);
-            
+            FormInputs.SetIndent(90);        
+    
             var internalPackage = GetPackageContainingPath(_fontFilePath);
             SymbolPackage? usagePackage = null;
 
