@@ -18,9 +18,10 @@
 9. [Technical Details](#technical-details)
 10. [Configuration Centralization](#configuration-centralization)
 11. [Logging Configuration](#logging-configuration)
-12. [Future Improvements](#future-improvements)
-13. [Appendix: Log Examples](#appendix-log-examples)
-14. [Conclusion](#conclusion)
+12. [UI Settings Integration](#ui-settings-integration)
+13. [Future Improvements](#future-improvements)
+14. [Appendix: Log Examples](#appendix-log-examples)
+15. [Conclusion](#conclusion)
 
 ---
 
@@ -384,6 +385,11 @@ if (message.StartsWith("[OperatorAudio]") ||
 ```csharp
 // ✅ NEW: Centralized helpers - automatic, consistent
 AudioConfig.LogDebug("[OperatorAudio] Loading..."); // Automatically suppressed
+AudioConfig.LogInfo("[OperatorAudio] Stream loaded successfully");
+
+// ❌ Never suppress warnings/errors
+Log.Warning("[OperatorAudio] Potential issue detected");
+Log.Error("[OperatorAudio] Critical failure");
 ```
 
 **Benefits:**
@@ -448,7 +454,8 @@ Log.Error("[OperatorAudio] Critical failure");
 var audioDebugChanged = FormInputs.AddCheckBox(
     "Suppress Audio Debug Logs",
     ref UserSettings.Config.SuppressAudioDebugLogs,
-    "Suppresses Debug and Info log messages...",
+    "Suppresses Debug and Info log messages from audio system classes.\n" +
+    "Warning and Error messages will still be logged.",
     UserSettings.Defaults.SuppressAudioDebugLogs);
 
 if (audioDebugChanged)
@@ -458,1020 +465,252 @@ if (audioDebugChanged)
 }
 ```
 
+**Startup Synchronization:**
+```csharp
+// Editor/Program.cs - Main()
+private static void Main(string[] args)
+{
+    // ...existing initialization...
+    
+    // Sync audio config with user settings on startup
+    AudioConfig.SuppressDebugLogs = UserSettings.Config.SuppressAudioDebugLogs;
+    
+    // ...continue initialization...
+}
+```
+
 ---
 
-## Architecture Overview
+## UI Settings Integration
 
-### Previous Architecture (Legacy)
+### Audio Configuration in Settings Window (01-10-2026)
+
+**New Feature:** Audio system configuration is now accessible through the Editor's Settings Window, providing user-friendly controls for audio parameters.
+
+#### Architecture
+
+```
+Settings Window (UI) → UserSettings (Persistence) → AudioConfig (Runtime)
+         ↓                      ↓                           ↓
+   ImGui Controls      JSON File Storage         Core Audio System
+```
+
+#### Settings Window Integration
+
+**Location:** `Editor → Settings → Profiling and Debugging → Audio System`
+
+**Available Settings:**
+
+1. **Suppress Audio Debug Logs** (Toggle)
+   - **Type:** Boolean checkbox
+   - **Default:** `false` (logging enabled)
+   - **Description:** "Suppresses Debug and Info log messages from audio system classes. Warning and Error messages will still be logged."
+   - **Real-time:** Changes apply immediately without restart
+   - **Persisted:** Saved to `UserSettings.json`
+
+#### Implementation Details
+
+**UserSettings Integration:**
+```csharp
+// Editor/Gui/UiHelpers/UserSettings.cs
+public class ConfigData
+{
+    // ...existing settings...
+    
+    public bool SuppressAudioDebugLogs { get; set; } = Defaults.SuppressAudioDebugLogs;
+}
+
+public static class Defaults
+{
+    // ...existing defaults...
+    
+    public const bool SuppressAudioDebugLogs = false;
+}
+```
+
+**Settings Window UI:**
+```csharp
+// Editor/Gui/Windows/SettingsWindow.cs - DrawAudioSettings()
+private static void DrawAudioSettings(ref bool changed)
+{
+    ImGui.TextUnformatted("Audio System");
+    
+    var audioDebugChanged = FormInputs.AddCheckBox(
+        "Suppress Audio Debug Logs",
+        ref UserSettings.Config.SuppressAudioDebugLogs,
+        "Suppresses Debug and Info log messages from audio system classes.\n" +
+        "Warning and Error messages will still be logged.",
+        UserSettings.Defaults.SuppressAudioDebugLogs);
+
+    if (audioDebugChanged)
+    {
+        AudioConfig.SuppressDebugLogs = UserSettings.Config.SuppressAudioDebugLogs;
+        changed = true;
+    }
+}
+```
+
+**Startup Synchronization:**
+```csharp
+// Editor/Program.cs - Main()
+private static void Main(string[] args)
+{
+    // ...existing initialization...
+    
+    // Sync audio config with user settings on startup
+    AudioConfig.SuppressDebugLogs = UserSettings.Config.SuppressAudioDebugLogs;
+    
+    // ...continue initialization...
+}
+```
+
+#### User Experience
+
+**Settings Window Layout:**
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Application Layer                                  │
+│ Settings                                            │
 ├─────────────────────────────────────────────────────┤
-│                                                      │
-│  Individual BASS Streams                            │
-│  (No centralized management)                        │
-│                                                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
-│  │ Stream 1 │  │ Stream 2 │  │ Stream N │          │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘          │
-│       │             │             │                 │
-│       └─────────────┴─────────────┘                 │
-│                     │                               │
-│              Direct to Soundcard                    │
-│                     ▼                               │
-│              ┌──────────────┐                       │
-│              │  Soundcard   │                       │
-│              └──────────────┘                       │
+│                                                     │
+│ ▼ Profiling and Debugging                          │
+│                                                     │
+│   Audio System                                     │
+│   ☐ Suppress Audio Debug Logs                     │
+│     Suppresses Debug and Info log messages from     │
+│     audio system classes. Warning and Error         │
+│     messages will still be logged.                  │
+│                                                     │
+│   [Default] button resets to false                 │
+│                                                     │
 └─────────────────────────────────────────────────────┘
-
-Problems:
-- No mixing control
-- High latency (~300-500ms)
-- Resource conflicts
-- Deadlocks on ChannelGetInfo()
 ```
 
-### New Architecture (Current)
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│  Application Layer                                                     │
-├────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─────────────────────────────────┐  ┌─────────────────────────────┐ │
-│  │  Operator Audio Path            │  │  Soundtrack Audio Path       │ │
-│  │  (StereoAudioPlayer instances)  │  │  (Timeline-synced)          │ │
-│  ├─────────────────────────────────┤  ├─────────────────────────────┤ │
-│  │                                 │  │                             │ │
-│  │  ┌──────────────────────────┐  │  │  ┌──────────────────────┐  │ │
-│  │  │ OperatorAudioStream      │  │  │  │ AudioClipStream      │  │ │
-│  │  │ (DECODE | FLOAT mode)    │  │  │  │ (DECODE mode)        │  │ │
-│  │  └──────────┬───────────────┘  │  │  └──────────┬───────────┘  │ │
-│  │             │                   │  │             │              │ │
-│  │             ▼                   │  │             ▼              │ │
-│  │  ┌──────────────────────────┐  │  │  ┌──────────────────────┐  │ │
-│  │  │ Operator Mixer           │  │  │  │ Soundtrack Mixer     │  │ │
-│  │  │ (48kHz | DECODE)         │  │  │  │ (48kHz | DECODE)     │  │ │
-│  │  │ BassFlags.MixerNonStop   │  │  │  │ BassFlags.MixerNonStop│ │ │
-│  │  └──────────┬───────────────┘  │  │  └──────────┬───────────┘  │ │
-│  │             │                   │  │             │              │ │
-│  └─────────────┼───────────────────┘  └─────────────┼──────────────┘ │
-│               │                                     │                │
-│               └─────────────┬───────────────────────┘                │
-│                             ▼                                        │
-│                  ┌──────────────────────┐                            │
-│                  │  Global Mixer        │                            │
-│                  │  (48kHz | FLOAT)     │                            │
-│                  │  BassFlags.MixerNonStop                           │
-│                  └──────────┬───────────┘                            │
-│                             │                                        │
-│                             ▼                                        │
-│                  ┌──────────────────────┐                            │
-│                  │  Soundcard Output    │                            │
-│                  │  (~20ms latency)     │                            │
-│                  └──────────────────────┘                            │
-│                             │                                        │
-│                             ▼                                        │
-│                  ┌──────────────────────┐                            │
-│                  │  Logging System      │                            │
-│                  │  (AudioConfig filter)│                            │
-│                  └──────────────────────┘                            │
-└────────────────────────────────────────────────────────────────────────┘
+**Interaction Flow:**
+1. User opens Settings window (`Tools → Settings` or `Ctrl+,`)
+2. Navigates to "Profiling and Debugging" section
+3. Finds "Audio System" subsection
+4. Toggles "Suppress Audio Debug Logs" checkbox
+5. Change applies immediately to running audio system
+6. Setting is saved to `UserSettings.json` automatically
+7. Setting persists across application restarts
 
-Benefits:
-+ Centralized mixing control
-+ Low latency (~20-60ms)
-+ Separate operator/soundtrack routing
-+ No deadlocks (cached metadata)
-+ Stale detection for resource cleanup
-+ 48kHz professional audio quality
-+ Configurable debug logging
+#### Benefits
+
+**For End Users:**
+- ✅ Easy access to audio configuration without editing code
+- ✅ Clear descriptions explain what each setting does
+- ✅ Immediate feedback (no restart required)
+- ✅ Settings persist across sessions
+- ✅ Default button quickly resets to recommended values
+- ✅ Organized in logical "Profiling and Debugging" category
+
+**For Developers:**
+- ✅ Centralized configuration eliminates scattered hardcoded values
+- ✅ Easy to add new audio settings in the future
+- ✅ Consistent UI pattern with other settings
+- ✅ Type-safe through UserSettings class
+- ✅ Automatic persistence handling
+
+#### Future Extensibility
+
+The settings infrastructure is designed to easily accommodate additional audio configurations:
+
+```csharp
+// Potential future additions to SettingsWindow:
+
+// Buffer size configuration
+var bufferSizeChanged = FormInputs.AddEnumDropdown(
+    "Audio Buffer Size",
+    ref UserSettings.Config.AudioBufferSize,
+    "Tradeoff between latency and stability");
+
+// Sample rate selection
+var sampleRateChanged = FormInputs.AddEnumDropdown(
+    "Sample Rate",
+    ref UserSettings.Config.AudioSampleRate,
+    "Higher rates improve quality but increase CPU usage");
+
+// Enable/disable specific audio features
+var enableFftChanged = FormInputs.AddCheckBox(
+    "Enable FFT Analysis",
+    ref UserSettings.Config.EnableAudioFft,
+    "Enable real-time frequency analysis");
 ```
 
-### Signal Flow Detail
-```
-Audio File → CreateStream(DECODE|FLOAT|ASYNCFILE) 
-          → MixerAddChannel(MIXERCHAN_BUFFER) 
-          → Intermediate Mixer (Operator or Soundtrack)
-          → MixerAddChannel(MIXERCHAN_BUFFER)
-          → Global Mixer (playing to soundcard)
-          → Soundcard Output
-          
-Latency breakdown:
-- File I/O:        ~5-10ms  (ASYNCFILE flag)
-- Decoder:         ~2-5ms   (BASS FLAC plugin)
-- Mixer buffering: ~10-20ms (MIXERCHAN_BUFFER)
-- Device buffer:   ~20ms    (DeviceBufferLength config)
-────────────────────────────────────────────────
-Total:             ~37-55ms (typical)
+#### Migration from Previous Approach
 
-Sample Rate: 48kHz (professional standard)
-```
+**Before:**
+- Logging configuration required editing `AudioConfig.cs`
+- No user-facing controls
+- Changes required recompilation
+- No persistence of user preferences
+
+**After:**
+- User-friendly checkbox in Settings window
+- Real-time configuration changes
+- No recompilation needed
+- Preferences saved automatically
+- Consistent with other editor settings
+
+#### Testing Checklist
+
+✅ **UI Integration:**
+- [x] Checkbox appears in Settings window under correct section
+- [x] Tooltip displays helpful description
+- [x] Default button works correctly
+- [x] Checkbox state reflects current AudioConfig value
+
+✅ **Functionality:**
+- [x] Toggling checkbox updates AudioConfig immediately
+- [x] Audio classes respect the suppression flag
+- [x] Changes persist after application restart
+- [x] Warning/Error logs are never suppressed
+
+✅ **Persistence:**
+- [x] Setting saved to UserSettings.json
+- [x] Setting loaded on application startup
+- [x] Default value is correct (false)
 
 ---
 
-## New Components
+## Advanced Settings (DEBUG Only)
 
-### 1. AudioMixerManager (Core/Audio/AudioMixerManager.cs)
+**New Feature (01-10-2026):** Advanced audio configuration options are now available in DEBUG builds only, protecting end users while maintaining developer flexibility.
 
-**Purpose:** Central manager for the 3-tier mixer architecture
-
-**Initialization Sequence:**
+**Implementation:**
 ```csharp
-AudioMixerManager.Initialize()
-├── Check if BASS already initialized (warning if yes)
-├── Configure BASS for low latency:
-│   ├── UpdatePeriod: 10ms
-│   ├── UpdateThreads: 2
-│   ├── PlaybackBufferLength: 100ms
-│   └── DeviceBufferLength: 20ms
-├── Bass.Init(-1, 48000Hz, DeviceInitFlags.Latency)
-├── Load BASS FLAC plugin (bassflac.dll)
-├── Create Global Mixer (48kHz, Stereo, FLOAT | MIXERNONSTOP)
-├── Create Operator Mixer (48kHz, Stereo, DECODE | MIXERNONSTOP)
-├── Create Soundtrack Mixer (48kHz, Stereo, DECODE | MIXERNONSTOP)
-├── Add Operator Mixer → Global Mixer
-├── Add Soundtrack Mixer → Global Mixer
-└── Bass.ChannelPlay(GlobalMixer)
-```
-
-**Key Features:**
-- **Early initialization requirement**: Must be called BEFORE any other BASS usage
-- **FLAC plugin support**: Native FLAC decoding for accurate duration
-- **Low-latency configuration**: Reduces total pipeline latency to ~20-60ms
-- **Separate mixing paths**: Independent volume/routing for operators vs soundtrack
-- **48kHz sample rate**: Professional audio standard for better quality and plugin compatibility
-
-**Critical Configuration:**
-```csharp
-Bass.Configure(Configuration.UpdatePeriod, 10);        // 10ms update cycle
-Bass.Configure(Configuration.UpdateThreads, 2);        // Multi-threaded mixing
-Bass.Configure(Configuration.PlaybackBufferLength, 100); // 100ms playback buffer
-Bass.Configure(Configuration.DeviceBufferLength, 20);   // 20ms device buffer
-```
-
-### 2. OperatorAudioStream (Core/Audio/OperatorAudioStream.cs)
-
-**Purpose:** Manages individual audio streams for operator playback (non-timeline synced)
-
-**Stream Creation:**
-```csharp
-OperatorAudioStream.TryLoadStream(filePath, mixerHandle, out stream)
-├── File validation
-├── CreateStream(DECODE | FLOAT | ASYNCFILE)
-├── Get & cache channel info (CRITICAL: cache to avoid deadlocks)
-├── Get duration (ChannelGetLength + ChannelBytes2Seconds)
-├── Validate duration (0 < duration < 36000s)
-├── MixerAddChannel(mixerHandle, MIXERCHAN_BUFFER)
-├── Set initial state: PAUSED
-└── Force immediate buffering: ChannelUpdate(mixerHandle, 0)
-```
-
-**Stale Detection System:**
-```
-Purpose: Automatically mute streams that haven't been updated recently
-         (prevents orphaned sounds from continuing to play)
-
-Timeline:
-  UpdateStaleDetection(currentTime) called each frame
-  │
-  ├─ First update: Record _streamStartTime
-  ├─ Calculate timeSinceLastUpdate
-  │
-  └─ If timeSinceLastUpdate > 0.1s:
-      ├─ Set _isMuted = true
-      ├─ Apply pause flag (BassMix.ChannelFlags)
-      └─ Log: "MUTED (active->stale)"
-  
-  └─ If timeSinceLastUpdate ≤ 0.1s (after being stale):
-      ├─ Set _isMuted = false
-      ├─ Remove pause flag
-      └─ Log: "UNMUTED (stale->active)"
-
-Benefits:
-- Prevents audio leaks from destroyed operators
-- Automatic cleanup without manual intervention
-- Maintains stream connection (can resume instantly)
-```
-
-**Critical Deadlock Fix - Channel Info Caching:**
-```csharp
-// BEFORE (DEADLOCK RISK):
-private void UpdateWaveformFromPcm()
-{
-    var info = Bass.ChannelGetInfo(StreamHandle); // ⚠️ CAN DEADLOCK!
-    int channels = info.Channels;
-    // ... use channels ...
-}
-
-// AFTER (SAFE):
-private int _cachedChannels;  // Cached at load time
-private int _cachedFrequency; // Cached at load time
-
-internal static bool TryLoadStream(...)
-{
-    var info = Bass.ChannelGetInfo(streamHandle); // ✅ Safe: called once at load
-    stream._cachedChannels = info.Channels;
-    stream._cachedFrequency = info.Frequency;
-}
-
-private void UpdateWaveformFromPcm()
-{
-    int channels = _cachedChannels; // ✅ Safe: no API call
-    // ... use channels ...
-}
-```
-
-**Play/Pause/Stop Control:**
-```csharp
-Play()
-├── Clear stale-muted state
-├── Reset tracking timers
-├── BassMix.ChannelFlags(StreamHandle, 0, MIXERCHAN_PAUSE)  // Remove pause
-├── ChannelUpdate(MixerHandle, 0)  // Force immediate buffering
-└── Log timing + state diagnostics
-
-Pause()
-├── BassMix.ChannelFlags(StreamHandle, MIXERCHAN_PAUSE, MIXERCHAN_PAUSE)
-└── IsPaused = true
-
-Stop()
-├── BassMix.ChannelFlags(StreamHandle, MIXERCHAN_PAUSE, MIXERCHAN_PAUSE)
-├── ChannelSetPosition(StreamHandle, 0, MIXERRESET)  // Seek to start
-└── Reset stale tracking
-```
-
-**Short Sound Optimization:**
-```
-Problem: Sounds under 200ms often wouldn't play or would click
-
-Solution:
-1. Immediate buffering after MixerAddChannel:
-   Bass.ChannelUpdate(mixerHandle, 0);  // Force data fetch NOW
-   
-2. Buffering on Play():
-   Bass.ChannelUpdate(mixerHandle, 0);  // Ensure buffer is ready
-   
-3. Use MixerChanBuffer flag:
-   BassMix.MixerAddChannel(..., BassFlags.MixerChanBuffer);
-   // Enables internal buffering for smoother playback
-
-Result: 100ms clips now play reliably with ~30-50ms latency
-```
-
-### 3. StereoAudioPlayer Operator (Operators/lib/io/audio/StereoAudioPlayer.cs)
-
-**Purpose:** User-facing operator for audio playback in node graphs
-
-**Inputs:**
-- `AudioFile` (string): Path to audio file
-- `PlayAudio` (bool): Trigger playback (rising edge)
-- `StopAudio` (bool): Trigger stop (rising edge)
-- `PauseAudio` (bool): Pause state
-- `Volume` (float): 0-1 volume level
-- `Mute` (bool): Mute toggle
-- `Panning` (float): -1 (left) to +1 (right)
-- `Speed` (float): Playback speed multiplier
-- `Seek` (float): 0-1 normalized position
-- **Test Mode Inputs:**
-  - `EnableTestMode`: Switch to test tone generation
-  - `TriggerShortTest`: Generate 0.1s test tone
-  - `TriggerLongTest`: Generate 2.0s test tone
-  - `TestFrequency`: Sine wave frequency (default 440Hz)
-
-**Outputs:**
-- `Result` (Command): Pass-through for graph execution
-- `IsPlaying` (bool): Current playback state
-- `IsPaused` (bool): Current pause state
-- `GetLevel` (float): Current audio level (0-1)
-- `GetWaveform` (List<float>): 512-sample waveform buffer
-- `GetSpectrum" (List<float>): 512-band FFT spectrum
-- `DebugInfo` (string): Status and timing information
-
-**Test Mode Features:**
-```csharp
-// Generates WAV files in-memory for latency testing
-// Now uses 48kHz sample rate for consistency with mixer
-GenerateTestTone(frequency, duration, label)
-├── Create temporary WAV file
-├── Write proper WAV header (PCM, 48kHz, stereo)
-├── Generate sine wave at specified frequency
-├── Apply 5ms fade envelope (prevent clicks)
-└── Return file path for immediate playback
-
-Usage:
-- Short test (0.1s): Measure minimum latency
-- Long test (2.0s): Verify sustained playback
-- Custom frequency: Test different tones
-- 48kHz output: Matches mixer sample rate (no resampling)
-```
-
-**Integration with AudioEngine:**
-```csharp
-Update(EvaluationContext context)
-├── Compute unique operator ID (from instance path)
-├── Handle test mode triggers (rising edge detection)
-├── Call AudioEngine.UpdateOperatorPlayback():
-│   ├── operatorId: Unique GUID
-│   ├── localFxTime: For stale detection
-│   ├── filePath: Resolved path
-│   ├── shouldPlay/Stop: Trigger flags
-│   └── volume, mute, panning, speed, seek
-├── Retrieve outputs from AudioEngine:
-│   ├── IsPlaying
-│   ├── IsPaused
-│   ├── GetLevel
-│   ├── GetWaveform
-│   └── GetSpectrum
-└── Update DebugInfo string
-```
-
-### 4. AudioEngine Extensions (Core/Audio/AudioEngine.cs)
-
-**New Operator Playback Section:**
-```csharp
-#region Operator Audio Playback
-    private static readonly Dictionary<Guid, OperatorAudioState> _operatorAudioStates;
+// Editor/Gui/Windows/SettingsWindow.cs - Audio category
+#if DEBUG
+    // Advanced settings section only visible in DEBUG builds
+    FormInputs.AddSectionSubHeader("Advanced Settings");
     
-    private class OperatorAudioState
+    var showAdvanced = _showAdvancedAudioSettings.Value;
+    changed |= FormInputs.AddCheckBox("Show Advanced Audio Settings", ...);
+    
+    if (showAdvanced)
     {
-        public OperatorAudioStream? Stream;
-        public string CurrentFilePath;
-        public bool IsPaused;
-        public float PreviousSeek;
-        public bool PreviousPlay;
-        public bool PreviousStop;
+        // Mixer Configuration
+        FormInputs.AddInt("Sample Rate (Hz)", ref UserSettings.Config.AudioMixerFrequency, ...);
+        FormInputs.AddInt("Update Period (ms)", ref UserSettings.Config.AudioUpdatePeriodMs, ...);
+        FormInputs.AddInt("Update Threads", ref UserSettings.Config.AudioUpdateThreads, ...);
+        FormInputs.AddInt("Playback Buffer Length (ms)", ref UserSettings.Config.AudioPlaybackBufferLengthMs, ...);
+        FormInputs.AddInt("Device Buffer Length (ms)", ref UserSettings.Config.AudioDeviceBufferLengthMs, ...);
+        
+        // FFT and Analysis
+        FormInputs.AddInt("FFT Buffer Size", ref UserSettings.Config.AudioFftBufferSize, ...);
+        FormInputs.AddInt("Frequency Band Count", ref UserSettings.Config.AudioFrequencyBandCount, ...);
+        FormInputs.AddInt("Waveform Sample Count", ref UserSettings.Config.AudioWaveformSampleCount, ...);
+        FormInputs.AddFloat("Low-Pass Cutoff Frequency (Hz)", ref UserSettings.Config.AudioLowPassCutoffFrequency, ...);
+        FormInputs.AddFloat("High-Pass Cutoff Frequency (Hz)", ref UserSettings.Config.AudioHighPassCutoffFrequency, ...);
     }
-    
-    Methods:
-    - UpdateOperatorPlayback()  // Main update loop
-    - PauseOperator()
-    - ResumeOperator()
-    - IsOperatorStreamPlaying()
-    - IsOperatorPaused()
-    - GetOperatorLevel()
-    - GetOperatorWaveform()
-    - GetOperatorSpectrum()
-    - UnregisterOperator()
-#endregion
+#endif
 ```
 
-**State Management:**
-```
-Per-operator state tracking:
-- File path change detection → Dispose old stream, load new
-- Rising edge detection on Play/Stop triggers
-- Pause/Resume transitions
-- Stale detection integration
-- Seek position tracking
-
-Lifecycle:
-Create → Update (each frame) → Stale detection → Dispose
-```
-
----
-
-## Latency Optimizations
-
-### Configuration Changes
-
-#### BASS Configuration (Applied at Init)
-```csharp
-// BEFORE: Default BASS configuration (~300-500ms latency)
-Bass.Init(); // Uses default settings
-
-// AFTER: Optimized configuration (~20-60ms latency)
-Bass.Configure(Configuration.UpdatePeriod, 10);        // 10ms vs 100ms default
-Bass.Configure(Configuration.UpdateThreads, 2);        // 2 vs 1 default
-Bass.Configure(Configuration.PlaybackBufferLength, 100); // 100ms vs 500ms default
-Bass.Configure(Configuration.DeviceBufferLength, 20);   // 20ms vs 100ms default
-Bass.Init(-1, 48000, DeviceInitFlags.Latency, IntPtr.Zero); // 48kHz sample rate
-```
-
-#### Stream Creation Flags
-```csharp
-// BEFORE: Synchronous file I/O
-Bass.CreateStream(filePath, 0, 0, BassFlags.Decode | BassFlags.Float);
-
-// AFTER: Async file I/O + Mixer buffer
-Bass.CreateStream(filePath, 0, 0, BassFlags.Decode | BassFlags.Float | BassFlags.AsyncFile);
-BassMix.MixerAddChannel(mixerHandle, streamHandle, BassFlags.MixerChanBuffer);
-```
-
-#### Immediate Buffering
-```csharp
-// CRITICAL: Force immediate data fetch
-// Without this, short sounds would have 100-300ms delay before first audio
-BassMix.MixerAddChannel(mixerHandle, streamHandle, BassFlags.MixerChanBuffer);
-Bass.ChannelUpdate(mixerHandle, 0);  // ← This is the key!
-
-// Also on Play():
-Bass.ChannelUpdate(mixerHandle, 0);  // Force buffer refresh
-```
-
-### Latency Breakdown
-
-| Component | Before | After | Change |
-|-----------|--------|-------|--------|
-| **Device Buffer** | 100ms | 20ms | -80ms |
-| **Playback Buffer** | 500ms | 100ms | -400ms |
-| **Update Period** | 100ms | 10ms | -90ms |
-| **File I/O** | 50-100ms (sync) | 5-10ms (async) | -45-90ms |
-| **Mixer Processing** | N/A | 10-20ms | +10-20ms |
-| **Total Pipeline** | 300-500ms | 20-60ms | **-440ms (88%)** |
-
-### Short Sound Performance
-
-**Test Case: 100ms audio clip**
-
-Before optimization:
-```
-User triggers play
-  ↓ ~100ms   (file open - synchronous)
-  ↓ ~200ms   (buffer fill - large buffers)
-  ↓ ~100ms   (device latency)
-  ↓ ~50ms    (update period delays)
-────────────────────────────────────────────────
-Total: ~450ms
-Result: Clip finishes before audio starts playing! ❌
-```
-
-After optimization:
-```
-User triggers play
-  ↓ ~5ms     (file open - AsyncFile flag)
-  ↓ ~10ms    (immediate ChannelUpdate)
-  ↓ ~20ms    (device latency - reduced)
-  ↓ ~5ms     (mixer processing)
-────────────────────────────────
-Total: ~40ms
-Result: Clip plays reliably ✅
-```
-
----
-
-## Deadlock Fixes
-
-### Critical Issue: Bass.ChannelGetInfo() Deadlock
-
-**Problem:**
-```csharp
-// THIS CODE CAUSED DEADLOCKS:
-private void UpdateWaveformFromPcm()
-{
-    var info = Bass.ChannelGetInfo(StreamHandle); // Called every frame
-    int channels = info.Channels;
-    
-    // Problem: ChannelGetInfo can deadlock when:
-    // 1. Called on a mixer source channel
-    // 2. BASS mixer thread holds internal lock
-    // 3. Main thread tries to acquire same lock
-    // Result: Complete UI freeze
-}
-```
-
-**Root Cause Analysis:**
-1. `Bass.ChannelGetInfo()` acquires BASS internal synchronization locks
-2. When called on a channel that's a source in a mixer, it may conflict with mixer thread
-3. Mixer thread processes audio continuously in background
-4. Lock contention → deadlock → frozen application
-
-**Solution: Metadata Caching**
-```csharp
-// Cache channel metadata at load time
-private int _cachedChannels;
-private int _cachedFrequency;
-
-internal static bool TryLoadStream(...)
-{
-    // Safe: Called once during initialization, not in hot path
-    var info = Bass.ChannelGetInfo(streamHandle);
-    
-    stream._cachedChannels = info.Channels;    // Cache channels
-    stream._cachedFrequency = info.Frequency;  // Cache frequency
-    
-    Log.Debug($"Stream info: Channels={info.Channels}, Freq={info.Frequency}");
-}
-
-private void UpdateWaveformFromPcm()
-{
-    // Safe: No API call, just memory read
-    int channels = _cachedChannels;
-    
-    // Channel metadata doesn't change during stream lifetime
-    // so this is safe and correct
-}
-```
-
-**Impact:**
-- ✅ Eliminated 100% of deadlocks related to channel info queries
-- ✅ Improved performance (no API call overhead in hot path)
-- ✅ More predictable frame times
-- ✅ Better diagnostic logging (info logged once at load)
-
-### Other Threading Improvements
-
-**1. BassMix.ChannelGetData() Usage**
-```csharp
-// Use mixer-specific APIs for mixer channels
-// GOOD:
-BassMix.ChannelGetData(streamHandle, buffer, length);
-
-// AVOID:
-Bass.ChannelGetData(streamHandle, buffer, length); // Can have issues on mixer channels
-```
-
-**2. State Query Optimization**
-```csharp
-// Minimize API calls in Update() loop
-// BEFORE:
-foreach (var frame in frames) {
-    var isActive = Bass.ChannelIsActive(handle);  // API call every frame
-    var flags = BassMix.ChannelFlags(handle, 0, 0); // API call every frame
-}
-
-// AFTER:
-// Cache state, only query when needed
-if (_stateChanged) {
-    var isActive = Bass.ChannelIsActive(handle);
-    _cachedIsActive = isActive;
-}
-```
-
-**3. Mixer Reset on Seek**
-```csharp
-// Always use MixerReset flag when seeking mixer channels
-BassMix.ChannelSetPosition(streamHandle, position, 
-    PositionFlags.Bytes | PositionFlags.MixerReset);
-    
-// This prevents mixer buffer corruption and ensures clean seek
-```
-
----
-
-## Performance Metrics
-
-### Before vs After Comparison
-
-#### Startup Time
-```
-Component               Before    After    Change
-─────────────────────────────────────────────────
-BASS Init               ~50ms     ~55ms    +5ms
-Create Mixers           N/A       ~15ms    +15ms
-Load FLAC Plugin        N/A       ~8ms     +8ms
-Total Overhead          ~50ms     ~78ms    +28ms
-
-Note: +28ms one-time cost at startup, saves 400ms+ per audio event
-```
-
-#### Per-Stream Load Time
-```
-File Type    Size     Before    After    Change
-────────────────────────────────────────────────
-WAV 100ms    8KB      45ms      12ms     -73%
-WAV 1s       88KB     52ms      15ms     -71%
-MP3 5s       120KB    125ms     35ms     -72%
-FLAC 5s      180KB    450ms*    38ms     -91%
-
-*FLAC duration detection was broken before (used MF decoder)
- Now uses BASS FLAC plugin with accurate length detection
-```
-
-#### Memory Usage
-```
-Component              Before      After       Change
-──────────────────────────────────────────────────────
-Per Stream             ~200KB      ~250KB      +50KB
-Mixer Overhead         N/A         ~500KB      +500KB
-Cached Metadata        N/A         ~100B       +100B
-Total (10 streams)     ~2MB        ~3MB        +1MB
-
-Note: Modest memory increase for dramatic latency improvement
-```
-
-#### CPU Usage
-```
-Scenario                  Before    After    Change
-────────────────────────────────────────────────────
-Idle (no audio)           0.1%      0.3%     +0.2%
-1 stream playing          0.8%      1.2%     +0.4%
-5 streams playing         3.2%      4.5%     +1.3%
-10 streams playing        6.1%      8.2%     +2.1%
-
-Note: Extra CPU from mixer processing + higher update rate
-      Trade-off for lower latency is acceptable
-```
-
-### Real-World Test Results
-
-**Short Sound Test (100ms sine wave @ 440Hz):**
-```
-Trigger → First Audio Detected:
-────────────────────────────────
-Trial 1:  38ms
-Trial 2:  42ms
-Trial 3:  35ms
-Trial 4:  45ms
-Trial 5:  40ms
-────────────────────────────────
-Average:  40ms  ✅ (was 450ms+ before)
-Std Dev:  3.7ms
-Success:  100% (was 0% before)
-```
-
-**Rapid Trigger Test (5 triggers in 200ms):**
-```
-All 5 sounds played correctly ✅
-No clicks or artifacts ✅
-No dropped sounds ✅
-
-(Before: only 1-2 sounds would play)
-```
-
-**Stale Detection Test:**
-```
-Stop calling Update() on active stream
-Expected: Stream mutes after 100ms
-Result:
-  t=0ms    : Stream playing
-  t=50ms   : Stream still playing
-  t=120ms  : Stream muted (MUTED log)
-  Resume Update()
-  t=140ms  : Stream unmuted (UNMUTED log)
-  
-✅ Working as designed
-```
-
----
-
-## Breaking Changes
-
-> **Note:** These are non-backward compatible changes. Most will not cause crashes, but require code updates or will result in warnings. The severity and required actions are clearly marked below.
-
-### API Changes
-
-#### 1. AudioEngine.CompleteFrame() - ⚠️ REQUIRED ACTION
-**Severity:** High - Application will not initialize audio correctly without this change  
-**Impact:** Low-latency configuration will not be applied
-
-```csharp
-// BEFORE: BASS initialized automatically somewhere
-AudioEngine.CompleteFrame(playback, frameDuration);
-
-// AFTER: AudioMixerManager MUST be initialized first
-AudioMixerManager.Initialize();  // Call once at app startup
-AudioEngine.CompleteFrame(playback, frameDuration);
-```
-
-**Migration:** Add `AudioMixerManager.Initialize()` at application startup before any audio operations.
-
-#### 2. Stream Creation (Internal) - ℹ️ INFORMATIONAL
-**Severity:** Low - Internal change, no user action required  
-**Impact:** Existing code continues to work, but is now deprecated
-
-```csharp
-// BEFORE: Direct stream creation (deprecated but still works)
-var handle = Bass.CreateStream(...);
-Bass.ChannelPlay(handle);
-
-// AFTER: Should go through mixer (recommended)
-var handle = Bass.CreateStream(..., BassFlags.Decode);
-BassMix.MixerAddChannel(mixerHandle, handle, BassFlags.MixerChanBuffer);
-Bass.ChannelUpdate(mixerHandle, 0);
-// Mixer handles playback to soundcard
-```
-
-**Migration:** Optional for internal code. External code using BASS directly will continue to work.
-
-#### 3. Operator Audio Playback - ✅ NEW FEATURE
-**Severity:** None - This is a new capability  
-**Impact:** Positive - Adds new functionality
-
-```csharp
-// BEFORE: No operator audio support
-// Audio could only be played via timeline/soundtrack
-
-// AFTER: New operator-based playback available
-AudioEngine.UpdateOperatorPlayback(operatorId, ...);
-AudioEngine.GetOperatorLevel(operatorId);
-// etc.
-```
-
-**Migration:** No action required. This is purely additive.
-
-### Configuration Requirements
-
-#### Required Files - ⚠️ REQUIRED FOR FLAC SUPPORT
-**Severity:** Medium - Missing file will log warning  
-**Impact:** FLAC files will not load (WAV/MP3 unaffected)
-
-```
-Project Root/
-├── bassflac.dll          ← NEW: Required for FLAC support
-├── bass.dll              ← Existing
-├── bassmix.dll           ← Existing
-└── ... other BASS plugins
-```
-
-**Migration:** Download and copy `bassflac.dll` if FLAC support is needed. Application will log a warning if FLAC files are used without the plugin.
-
-#### Initialization Order (CRITICAL) - ⚠️ REQUIRED ACTION
-**Severity:** High - Will log warning and reduce performance  
-**Impact:** Low-latency optimizations will not be applied
-
-```csharp
-// CORRECT ORDER:
-1. AudioMixerManager.Initialize()  // FIRST, before any BASS usage
-2. Load other resources
-3. AudioEngine.CompleteFrame()      // Can now use audio
-
-// WRONG ORDER (will get warning):
-1. Bass.Init()                      // ❌ Too early!
-2. AudioMixerManager.Initialize()   // ⚠️ Warning: BASS already initialized
-   // Low-latency config won't apply!
-```
-
-**Migration:** Ensure `AudioMixerManager.Initialize()` is called before any other BASS initialization. Check console for warnings.
-
-### Behavioral Changes
-
-> **Note:** These changes affect runtime behavior but do not require code changes. They may affect user experience in existing projects.
-
-#### 1. Short Sounds Now Work - ℹ️ IMPROVEMENT
-**Severity:** None - Behavioral improvement  
-**Impact:** Positive, but may be unexpected in existing projects
-
-```
-Before: Sounds under 200ms rarely played
-After:  Sounds down to 50ms play reliably
-Impact: Existing projects may suddenly have more audio than expected
-        (sounds that were silent before will now be audible)
-```
-
-**Migration:** Review existing projects that use short audio clips. Some clips that were previously too short to play may now be audible.
-
-#### 2. Stale Detection - ℹ️ AUTOMATIC CLEANUP
-**Severity:** None - Automatic improvement  
-**Impact:** Positive - prevents audio leaks
-
-```
-Before: Streams played indefinitely even if operator was deleted
-After:  Streams auto-mute after 100ms without updates
-Impact: Orphaned sounds clean up automatically
-        (no more lingering audio from deleted operators)
-```
-
-**Migration:** None required. This prevents a common bug. If you relied on orphaned streams continuing to play, you'll need to properly manage stream lifecycle.
-
-#### 3. FLAC Duration - ℹ️ BUG FIX
-**Severity:** Low - May affect timeline synchronization  
-**Impact:** Timeline-based projects using FLAC may need adjustment if they
-        were compensating for incorrect duration values
-
-```
-Before: FLAC files often reported incorrect duration
-After:  FLAC duration is accurate (uses native decoder)
-Impact: Existing FLAC-based timelines may need adjustment if they
-        were compensating for incorrect duration values
-```
-
-**Migration:** Check timeline-based projects using FLAC files. Duration values will now be accurate, which may change timing if you had worked around the previous bug.
-
----
-
-### Summary of Required Actions
-
-| Change | Severity | Action Required | Impact if Ignored |
-|--------|----------|----------------|-------------------|
-| AudioMixerManager.Initialize() | ⚠️ High | Add initialization call | Low-latency won't work, ~400ms latency |
-| bassflac.dll | ⚠️ Medium | Copy DLL if using FLAC | FLAC files won't load, warning logged |
-| Initialization Order | ⚠️ High | Move Initialize() call earlier | Low-latency won't work, warning logged |
-| Short Sounds | ℹ️ Info | Review projects | More sounds may be audible |
-| Stale Detection | ℹ️ Info | None | Orphaned streams now clean up properly |
-| FLAC Duration | ℹ️ Info | Check FLAC timelines | Timeline sync may need adjustment |
-
-
----
-
-## Migration Guide
-
-### For Application Developers
-
-**Step 1: Update Initialization Code**
-```csharp
-// In your Program.cs or main initialization:
-
-// OLD:
-Bass.Init();
-// ... other init ...
-
-// NEW:
-AudioMixerManager.Initialize();  // ← Add this FIRST (now initializes at 48kHz)
-// ... other init ...
-
-// AudioEngine.CompleteFrame() will now use the mixer system
-```
-
-**Step 2: Add BASS FLAC Plugin**
-```
-1. Download bassflac.dll from un4seen.com
-2. Copy to your application output directory
-3. AudioMixerManager will load it automatically
-4. Check logs for: "BASS FLAC plugin loaded successfully"
-```
-
-**Step 3: Test Short Sounds**
-```csharp
-// Create a test with 100ms audio file
-var player = new StereoAudioPlayer();
-player.AudioFile = "test_100ms.wav";
-player.PlayAudio = true;
-
-// Should hear audio within ~40ms
-// If not, check initialization order
-```
-
-### For Operator Developers
-
-**Using StereoAudioPlayer:**
-```csharp
-// Create operator instance
-var audioPlayer = new StereoAudioPlayer
-{
-    AudioFile = "path/to/sound.wav",
-    Volume = 1.0f,
-    Panning = 0.0f,  // Center
-    Speed = 1.0f
-};
-
-// Trigger playback (rising edge)
-audioPlayer.PlayAudio = true;  // ← Plays once
-audioPlayer.PlayAudio = false; // Reset for next trigger
-
-// Or use stop
-audioPlayer.StopAudio = true;  // ← Rising edge stops
-
-// Get feedback
-bool isPlaying = audioPlayer.IsPlaying;
-float level = audioPlayer.GetLevel;
-```
-
-**Test Mode for Debugging:**
-```csharp
-audioPlayer.EnableTestMode = true;
-audioPlayer.TestFrequency = 440f;  // A4 note
-audioPlayer.TriggerShortTest = true;  // Generates 0.1s sine wave
-// Check DebugInfo output for diagnostics
-```
-
-### Troubleshooting
-
-#### Issue: "AudioMixerManager failed to initialize"
-```
-Cause: BASS already initialized before AudioMixerManager
-Fix:   Move AudioMixerManager.Initialize() to earliest point in startup
-Check: Look for any Bass.Init() calls before it
-```
-
-#### Issue: Short sounds still not playing
-```
-Cause: Missing Bass.ChannelUpdate() after MixerAddChannel
-Fix:   Add immediate buffering:
-       Bass.ChannelUpdate(mixerHandle, 0);  // Force data fetch NOW
-```
-
-#### Issue: Application freezes when playing audio
-```
-Cause: Calling Bass.ChannelGetInfo() in update loop
-Fix:   Cache metadata at initialization time
-Check: Search codebase for "Bass.ChannelGetInfo" in hot paths
-```
-
-#### Issue: FLAC files have wrong duration
-```
-Cause: bassflac.dll not loaded
-Fix:   Ensure bassflac.dll is in output directory
-Check: Log shows "BASS FLAC plugin loaded successfully"
-```
-
-#### Issue: Sounds continue playing after operator deleted
-```
-Cause: Not calling AudioEngine.UnregisterOperator()
-Fix:   Call in finalizer/Dispose:
-       AudioEngine.UnregisterOperator(_operatorId);
-Note:  Stale detection will auto-mute after 100ms anyway
-```
-
-#### Issue: Audio sounds slightly different
-```
-Cause: Sample rate changed from 44.1kHz to 48kHz
-Fix:   This is expected and generally improves quality
-Check: BASS automatically resamples, no action needed
-Note:  48kHz is professional standard, better for plugins/effects
-```
-
----
-
-## Future Improvements
-
-### Planned
-- [ ] Per-mixer EQ/effects support
-- [ ] Dynamic mixer channel allocation (currently fixed stereo)
-- [ ] Surround sound support (5.1, 7.1)
-- [ ] Audio recording/capture from mixer
-- [ ] VST plugin support in mixer chain
-
-### Under Consideration
-- [ ] Automatic sample rate conversion
-- [ ] Adaptive buffer sizing based on system load
-- [ ] GPU-accelerated audio effects
-- [ ] Real-time waveform/spectrum visualization optimization
-- [ ] ASIO driver support for ultra-low latency
-
-### Performance Targets
-- Target latency: <10ms (currently 20-60ms)
-- Target CPU overhead: <2% for 10 streams (currently ~8%)
-- Target memory: <1MB per stream (currently ~250KB)
-
----
-
-## Appendix: Log Examples
-
-### Successful Initialization
-```
-[AudioMixer] Starting initialization...
-[AudioMixer] BASS not initialized, configuring for low latency...
-[AudioMixer] Config - UpdatePeriod: 10ms, UpdateThreads: 2, 
-             PlaybackBuffer: 100ms, DeviceBuffer: 20ms
-[AudioMixer] Attempting BASS.Init with Latency flag at 48000Hz...
-[AudioMixer] BASS initialized with LATENCY flag (optimized)
-[AudioMixer] BASS Info - Device: 1, SampleRate: 48000Hz, 
-             MinBuffer: 10ms, Latency: 20ms
-[AudioMixer] BASS FLAC plugin loaded successfully: Handle=12345
-[AudioMixer] Global mixer created: Handle=100
-[AudioMixer] Operator mixer created: Handle=101
-[AudioMixer] Soundtrack mixer created: Handle=102
-[AudioMixer] Operator mixer added to global mixer successfully
-[AudioMixer] Soundtrack mixer added to global mixer successfully
-[AudioMixer] Global mixer started, State: Playing
-[AudioMixer] ✓ Audio mixer system initialized successfully 
-             with low-latency settings.
-```
-
-### Stream Load + Playback
-```
-[OperatorAudio] Loading: test_100ms.wav (8820 bytes)
-[OperatorAudio] Stream created: Handle=200, CreateTime: 8.42ms
-[OperatorAudio] Stream info: Channels=2, Freq=44100, 
-                CType=Wave, Flags=Decode
-[OperatorAudio] Stream length: 0.100s (8820 bytes)
-[OperatorAudio] ✓ Loaded: test_100ms.wav | Duration: 0.100s | 
-                Handle: 200 | Channels: 2 | Freq: 44100 | 
-                MixerAdd: 2.15ms | Update: 0.87ms | 
-                StreamActive: Paused | MixerActive: Playing
-[OperatorAudio] First update: test_100ms.wav | Time: 0.000
-[OperatorAudio] ▶ Play(): test_100ms.wav | FlagResult: 0 | 
-                FlagTime: 0.05ms | UpdateTime: 0.12ms | 
-                StreamActive: Playing | MixerActive: Playing
-```
-
-### Stale Detection
-```
-[OperatorAudio] First update: music.mp3 | Time: 0.000
-[OperatorAudio] ▶ Play(): music.mp3
-... (stream plays normally) ...
-... (Update() stops being called) ...
-[OperatorAudio] MUTED (active->stale): music.mp3 | Duration: 180.5s | 
-                TimeSinceStart: 12.3s | TimeSinceUpdate: 0.152s | 
-                Updates: 738 | MuteCount: 1
-... (Update() resumes) ...
-[OperatorAudio] UNMUTED (stale->active): music.mp3 | 
-                Updates: 739 | TimeSinceUpdate: 0.016s
-```
-
----
-
-## Conclusion
-
-This audio architecture redesign represents a fundamental improvement in T3's audio capabilities:
-
-✅ **Reliable short sound playback** - sounds as short as 50ms now work  
-✅ **Dramatic latency reduction** - 88% improvement in trigger-to-audio time  
-✅ **Zero deadlocks** - complete elimination of thread contention issues  
-✅ **Better resource management** - automatic cleanup via stale detection  
-✅ **Future-proof architecture** - extensible mixer system for effects/routing  
-✅ **Professional audio quality** - 48kHz sample rate for better quality and compatibility  
-
-The new `StereoAudioPlayer` operator opens up new creative possibilities for interactive audio in operator graphs, while the underlying `AudioMixerManager` and `OperatorAudioStream` infrastructure provides a solid foundation for future audio features.
-
-The transition to 48kHz sample rate ensures compatibility with professional audio tools and plugins while maintaining excellent quality for all audio content through BASS's high-quality resampling.
-
----
+**Rationale:**
+- **End User Protection:** Complex audio settings can cause system instability if misconfigured
+- **Support Burden:** Prevents support issues from users experimenting with advanced settings
+- **Developer Access:** Full configuration control remains available during development
+- **Professional Deployment:** Release builds maintain stable, tested configuration
 
-**Document Version:** 1.1  
-**Last Updated:** 01-09-2026  
-**Maintainer:** H445
-**Change Log:**
-- v1.1: Updated to reflect 48kHz sample rate change (from 44.1kHz)
-- v1.0: Initial comprehensive documentation
+**Settings Visibility:**
 

@@ -126,6 +126,18 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
 
         // Audio
         public bool SuppressAudioDebugLogs = false;
+        
+        // Audio Advanced Settings
+        public int AudioMixerFrequency = 48000;
+        public int AudioUpdatePeriodMs = 10;
+        public int AudioUpdateThreads = 2;
+        public int AudioPlaybackBufferLengthMs = 100;
+        public int AudioDeviceBufferLengthMs = 20;
+        public int AudioFftBufferSize = 1024;
+        public int AudioFrequencyBandCount = 32;
+        public int AudioWaveformSampleCount = 1024;
+        public float AudioLowPassCutoffFrequency = 250f;
+        public float AudioHighPassCutoffFrequency = 2000f;
 
         // Other settings
         public float GizmoSize = 100;

@@ -27,6 +27,7 @@ internal sealed class SettingsWindow : Window
         Interface,
         Theme,
         Project,
+        Audio,
         Midi,
         OSC,
         SpaceMouse,
@@ -35,6 +36,7 @@ internal sealed class SettingsWindow : Window
     }
 
     private Categories _activeCategory;
+    private bool? _showAdvancedAudioSettings;
 
     protected override void DrawContent()
     {
@@ -385,6 +387,123 @@ internal sealed class SettingsWindow : Window
 
                     FormInputs.SetIndentToParameters();
 
+                    break;
+                }
+                case Categories.Audio:
+                {
+                    FormInputs.AddSectionHeader("Audio System");
+                    FormInputs.AddVerticalSpace();
+                    
+                    FormInputs.SetIndentToParameters();
+                    changed |= FormInputs.AddFloat("Audio Volume",
+                                                   ref ProjectSettings.Config.PlaybackVolume,
+                                                   0.0f, 10f, 0.01f, true, true,
+                                                   "Limit the audio playback volume",
+                                                   ProjectSettings.Defaults.PlaybackVolume);
+                    
+                    FormInputs.AddVerticalSpace();
+                    FormInputs.SetIndentToLeft();
+                    
+                    var audioDebugChanged = FormInputs.AddCheckBox("Suppress Audio Debug Logs",
+                                                      ref UserSettings.Config.SuppressAudioDebugLogs,
+                                                      "Suppresses Debug and Info log messages from audio system classes. Warning and Error messages will still be logged.",
+                                                      UserSettings.Defaults.SuppressAudioDebugLogs);
+                    
+                    if (audioDebugChanged)
+                    {
+                        T3.Core.Audio.AudioConfig.SuppressDebugLogs = UserSettings.Config.SuppressAudioDebugLogs;
+                        changed = true;
+                    }
+                    
+                    FormInputs.AddVerticalSpace();
+                    FormInputs.AddSectionSubHeader("Advanced Settings");
+                    FormInputs.SetIndentToLeft();
+                    
+#if DEBUG
+                    if (!_showAdvancedAudioSettings.HasValue)
+                        _showAdvancedAudioSettings = false;
+                    
+                    var showAdvanced = _showAdvancedAudioSettings.Value;
+                    changed |= FormInputs.AddCheckBox("Show Advanced Audio Settings",
+                                                      ref showAdvanced,
+                                                      "Shows advanced audio configuration options. Changes to these settings require a restart.",
+                                                      false);
+                    _showAdvancedAudioSettings = showAdvanced;
+                    
+                    if (showAdvanced)
+                    {
+                        FormInputs.AddVerticalSpace();
+                        FormInputs.SetIndentToParameters();
+                        CustomComponents.HelpText("⚠ Warning: Changes to these settings require a restart of the application.");
+                        FormInputs.AddVerticalSpace();
+                        
+                        FormInputs.AddSectionSubHeader("Mixer Configuration");
+                        
+                        changed |= FormInputs.AddInt("Sample Rate (Hz)",
+                                                     ref UserSettings.Config.AudioMixerFrequency,
+                                                     8000, 192000, 1f,
+                                                     "Sample rate for all mixer streams. Common values: 44100, 48000, 96000",
+                                                     UserSettings.Defaults.AudioMixerFrequency);
+                        
+                        changed |= FormInputs.AddInt("Update Period (ms)",
+                                                     ref UserSettings.Config.AudioUpdatePeriodMs,
+                                                     1, 100, 0.1f,
+                                                     "BASS update period in milliseconds for low-latency playback. Lower values reduce latency but increase CPU usage.",
+                                                     UserSettings.Defaults.AudioUpdatePeriodMs);
+                        
+                        changed |= FormInputs.AddInt("Update Threads",
+                                                     ref UserSettings.Config.AudioUpdateThreads,
+                                                     1, 8, 0.1f,
+                                                     "Number of BASS update threads",
+                                                     UserSettings.Defaults.AudioUpdateThreads);
+                        
+                        changed |= FormInputs.AddInt("Playback Buffer Length (ms)",
+                                                     ref UserSettings.Config.AudioPlaybackBufferLengthMs,
+                                                     10, 1000, 1f,
+                                                     "Playback buffer length in milliseconds",
+                                                     UserSettings.Defaults.AudioPlaybackBufferLengthMs);
+                        
+                        changed |= FormInputs.AddInt("Device Buffer Length (ms)",
+                                                     ref UserSettings.Config.AudioDeviceBufferLengthMs,
+                                                     5, 500, 1f,
+                                                     "Device buffer length in milliseconds for low-latency output",
+                                                     UserSettings.Defaults.AudioDeviceBufferLengthMs);
+                        
+                        FormInputs.AddVerticalSpace();
+                        FormInputs.AddSectionSubHeader("FFT and Analysis");
+                        
+                        changed |= FormInputs.AddInt("FFT Buffer Size",
+                                                     ref UserSettings.Config.AudioFftBufferSize,
+                                                     256, 8192, 1f,
+                                                     "FFT buffer size for frequency analysis. Must be a power of 2.",
+                                                     UserSettings.Defaults.AudioFftBufferSize);
+                        
+                        changed |= FormInputs.AddInt("Frequency Band Count",
+                                                     ref UserSettings.Config.AudioFrequencyBandCount,
+                                                     8, 128, 1f,
+                                                     "Number of frequency bands for audio analysis",
+                                                     UserSettings.Defaults.AudioFrequencyBandCount);
+                        
+                        changed |= FormInputs.AddInt("Waveform Sample Count",
+                                                     ref UserSettings.Config.AudioWaveformSampleCount,
+                                                     256, 8192, 1f,
+                                                     "Waveform sample buffer size",
+                                                     UserSettings.Defaults.AudioWaveformSampleCount);
+                        
+                        changed |= FormInputs.AddFloat("Low-Pass Cutoff Frequency (Hz)",
+                                                       ref UserSettings.Config.AudioLowPassCutoffFrequency,
+                                                       20f, 1000f, 1f, true, true,
+                                                       "Low-pass filter cutoff frequency for low frequency separation",
+                                                       UserSettings.Defaults.AudioLowPassCutoffFrequency);
+                        
+                        changed |= FormInputs.AddFloat("High-Pass Cutoff Frequency (Hz)",
+                                                       ref UserSettings.Config.AudioHighPassCutoffFrequency,
+                                                       1000f, 20000f, 1f, true, true,
+                                                       "High-pass filter cutoff frequency for high frequency separation",
+                                                       UserSettings.Defaults.AudioHighPassCutoffFrequency);
+                    }
+#endif
+                    
                     break;
                 }
                 case Categories.Midi:
