@@ -29,6 +29,10 @@ public sealed class OperatorAudioStream
     private float _currentVolume = 1.0f;
     private float _currentPanning = 0.0f;
     private float _currentSpeed = 1.0f;
+    
+    // Cached channel info to avoid calling Bass.ChannelGetInfo in hot paths (can deadlock)
+    private int _cachedChannels;
+    private int _cachedFrequency;
 
     // Waveform and spectrum buffers
     private readonly List<float> _waveformBuffer = new();
@@ -82,7 +86,7 @@ public sealed class OperatorAudioStream
 
         Bass.ChannelGetAttribute(streamHandle, ChannelAttribute.Frequency, out var defaultPlaybackFrequency);
 
-        // Get channel info for diagnostics
+        // Get channel info for diagnostics - CACHE IT to avoid deadlocks later
         var info = Bass.ChannelGetInfo(streamHandle);
 
         // Log format information - with FLAC plugin, CType should be FLAC instead of MF
@@ -137,14 +141,16 @@ public sealed class OperatorAudioStream
                          Duration = duration,
                          FilePath = filePath,
                          IsPlaying = true,
-                         IsPaused = false
+                         IsPaused = false,
+                         _cachedChannels = info.Channels,
+                         _cachedFrequency = info.Frequency
                      };
 
         var streamActive = Bass.ChannelIsActive(streamHandle);
         var mixerActive = Bass.ChannelIsActive(mixerHandle);
         var flags = BassMix.ChannelFlags(streamHandle, 0, 0);
         
-        Log.Info($"[OperatorAudio] ✓ Loaded: {fileName} | Duration: {duration:F3}s | Handle: {streamHandle} | MixerAdd: {mixerAddTime:F2}ms | Update: {updateTime:F2}ms | StreamActive: {streamActive} | MixerActive: {mixerActive} | Flags: {flags}");
+        Log.Info($"[OperatorAudio] ✓ Loaded: {fileName} | Duration: {duration:F3}s | Handle: {streamHandle} | Channels: {info.Channels} | Freq: {info.Frequency} | MixerAdd: {mixerAddTime:F2}ms | Update: {updateTime:F2}ms | StreamActive: {streamActive} | MixerActive: {mixerActive} | Flags: {flags}");
 
         return true;
     }
@@ -435,24 +441,56 @@ public sealed class OperatorAudioStream
 
     private void UpdateWaveformFromPcm()
     {
-        var info = Bass.ChannelGetInfo(StreamHandle);
+        // CRITICAL FIX: Use cached channel info instead of calling Bass.ChannelGetInfo
+        // Bass.ChannelGetInfo can deadlock when called on mixer source channels
+        // because it may try to acquire locks while BASS's mixer thread holds them
+        
+        var fileName = Path.GetFileName(FilePath);
+        
+        if (_cachedChannels <= 0)
+        {
+            Log.Warning($"[OperatorAudio] UpdateWaveformFromPcm: Invalid cached channels ({_cachedChannels}) for {fileName}");
+            return;
+        }
 
-        int sampleCount = WaveformWindowSamples * info.Channels;
+        int sampleCount = WaveformWindowSamples * _cachedChannels;
         var buffer = new short[sampleCount];
 
         int bytesRequested = sampleCount * sizeof(short);
         
         // For mixer source channels, use BassMix.ChannelGetData
-        int bytesReceived = BassMix.ChannelGetData(StreamHandle, buffer, bytesRequested);
+        Log.Debug($"[OperatorAudio] UpdateWaveformFromPcm: About to call BassMix.ChannelGetData for {fileName} | Channels: {_cachedChannels} | BytesRequested: {bytesRequested}");
+        
+        int bytesReceived;
+        try
+        {
+            bytesReceived = BassMix.ChannelGetData(StreamHandle, buffer, bytesRequested);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[OperatorAudio] UpdateWaveformFromPcm: Exception calling BassMix.ChannelGetData for {fileName}: {ex.Message}");
+            return;
+        }
+        
+        Log.Debug($"[OperatorAudio] UpdateWaveformFromPcm: BassMix.ChannelGetData returned {bytesReceived} bytes for {fileName}");
 
         if (bytesReceived <= 0)
+        {
+            if (_updateCount < 10 || _updateCount % 100 == 0)
+            {
+                Log.Debug($"[OperatorAudio] UpdateWaveformFromPcm: No data received for {fileName} | Error: {Bass.LastError}");
+            }
             return;
+        }
 
         int samplesReceived = bytesReceived / sizeof(short);
-        int frames = samplesReceived / info.Channels;
+        int frames = samplesReceived / _cachedChannels;
 
         if (frames <= 0)
+        {
+            Log.Debug($"[OperatorAudio] UpdateWaveformFromPcm: No frames for {fileName} | SamplesReceived: {samplesReceived} | Channels: {_cachedChannels}");
             return;
+        }
 
         _waveformBuffer.Clear();
 
@@ -465,19 +503,24 @@ public sealed class OperatorAudioStream
             if (frameIndex >= frames)
                 frameIndex = frames - 1;
 
-            int frameBase = frameIndex * info.Channels;
+            int frameBase = frameIndex * _cachedChannels;
             float sum = 0f;
 
-            for (int ch = 0; ch < info.Channels; ch++)
+            for (int ch = 0; ch < _cachedChannels; ch++)
             {
                 short s = buffer[frameBase + ch];
                 sum += Math.Abs(s / 32768f);
             }
 
-            float amp = sum / info.Channels;
+            float amp = sum / _cachedChannels;
             _waveformBuffer.Add(amp);
 
             pos += step;
+        }
+        
+        if (_updateCount < 20)
+        {
+            Log.Debug($"[OperatorAudio] UpdateWaveformFromPcm: SUCCESS for {fileName} | Frames: {frames} | WaveformSamples: {_waveformBuffer.Count}");
         }
     }
 
