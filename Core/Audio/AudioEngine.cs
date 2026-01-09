@@ -35,10 +35,21 @@ public static class AudioEngine
     {
         if (!_bassInitialized)
         {
-            Bass.Free();
-            Bass.Init();
+            // Initialize audio mixer FIRST - this will configure BASS with low-latency settings
             AudioMixerManager.Initialize();
-            _bassInitialized = true;
+            
+            if (AudioMixerManager.OperatorMixerHandle != 0)
+            {
+                _bassInitialized = true;
+            }
+            else
+            {
+                // Fallback: Initialize BASS if mixer failed
+                Bass.Free();
+                Bass.Init();
+                AudioMixerManager.Initialize();
+                _bassInitialized = true;
+            }
         }
         
         // For audio-soundtrack we update once every frame. For Wasapi-inputs, we process directly in the new data callback
@@ -197,11 +208,12 @@ public static class AudioEngine
         // Ensure mixer is initialized
         if (AudioMixerManager.OperatorMixerHandle == 0)
         {
+            Log.Debug($"[AudioEngine] UpdateOperatorPlayback called but mixer not initialized, initializing now...");
             AudioMixerManager.Initialize();
             
             if (AudioMixerManager.OperatorMixerHandle == 0)
             {
-                Log.Warning("AudioMixerManager failed to initialize, cannot play audio");
+                Log.Warning("[AudioEngine] AudioMixerManager failed to initialize, cannot play audio");
                 return;
             }
         }
@@ -210,6 +222,7 @@ public static class AudioEngine
         {
             state = new OperatorAudioState();
             _operatorAudioStates[operatorId] = state;
+            Log.Debug($"[AudioEngine] Created new audio state for operator: {operatorId}");
         }
 
         // Resolve file path if it's relative
@@ -220,12 +233,15 @@ public static class AudioEngine
             if (ResourceManager.TryResolvePath(filePath, null, out var absolutePath, out _))
             {
                 resolvedFilePath = absolutePath;
+                Log.Debug($"[AudioEngine] Resolved path: {filePath} → {absolutePath}");
             }
         }
 
         // Handle file change
         if (state.CurrentFilePath != resolvedFilePath)
         {
+            Log.Debug($"[AudioEngine] File path changed for operator {operatorId}: '{state.CurrentFilePath}' → '{resolvedFilePath}'");
+            
             state.Stream?.Dispose();
             state.Stream = null;
             state.CurrentFilePath = resolvedFilePath ?? string.Empty;
@@ -234,9 +250,16 @@ public static class AudioEngine
 
             if (!string.IsNullOrEmpty(resolvedFilePath))
             {
+                var loadStartTime = DateTime.Now;
                 if (OperatorAudioStream.TryLoadStream(resolvedFilePath, AudioMixerManager.OperatorMixerHandle, out var stream))
                 {
+                    var loadTime = (DateTime.Now - loadStartTime).TotalMilliseconds;
                     state.Stream = stream;
+                    Log.Debug($"[AudioEngine] Stream loaded in {loadTime:F2}ms for operator {operatorId}");
+                }
+                else
+                {
+                    Log.Error($"[AudioEngine] Failed to load stream for operator {operatorId}: {resolvedFilePath}");
                 }
             }
         }
@@ -254,6 +277,12 @@ public static class AudioEngine
         // Detect stop trigger (rising edge)
         var stopTrigger = shouldStop && !state.PreviousStop;
         state.PreviousStop = shouldStop;
+        
+        // Log trigger events
+        if (playTrigger)
+            Log.Debug($"[AudioEngine] ▶ Play TRIGGER for operator {operatorId}");
+        if (stopTrigger)
+            Log.Debug($"[AudioEngine] ■ Stop TRIGGER for operator {operatorId}");
 
         // Handle stop trigger
         if (stopTrigger)
@@ -267,10 +296,15 @@ public static class AudioEngine
         // Handle play trigger - restart playback
         if (playTrigger)
         {
+            var playStartTime = DateTime.Now;
+            
             // Stop and restart from beginning
             state.Stream.Stop();
             state.Stream.Play();
             state.IsPaused = false;
+            
+            var playTime = (DateTime.Now - playStartTime).TotalMilliseconds;
+            Log.Info($"[AudioEngine] ▶ Play executed in {playTime:F2}ms for operator {operatorId}");
         }
 
         // Always update volume, mute, panning, and speed when stream is active
@@ -286,6 +320,7 @@ public static class AudioEngine
                 var seekTimeInSeconds = (float)(seek * state.Stream.Duration);
                 state.Stream.Seek(seekTimeInSeconds);
                 state.PreviousSeek = seek;
+                Log.Debug($"[AudioEngine] Seek to {seek:F3} ({seekTimeInSeconds:F3}s) for operator {operatorId}");
             }
         }
     }

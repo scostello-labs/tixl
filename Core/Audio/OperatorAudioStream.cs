@@ -60,33 +60,40 @@ public sealed class OperatorAudioStream
             return false;
         }
 
+        var fileName = Path.GetFileName(filePath);
+        var fileSize = new FileInfo(filePath).Length;
+        Log.Debug($"[OperatorAudio] Loading: {fileName} ({fileSize} bytes)");
+
         // Create stream as a DECODE stream for mixer compatibility
         // With BASS FLAC plugin loaded, FLAC files will use native decoding (CType=FLAC)
         // instead of Media Foundation (CType=MF), which provides better length detection
-        var streamHandle = Bass.CreateStream(filePath, 0, 0, BassFlags.Decode | BassFlags.Float);
+        var startTime = DateTime.Now;
+        var streamHandle = Bass.CreateStream(filePath, 0, 0, BassFlags.Decode | BassFlags.Float | BassFlags.AsyncFile);
+        var createTime = (DateTime.Now - startTime).TotalMilliseconds;
 
         if (streamHandle == 0)
         {
             var error = Bass.LastError;
-            Log.Error($"Error loading audio stream '{filePath}': {error}.");
+            Log.Error($"[OperatorAudio] Error loading audio stream '{fileName}': {error}. CreateTime: {createTime:F2}ms");
             return false;
         }
+
+        Log.Debug($"[OperatorAudio] Stream created: Handle={streamHandle}, CreateTime: {createTime:F2}ms");
 
         Bass.ChannelGetAttribute(streamHandle, ChannelAttribute.Frequency, out var defaultPlaybackFrequency);
 
         // Get channel info for diagnostics
         var info = Bass.ChannelGetInfo(streamHandle);
-        var fileName = Path.GetFileName(filePath);
 
         // Log format information - with FLAC plugin, CType should be FLAC instead of MF
-        Log.Debug($"[OperatorAudio] Stream info for {fileName}: Channels={info.Channels}, Freq={info.Frequency}, CType={info.ChannelType}");
+        Log.Debug($"[OperatorAudio] Stream info for {fileName}: Channels={info.Channels}, Freq={info.Frequency}, CType={info.ChannelType}, Flags={info.Flags}");
 
         // Get length - with FLAC plugin, this should work reliably
         var bytes = Bass.ChannelGetLength(streamHandle);
         
         if (bytes <= 0)
         {
-            Log.Error($"Failed to get valid length for audio stream {filePath} (bytes={bytes}, error={Bass.LastError}).");
+            Log.Error($"[OperatorAudio] Failed to get valid length for audio stream {fileName} (bytes={bytes}, error={Bass.LastError}).");
             Bass.StreamFree(streamHandle);
             return false;
         }
@@ -96,24 +103,31 @@ public sealed class OperatorAudioStream
         // Sanity check
         if (duration <= 0 || duration > 36000) // Max 10 hours
         {
-            Log.Error($"Invalid duration for audio stream {filePath}: {duration:F3} seconds (bytes={bytes})");
+            Log.Error($"[OperatorAudio] Invalid duration for audio stream {fileName}: {duration:F3} seconds (bytes={bytes})");
             Bass.StreamFree(streamHandle);
             return false;
         }
+
+        Log.Debug($"[OperatorAudio] Stream length: {duration:F3}s ({bytes} bytes)");
 
         // Add stream to mixer - decode streams are required for mixer sources
+        // Use MixerChanBuffer for smoother playback and lower latency
+        startTime = DateTime.Now;
         if (!BassMix.MixerAddChannel(mixerHandle, streamHandle, BassFlags.MixerChanBuffer))
         {
-            Log.Error($"Failed to add stream to mixer: {Bass.LastError}");
+            Log.Error($"[OperatorAudio] Failed to add stream to mixer: {Bass.LastError}");
             Bass.StreamFree(streamHandle);
             return false;
         }
+        var mixerAddTime = (DateTime.Now - startTime).TotalMilliseconds;
         
-        // Ensure the mixer channel is NOT paused - explicitly clear any pause flag
-        BassMix.ChannelFlags(streamHandle, BassFlags.Default, BassFlags.MixerChanPause);
+        // Start paused - we'll unpause when Play() is called
+        BassMix.ChannelFlags(streamHandle, BassFlags.MixerChanPause, BassFlags.MixerChanPause);
 
         // Force the mixer to start buffering data from this stream immediately
+        startTime = DateTime.Now;
         Bass.ChannelUpdate(mixerHandle, 0);
+        var updateTime = (DateTime.Now - startTime).TotalMilliseconds;
 
         stream = new OperatorAudioStream
                      {
@@ -127,7 +141,10 @@ public sealed class OperatorAudioStream
                      };
 
         var streamActive = Bass.ChannelIsActive(streamHandle);
-        Log.Debug($"[OperatorAudio] Successfully loaded: {fileName} | Duration: {duration:F3}s | Bytes: {bytes} | Handle: {streamHandle} | StreamActive: {streamActive}");
+        var mixerActive = Bass.ChannelIsActive(mixerHandle);
+        var flags = BassMix.ChannelFlags(streamHandle, 0, 0);
+        
+        Log.Info($"[OperatorAudio] ✓ Loaded: {fileName} | Duration: {duration:F3}s | Handle: {streamHandle} | MixerAdd: {mixerAddTime:F2}ms | Update: {updateTime:F2}ms | StreamActive: {streamActive} | MixerActive: {mixerActive} | Flags: {flags}");
 
         return true;
     }
@@ -191,10 +208,18 @@ public sealed class OperatorAudioStream
 
     public void Play()
     {
+        var fileName = Path.GetFileName(FilePath);
+        
         if (IsPlaying && !IsPaused && !_isMuted)
+        {
+            Log.Debug($"[OperatorAudio] Play() - already playing: {fileName}");
             return;
+        }
 
         var wasStale = _isMuted;
+        var wasPaused = IsPaused;
+        
+        Log.Debug($"[OperatorAudio] Play() - Starting: {fileName} | WasStale: {wasStale} | WasPaused: {wasPaused}");
         
         // Clear stale-muted state when explicitly playing
         _isMuted = false;
@@ -203,21 +228,26 @@ public sealed class OperatorAudioStream
         _lastUpdateTime = double.NegativeInfinity;
         _streamStartTime = double.NegativeInfinity;
         
-        // CRITICAL: For mixer channels, we must REMOVE the pause flag, not just set buffer flag
-        // The second parameter is the mask of flags to set, third parameter is the mask of flags to clear
-        // We want to CLEAR the pause flag
-        var result = BassMix.ChannelFlags(StreamHandle, BassFlags.Default, BassFlags.MixerChanPause);
+        // For mixer channels: clear the pause flag to unpause
+        var startTime = DateTime.Now;
+        var flagResult = BassMix.ChannelFlags(StreamHandle, 0, BassFlags.MixerChanPause);
+        var flagTime = (DateTime.Now - startTime).TotalMilliseconds;
         
         IsPlaying = true;
         IsPaused = false;
         
         // Force the mixer to buffer data immediately after unpausing
-        // This ensures short sounds start playing right away
+        // This ensures short sounds start playing right away with minimal latency
+        startTime = DateTime.Now;
         Bass.ChannelUpdate(MixerStreamHandle, 0);
+        var updateTime = (DateTime.Now - startTime).TotalMilliseconds;
         
-        var fileName = Path.GetFileName(FilePath);
         var streamActive = Bass.ChannelIsActive(StreamHandle);
-        Log.Debug($"[OperatorAudio] Play() called: {fileName} | WasStale: {wasStale} | Result: {result} | StreamActive: {streamActive}");
+        var mixerActive = Bass.ChannelIsActive(MixerStreamHandle);
+        var currentFlags = BassMix.ChannelFlags(StreamHandle, 0, 0);
+        var isPausedInMixer = (currentFlags & BassFlags.MixerChanPause) != 0;
+        
+        Log.Info($"[OperatorAudio] ▶ Play(): {fileName} | FlagResult: {flagResult} | FlagTime: {flagTime:F2}ms | UpdateTime: {updateTime:F2}ms | StreamActive: {streamActive} | MixerActive: {mixerActive} | PausedInMixer: {isPausedInMixer}");
     }
 
     public void Pause()
@@ -238,9 +268,12 @@ public sealed class OperatorAudioStream
         if (!IsPaused)
             return;
 
-        // For mixer channels, remove the paused flag
-        BassMix.ChannelFlags(StreamHandle, BassFlags.MixerChanBuffer, BassFlags.MixerChanPause);
+        // For mixer channels: clear the pause flag to unpause
+        BassMix.ChannelFlags(StreamHandle, 0, BassFlags.MixerChanPause);
         IsPaused = false;
+        
+        // Force immediate buffer update for responsive playback
+        Bass.ChannelUpdate(MixerStreamHandle, 0);
         
         var fileName = Path.GetFileName(FilePath);
         Log.Debug($"[OperatorAudio] Resumed: {fileName}");
@@ -284,7 +317,7 @@ public sealed class OperatorAudioStream
         else
         {
             // Not muted - remove pause flag and set volume
-            BassMix.ChannelFlags(StreamHandle, BassFlags.MixerChanBuffer, BassFlags.MixerChanPause);
+            BassMix.ChannelFlags(StreamHandle, 0, BassFlags.MixerChanPause);
             Bass.ChannelSetAttribute(StreamHandle, ChannelAttribute.Volume, volume);
         }
     }
@@ -324,56 +357,39 @@ public sealed class OperatorAudioStream
         if (!IsPlaying || (IsPaused && !_isMuted))
             return 0f;
             
-        // For decode streams in a mixer, we read from the MIXER CHANNEL, not the decode stream
+        // Use BassMix.ChannelGetLevel for much better performance than ChannelGetData
+        // This is specifically optimized for mixer channels and has lower latency
+        var level = BassMix.ChannelGetLevel(StreamHandle);
         
-        var info = Bass.ChannelGetInfo(StreamHandle);
-        if (info.Channels == 0)
-            return 0f;
-
-        // Get small buffer worth of float samples (about 20ms at 44.1kHz)
-        const int framesToRead = 882; // ~20ms at 44.1kHz
-        int sampleCount = framesToRead * info.Channels;
-        var buffer = new float[sampleCount];
-        int bytesRequested = sampleCount * sizeof(float);
-        
-        // CRITICAL: For mixer source channels, use BassMix.ChannelGetData to peek at the mixer buffer
-        // This reads from the channel's position in the mixer without advancing the mixer output
-        int bytesRead = BassMix.ChannelGetData(StreamHandle, buffer, bytesRequested | (int)DataFlags.Float);
-        
-        if (bytesRead <= 0)
+        if (level == -1)
         {
-            // Log data read failures for debugging
+            // Log data read failures for debugging (only occasionally)
             if (_updateCount < 10 || _updateCount % 100 == 0)
             {
                 var fileName = Path.GetFileName(FilePath);
                 var channelActive = Bass.ChannelIsActive(StreamHandle);
                 var mixerActive = Bass.ChannelIsActive(MixerStreamHandle);
-                Log.Debug($"[OperatorAudio] GetLevel() no data: {fileName} | BytesRead: {bytesRead} | Updates: {_updateCount} | IsMuted: {_isMuted} | StreamActive: {channelActive} | MixerActive: {mixerActive} | Error: {Bass.LastError}");
+                Log.Debug($"[OperatorAudio] GetLevel() failed: {fileName} | Updates: {_updateCount} | IsMuted: {_isMuted} | StreamActive: {channelActive} | MixerActive: {mixerActive} | Error: {Bass.LastError}");
             }
             return 0f;
         }
 
-        int samplesRead = bytesRead / sizeof(float);
-        if (samplesRead == 0)
-            return 0f;
-
-        // Calculate peak level (maximum absolute value)
-        float peak = 0f;
-        for (int i = 0; i < samplesRead; i++)
-        {
-            float absValue = Math.Abs(buffer[i]);
-            if (absValue > peak)
-                peak = absValue;
-        }
+        // Extract left and right channel levels from the combined value
+        var left = level & 0xFFFF;
+        var right = (level >> 16) & 0xFFFF;
         
-        // Log successful level reads for short sounds
+        // Convert to 0-1 range and take the maximum of both channels
+        var leftLevel = left / 32768f;
+        var rightLevel = right / 32768f;
+        var peak = Math.Max(leftLevel, rightLevel);
+        
+        // Log successful level reads for short sounds (debugging)
         if (Duration < 1.0 && peak > 0f && _updateCount < 20)
         {
             var fileName = Path.GetFileName(FilePath);
             Log.Debug($"[OperatorAudio] GetLevel() SUCCESS: {fileName} | Peak: {peak:F3} | Updates: {_updateCount}");
         }
         
-        // Peak is already in 0-1 range (float audio data)
         return Math.Min(peak, 1f);
     }
 

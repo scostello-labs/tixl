@@ -98,6 +98,7 @@ namespace Lib.io.audio
             if (_operatorId == Guid.Empty)
             {
                 _operatorId = ComputeInstanceGuid();
+                Log.Debug($"[StereoAudioPlayer] Initialized with operator ID: {_operatorId}");
             }
 
             var enableTestMode = EnableTestMode.GetValue(context);
@@ -115,16 +116,22 @@ namespace Lib.io.audio
                 // Detect rising edge on short test trigger
                 if (triggerShortTest && !_previousShortTestTrigger)
                 {
-                    Log.Debug("StereoAudioPlayer: Generating SHORT test tone (0.1s)");
+                    Log.Info("[StereoAudioPlayer] ▶ Generating SHORT test tone (0.1s) - TRIGGER DETECTED");
+                    var genStart = DateTime.Now;
                     _testFilePath = GenerateTestTone(testFrequency, 0.1f, "short");
+                    var genTime = (DateTime.Now - genStart).TotalMilliseconds;
+                    Log.Info($"[StereoAudioPlayer] Test tone generated in {genTime:F2}ms");
                     shouldPlay = true;
                     _testModeActive = true;
                 }
                 // Detect rising edge on long test trigger
                 else if (triggerLongTest && !_previousLongTestTrigger)
                 {
-                    Log.Debug("StereoAudioPlayer: Generating LONG test tone (2.0s)");
+                    Log.Info("[StereoAudioPlayer] ▶ Generating LONG test tone (2.0s) - TRIGGER DETECTED");
+                    var genStart = DateTime.Now;
                     _testFilePath = GenerateTestTone(testFrequency, 2.0f, "long");
+                    var genTime = (DateTime.Now - genStart).TotalMilliseconds;
+                    Log.Info($"[StereoAudioPlayer] Test tone generated in {genTime:F2}ms");
                     shouldPlay = true;
                     _testModeActive = true;
                 }
@@ -159,16 +166,19 @@ namespace Lib.io.audio
             {
                 if (shouldPause)
                 {
+                    Log.Debug($"[StereoAudioPlayer] Pausing operator {_operatorId}");
                     AudioEngine.PauseOperator(_operatorId);
                 }
                 else
                 {
+                    Log.Debug($"[StereoAudioPlayer] Resuming operator {_operatorId}");
                     AudioEngine.ResumeOperator(_operatorId);
                 }
             }
             _wasPausedLastFrame = shouldPause;
 
             // Send all state to AudioEngine - let it handle the logic
+            var updateStart = DateTime.Now;
             AudioEngine.UpdateOperatorPlayback(
                 operatorId: _operatorId,
                 localFxTime: context.LocalFxTime,
@@ -181,6 +191,13 @@ namespace Lib.io.audio
                 speed: speed,
                 seek: seek
             );
+            var updateTime = (DateTime.Now - updateStart).TotalMilliseconds;
+            
+            // Log timing if significant
+            if (updateTime > 1.0)
+            {
+                Log.Debug($"[StereoAudioPlayer] UpdateOperatorPlayback took {updateTime:F2}ms");
+            }
 
             // Get outputs from engine
             IsPlaying.Value = AudioEngine.IsOperatorStreamPlaying(_operatorId);
