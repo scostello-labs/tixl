@@ -7,13 +7,20 @@ internal sealed class BmFontDescription
 {
     public static bool TryInitializeFromFile(string filepath, [NotNullWhen(true)] out BmFontDescription? fontDescription)
     {
+        fontDescription = null;
+        
+        if (!File.Exists(filepath))
+            return false;
+        
+        var lastWriteTime = File.GetLastWriteTime(filepath);
+        
         if (_fontDescriptionForFilePaths.TryGetValue(filepath, out var font))
         {
             fontDescription = font;
-            return true;
+            if(File.Exists(filepath) &&  fontDescription._lastWriteTime == lastWriteTime)
+                return true;
         }
-
-        fontDescription = null;
+        
         
         Font? bmFont;
         try
@@ -38,13 +45,14 @@ internal sealed class BmFontDescription
             return false;
         }
 
-        fontDescription = new BmFontDescription(bmFont);
+        fontDescription = new BmFontDescription(bmFont, lastWriteTime);
         _fontDescriptionForFilePaths[filepath] = fontDescription;
         return true;
     }
 
-    private BmFontDescription(Font bmFont)
+    private BmFontDescription(Font bmFont, DateTime lastWriteTime)
     {
+        _lastWriteTime = lastWriteTime;
         BmFont = bmFont;
         Padding = Paddings.FromString(bmFont.Info.Padding);
             
@@ -74,11 +82,14 @@ internal sealed class BmFontDescription
         return 0;
     }
 
+    private readonly DateTime _lastWriteTime;
     public readonly Paddings Padding;
     public readonly Font BmFont;
     public readonly Dictionary<int, float> KerningForPairs = new();
     public readonly Dictionary<int, FontChar> InfoForCharacter = new();
+    
     private static readonly Dictionary<string, BmFontDescription> _fontDescriptionForFilePaths = new();
+    private static readonly Dictionary<string, DateTime> _fileDatesForFilePaths = new();
         
     public enum HorizontalAligns
     {

@@ -284,7 +284,7 @@ internal static class GraphContextMenu
                 {
                     context.SymbolNameForDialogEdits = selectedChildUis[0].SymbolChild.Symbol.Name ?? string.Empty;
                     context.NameSpaceForDialogEdits = selectedChildUis[0].SymbolChild.Symbol.Namespace ?? string.Empty;
-                    context.SymbolDescriptionForDialog = "";
+                    context.SymbolDescriptionForDialog = selectedChildUis[0].SymbolChild.Symbol.GetSymbolUi().Description;
                     context.DuplicateSymbolDialog.ShowNextFrame();
                 }
 
