@@ -16,9 +16,10 @@
 7. [Breaking Changes](#breaking-changes)
 8. [Migration Guide](#migration-guide)
 9. [Technical Details](#technical-details)
-10. [Future Improvements](#future-improvements)
-11. [Appendix: Log Examples](#appendix-log-examples)
-12. [Conclusion](#conclusion)
+10. [Logging Configuration](#logging-configuration)
+11. [Future Improvements](#future-improvements)
+12. [Appendix: Log Examples](#appendix-log-examples)
+13. [Conclusion](#conclusion)
 
 ---
 
@@ -31,6 +32,7 @@ This document describes a comprehensive redesign of the T3 audio system, introdu
 - **New operator**: `StereoAudioPlayer` for real-time audio playback in operator graphs
 - **Improved short sound handling** with proper buffering and immediate playback
 - **48kHz sample rate** for professional audio quality and better plugin compatibility
+- **Configurable debug logging** to reduce console noise during development
 
 ### Key Achievements
 - ✅ **94% latency reduction** for short sounds (500ms → 30ms typical)
@@ -39,6 +41,172 @@ This document describes a comprehensive redesign of the T3 audio system, introdu
 - ✅ **Native FLAC support** with proper duration detection
 - ✅ **Stale detection system** for automatic resource management
 - ✅ **48kHz professional audio** for better quality and plugin compatibility
+- ✅ **Suppressible debug logs** for cleaner development experience
+
+---
+
+## Logging Configuration
+
+### Audio Debug Log Suppression
+
+**New Feature (01-09-2026):** Audio system debug logging can now be suppressed to reduce console noise during development.
+
+#### Architecture
+
+```
+UserSettings (Editor) → AudioConfig (Core) → Audio Classes
+         ↓                      ↓                    ↓
+   Persisted Setting    Runtime Flag         LogDebug/LogInfo
+```
+
+**Components:**
+1. **`Core/Audio/AudioConfig.cs`** - Centralized audio configuration
+   ```csharp
+   public static class AudioConfig
+   {
+       public static bool SuppressDebugLogs { get; set; } = false;
+       
+       public static void LogDebug(string message)
+       {
+           if (!SuppressDebugLogs)
+               Log.Debug(message);
+       }
+       
+       public static void LogInfo(string message)
+       {
+           if (!SuppressDebugLogs)
+               Log.Info(message);
+       }
+   }
+   ```
+
+2. **Audio Classes** - Use shared logging helpers
+   - `OperatorAudioStream.cs`
+   - `AudioMixerManager.cs`
+   - `AudioEngine.cs`
+   - `StereoAudioPlayer.cs`
+   
+   All use: `AudioConfig.LogDebug()` and `AudioConfig.LogInfo()`
+   
+   ⚠️ **Note:** `Log.Warning()` and `Log.Error()` are NEVER suppressed
+
+3. **Editor Integration** - User-facing setting
+   - `UserSettings.Config.SuppressAudioDebugLogs` (persisted)
+   - `Program.cs` sets `AudioConfig.SuppressDebugLogs` on startup
+   - `SettingsWindow.cs` allows real-time toggle
+
+#### User Interface
+
+**Settings Window → Profiling and Debugging → Audio System:**
+
+```
+☐ Suppress Audio Debug Logs
+  Suppresses Debug and Info log messages from audio system classes.
+  Warning and Error messages will still be logged.
+```
+
+**Benefits:**
+- ✅ Reduces console noise during normal operation
+- ✅ Keeps critical warnings and errors visible
+- ✅ Real-time toggle (no restart required)
+- ✅ Persists across sessions
+- ✅ Centralized implementation (one source of truth)
+
+#### Migration from Prefix-Based Filtering
+
+**Previous Approach (Rejected):**
+```csharp
+// ❌ OLD: Prefix matching - fragile, requires manual prefixes
+if (message.StartsWith("[OperatorAudio]") || 
+    message.StartsWith("[AudioEngine]")) 
+{
+    return; // Suppress
+}
+```
+
+**Problems:**
+- Developers must remember to add correct prefix
+- Typos break filtering
+- No compile-time validation
+- Difficult to maintain
+
+**Current Approach:**
+```csharp
+// ✅ NEW: Centralized helpers - automatic, consistent
+AudioConfig.LogDebug("[OperatorAudio] Loading..."); // Automatically suppressed
+```
+
+**Benefits:**
+- Automatic suppression based on calling class location
+- No manual prefix management
+- Compile-time safety
+- Single source of truth in `AudioConfig`
+
+#### Log Levels
+
+| Level | Suppressed | Use Case |
+|-------|-----------|----------|
+| **Debug** | ✅ Yes | Detailed diagnostic information (frame-by-frame updates) |
+| **Info** | ✅ Yes | Informational messages (stream loaded, mixer initialized) |
+| **Warning** | ❌ No | Potential problems (plugin not loaded, init flag failed) |
+| **Error** | ❌ No | Critical failures (stream load failed, deadlock detected) |
+
+#### Example Output
+
+**With Suppression Disabled (Default for debugging):**
+```
+[AudioMixer] Starting initialization...
+[AudioMixer] BASS not initialized, configuring for low latency...
+[AudioMixer] Config - UpdatePeriod: 10ms, UpdateThreads: 2...
+[AudioMixer] BASS initialized with LATENCY flag (optimized)
+[AudioMixer] BASS Info - Device: 1, SampleRate: 48000Hz...
+[OperatorAudio] Loading: test.wav (8820 bytes)
+[OperatorAudio] Stream created: Handle=200, CreateTime: 8.42ms
+[OperatorAudio] ✓ Loaded: test.wav | Duration: 0.100s...
+```
+
+**With Suppression Enabled (Clean production logs):**
+```
+(Only warnings and errors shown)
+```
+
+**Warnings/Errors Always Shown:**
+```
+[AudioMixer] Failed to load BASS FLAC plugin: ErrorCode
+[OperatorAudio] Failed to load stream: file_not_found.wav
+[AudioEngine] AudioMixerManager failed to initialize
+```
+
+#### Code Example
+
+**Audio Class Implementation:**
+```csharp
+// In OperatorAudioStream.cs, AudioEngine.cs, etc.
+
+// ✅ Use shared helpers for Debug/Info
+AudioConfig.LogDebug("[OperatorAudio] Loading file...");
+AudioConfig.LogInfo("[OperatorAudio] Stream loaded successfully");
+
+// ❌ Never suppress warnings/errors
+Log.Warning("[OperatorAudio] Potential issue detected");
+Log.Error("[OperatorAudio] Critical failure");
+```
+
+**Settings Window Integration:**
+```csharp
+// In SettingsWindow.cs
+var audioDebugChanged = FormInputs.AddCheckBox(
+    "Suppress Audio Debug Logs",
+    ref UserSettings.Config.SuppressAudioDebugLogs,
+    "Suppresses Debug and Info log messages...",
+    UserSettings.Defaults.SuppressAudioDebugLogs);
+
+if (audioDebugChanged)
+{
+    AudioConfig.SuppressDebugLogs = UserSettings.Config.SuppressAudioDebugLogs;
+    changed = true;
+}
+```
 
 ---
 
@@ -111,6 +279,12 @@ Problems:
 │                  │  Soundcard Output    │                            │
 │                  │  (~20ms latency)     │                            │
 │                  └──────────────────────┘                            │
+│                             │                                        │
+│                             ▼                                        │
+│                  ┌──────────────────────┐                            │
+│                  │  Logging System      │                            │
+│                  │  (AudioConfig filter)│                            │
+│                  └──────────────────────┘                            │
 └────────────────────────────────────────────────────────────────────────┘
 
 Benefits:
@@ -120,6 +294,7 @@ Benefits:
 + No deadlocks (cached metadata)
 + Stale detection for resource cleanup
 + 48kHz professional audio quality
++ Configurable debug logging
 ```
 
 ### Signal Flow Detail
@@ -994,56 +1169,6 @@ Fix:   This is expected and generally improves quality
 Check: BASS automatically resamples, no action needed
 Note:  48kHz is professional standard, better for plugins/effects
 ```
-
----
-
-## Technical Details
-
-### BASS Flags Explained
-
-```csharp
-// Stream Creation Flags
-BassFlags.Decode        // Stream doesn't play directly, used as data source
-BassFlags.Float         // 32-bit float samples (better quality)
-BassFlags.AsyncFile     // Non-blocking file I/O (lower latency)
-
-// Mixer Flags
-BassFlags.MixerNonStop  // Mixer continues even with no sources
-BassFlags.MixerChanBuffer // Source uses internal buffering (smoother playback)
-BassFlags.MixerChanPause  // Source is paused in mixer
-
-// Device Flags
-DeviceInitFlags.Latency // Request low-latency mode from device
-DeviceInitFlags.Stereo  // Stereo output
-```
-
-### Position Flags
-```csharp
-PositionFlags.Bytes      // Position in bytes
-PositionFlags.MixerReset // Reset mixer buffers (required for mixer channels)
-```
-
-### Channel Attributes
-```csharp
-ChannelAttribute.Volume    // 0.0 - 1.0 (can go higher for amplification)
-ChannelAttribute.Pan       // -1.0 (left) to +1.0 (right)
-ChannelAttribute.Frequency // Sample rate (modify for pitch/speed)
-```
-
-### Sample Rate Selection (48kHz)
-
-**Why 48kHz instead of 44.1kHz?**
-
-1. **Professional Standard**: 48kHz is the industry standard for video, broadcast, and professional audio
-2. **Better Plugin Compatibility**: Most VST/audio plugins expect 48kHz
-3. **Future-Proof**: Modern audio interfaces default to 48kHz
-4. **Better Math**: 48000 divides evenly by common buffer sizes (480, 960, etc.)
-5. **Quality**: Nyquist frequency of 24kHz vs 22.05kHz (better high-frequency response)
-
-**Compatibility Note:**
-- BASS automatically resamples files at any sample rate (44.1k, 48k, 96k, etc.)
-- No quality loss for 44.1kHz content (high-quality resampler)
-- Slight quality improvement on most modern audio hardware
 
 ---
 

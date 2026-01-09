@@ -30,11 +30,11 @@ public static class AudioMixerManager
     {
         if (_initialized)
         {
-            Log.Debug("[AudioMixer] Already initialized, skipping.");
+            AudioConfig.LogDebug("[AudioMixer] Already initialized, skipping.");
             return;
         }
 
-        Log.Debug("[AudioMixer] Starting initialization...");
+        AudioConfig.LogDebug("[AudioMixer] Starting initialization...");
 
         // Check if BASS is already initialized
         DeviceInfo deviceInfo;
@@ -45,11 +45,11 @@ public static class AudioMixerManager
             Log.Warning("[AudioMixer] BASS was already initialized by something else - our low-latency config may not apply!");
             Log.Warning("[AudioMixer] To fix this, ensure AudioMixerManager.Initialize() is called BEFORE any Bass.Init() calls.");
             Bass.GetInfo(out var info);
-            Log.Info($"[AudioMixer] Existing BASS - SampleRate: {info.SampleRate}Hz, MinBuffer: {info.MinBufferLength}ms, Latency: {info.Latency}ms");
+            AudioConfig.LogInfo($"[AudioMixer] Existing BASS - SampleRate: {info.SampleRate}Hz, MinBuffer: {info.MinBufferLength}ms, Latency: {info.Latency}ms");
         }
         else
         {
-            Log.Debug("[AudioMixer] BASS not initialized, configuring for low latency...");
+            AudioConfig.LogDebug("[AudioMixer] BASS not initialized, configuring for low latency...");
             
             // Configure BASS for low latency BEFORE initialization
             Bass.Configure(Configuration.UpdatePeriod, 10);
@@ -57,12 +57,12 @@ public static class AudioMixerManager
             Bass.Configure(Configuration.PlaybackBufferLength, 100);
             Bass.Configure(Configuration.DeviceBufferLength, 20);
             
-            Log.Debug($"[AudioMixer] Config - UpdatePeriod: 10ms, UpdateThreads: 2, PlaybackBuffer: 100ms, DeviceBuffer: 20ms");
+            AudioConfig.LogDebug($"[AudioMixer] Config - UpdatePeriod: 10ms, UpdateThreads: 2, PlaybackBuffer: 100ms, DeviceBuffer: 20ms");
             
             // Try to initialize with latency flag first
             var initFlags = DeviceInitFlags.Latency | DeviceInitFlags.Stereo;
             
-            Log.Debug($"[AudioMixer] Attempting BASS.Init with Latency flag at {MixerFrequency}Hz...");
+            AudioConfig.LogDebug($"[AudioMixer] Attempting BASS.Init with Latency flag at {MixerFrequency}Hz...");
             if (!Bass.Init(-1, MixerFrequency, initFlags, IntPtr.Zero))
             {
                 var error1 = Bass.LastError;
@@ -93,12 +93,12 @@ public static class AudioMixerManager
             }
             else
             {
-                Log.Debug("[AudioMixer] BASS initialized with LATENCY flag (optimized)");
+                AudioConfig.LogDebug("[AudioMixer] BASS initialized with LATENCY flag (optimized)");
             }
             
             // Get actual device info after init
             Bass.GetInfo(out var info);
-            Log.Info($"[AudioMixer] BASS Info - Device: {Bass.CurrentDevice}, SampleRate: {info.SampleRate}Hz, MinBuffer: {info.MinBufferLength}ms, Latency: {info.Latency}ms");
+            AudioConfig.LogInfo($"[AudioMixer] BASS Info - Device: {Bass.CurrentDevice}, SampleRate: {info.SampleRate}Hz, MinBuffer: {info.MinBufferLength}ms, Latency: {info.Latency}ms");
         }
 
         // Load BASS FLAC plugin for native FLAC support (better than Media Foundation)
@@ -109,63 +109,63 @@ public static class AudioMixerManager
         }
         else
         {
-            Log.Debug($"[AudioMixer] BASS FLAC plugin loaded successfully: Handle={_flacPluginHandle}");
+            AudioConfig.LogDebug($"[AudioMixer] BASS FLAC plugin loaded successfully: Handle={_flacPluginHandle}");
         }
 
         // Create global mixer (stereo output to soundcard)
-        Log.Debug("[AudioMixer] Creating global mixer stream...");
+        AudioConfig.LogDebug("[AudioMixer] Creating global mixer stream...");
         _globalMixerHandle = BassMix.CreateMixerStream(MixerFrequency, 2, BassFlags.Float | BassFlags.MixerNonStop);
         if (_globalMixerHandle == 0)
         {
             Log.Error($"[AudioMixer] Failed to create global mixer: {Bass.LastError}");
             return;
         }
-        Log.Debug($"[AudioMixer] Global mixer created: Handle={_globalMixerHandle}");
+        AudioConfig.LogDebug($"[AudioMixer] Global mixer created: Handle={_globalMixerHandle}");
 
         // Create operator mixer (decode stream that feeds into global mixer)
-        Log.Debug("[AudioMixer] Creating operator mixer stream...");
+        AudioConfig.LogDebug("[AudioMixer] Creating operator mixer stream...");
         _operatorMixerHandle = BassMix.CreateMixerStream(MixerFrequency, 2, BassFlags.MixerNonStop | BassFlags.Decode);
         if (_operatorMixerHandle == 0)
         {
             Log.Error($"[AudioMixer] Failed to create operator mixer: {Bass.LastError}");
             return;
         }
-        Log.Debug($"[AudioMixer] Operator mixer created: Handle={_operatorMixerHandle}");
+        AudioConfig.LogDebug($"[AudioMixer] Operator mixer created: Handle={_operatorMixerHandle}");
 
         // Create soundtrack mixer (decode stream that feeds into global mixer)
-        Log.Debug("[AudioMixer] Creating soundtrack mixer stream...");
+        AudioConfig.LogDebug("[AudioMixer] Creating soundtrack mixer stream...");
         _soundtrackMixerHandle = BassMix.CreateMixerStream(MixerFrequency, 2, BassFlags.MixerNonStop | BassFlags.Decode);
         if (_soundtrackMixerHandle == 0)
         {
             Log.Error($"[AudioMixer] Failed to create soundtrack mixer: {Bass.LastError}");
             return;
         }
-        Log.Debug($"[AudioMixer] Soundtrack mixer created: Handle={_soundtrackMixerHandle}");
+        AudioConfig.LogDebug($"[AudioMixer] Soundtrack mixer created: Handle={_soundtrackMixerHandle}");
 
         // Add operator mixer to global mixer with buffer flag for smooth mixing
-        Log.Debug("[AudioMixer] Adding operator mixer to global mixer...");
+        AudioConfig.LogDebug("[AudioMixer] Adding operator mixer to global mixer...");
         if (!BassMix.MixerAddChannel(_globalMixerHandle, _operatorMixerHandle, BassFlags.MixerChanBuffer))
         {
             Log.Error($"[AudioMixer] Failed to add operator mixer to global mixer: {Bass.LastError}");
         }
         else
         {
-            Log.Debug("[AudioMixer] Operator mixer added to global mixer successfully");
+            AudioConfig.LogDebug("[AudioMixer] Operator mixer added to global mixer successfully");
         }
 
         // Add soundtrack mixer to global mixer with buffer flag
-        Log.Debug("[AudioMixer] Adding soundtrack mixer to global mixer...");
+        AudioConfig.LogDebug("[AudioMixer] Adding soundtrack mixer to global mixer...");
         if (!BassMix.MixerAddChannel(_globalMixerHandle, _soundtrackMixerHandle, BassFlags.MixerChanBuffer))
         {
             Log.Error($"[AudioMixer] Failed to add soundtrack mixer to global mixer: {Bass.LastError}");
         }
         else
         {
-            Log.Debug("[AudioMixer] Soundtrack mixer added to global mixer successfully");
+            AudioConfig.LogDebug("[AudioMixer] Soundtrack mixer added to global mixer successfully");
         }
 
         // Start the global mixer playing (outputs to soundcard)
-        Log.Debug("[AudioMixer] Starting global mixer playback...");
+        AudioConfig.LogDebug("[AudioMixer] Starting global mixer playback...");
         if (!Bass.ChannelPlay(_globalMixerHandle, false))
         {
             Log.Error($"[AudioMixer] Failed to start global mixer: {Bass.LastError}");
@@ -173,11 +173,11 @@ public static class AudioMixerManager
         else
         {
             var playbackState = Bass.ChannelIsActive(_globalMixerHandle);
-            Log.Debug($"[AudioMixer] Global mixer started, State: {playbackState}");
+            AudioConfig.LogDebug($"[AudioMixer] Global mixer started, State: {playbackState}");
         }
 
         _initialized = true;
-        Log.Info("[AudioMixer] ✓ Audio mixer system initialized successfully with low-latency settings.");
+        AudioConfig.LogInfo("[AudioMixer] ✓ Audio mixer system initialized successfully with low-latency settings.");
     }
 
     public static void Shutdown()
@@ -185,7 +185,7 @@ public static class AudioMixerManager
         if (!_initialized)
             return;
 
-        Log.Debug("[AudioMixer] Shutting down...");
+        AudioConfig.LogDebug("[AudioMixer] Shutting down...");
         
         Bass.StreamFree(_operatorMixerHandle);
         Bass.StreamFree(_soundtrackMixerHandle);
@@ -200,7 +200,7 @@ public static class AudioMixerManager
         Bass.Free();
 
         _initialized = false;
-        Log.Debug("[AudioMixer] Audio mixer system shut down.");
+        AudioConfig.LogDebug("[AudioMixer] Audio mixer system shut down.");
     }
 
     public static void SetOperatorMixerVolume(float volume)

@@ -138,6 +138,9 @@ internal static class Program
         // ReSharper disable once UnusedVariable
         var userSettings = new UserSettings(saveOnQuit: true);
         
+        // Configure audio system based on user settings
+        T3.Core.Audio.AudioConfig.SuppressDebugLogs = UserSettings.Config.SuppressAudioDebugLogs;
+        
         if (UserSettings.Config.ProjectDirectories.Count == 0)
         {
             UserSettings.Config.ProjectDirectories.Add(FileLocations.DefaultProjectFolder);

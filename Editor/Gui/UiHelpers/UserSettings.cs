@@ -124,6 +124,9 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
         public string UserName = UndefinedUserName;
         public bool EnableAutoBackup = true;
 
+        // Audio
+        public bool SuppressAudioDebugLogs = false;
+
         // Other settings
         public float GizmoSize = 100;
 

@@ -66,7 +66,7 @@ public sealed class OperatorAudioStream
 
         var fileName = Path.GetFileName(filePath);
         var fileSize = new FileInfo(filePath).Length;
-        Log.Debug($"[OperatorAudio] Loading: {fileName} ({fileSize} bytes)");
+        AudioConfig.LogDebug($"[OperatorAudio] Loading: {fileName} ({fileSize} bytes)");
 
         // Create stream as a DECODE stream for mixer compatibility
         // With BASS FLAC plugin loaded, FLAC files will use native decoding (CType=FLAC)
@@ -82,7 +82,7 @@ public sealed class OperatorAudioStream
             return false;
         }
 
-        Log.Debug($"[OperatorAudio] Stream created: Handle={streamHandle}, CreateTime: {createTime:F2}ms");
+        AudioConfig.LogDebug($"[OperatorAudio] Stream created: Handle={streamHandle}, CreateTime: {createTime:F2}ms");
 
         Bass.ChannelGetAttribute(streamHandle, ChannelAttribute.Frequency, out var defaultPlaybackFrequency);
 
@@ -90,7 +90,7 @@ public sealed class OperatorAudioStream
         var info = Bass.ChannelGetInfo(streamHandle);
 
         // Log format information - with FLAC plugin, CType should be FLAC instead of MF
-        Log.Debug($"[OperatorAudio] Stream info for {fileName}: Channels={info.Channels}, Freq={info.Frequency}, CType={info.ChannelType}, Flags={info.Flags}");
+        AudioConfig.LogDebug($"[OperatorAudio] Stream info for {fileName}: Channels={info.Channels}, Freq={info.Frequency}, CType={info.ChannelType}, Flags={info.Flags}");
 
         // Get length - with FLAC plugin, this should work reliably
         var bytes = Bass.ChannelGetLength(streamHandle);
@@ -112,7 +112,7 @@ public sealed class OperatorAudioStream
             return false;
         }
 
-        Log.Debug($"[OperatorAudio] Stream length: {duration:F3}s ({bytes} bytes)");
+        AudioConfig.LogDebug($"[OperatorAudio] Stream length: {duration:F3}s ({bytes} bytes)");
 
         // Add stream to mixer - decode streams are required for mixer sources
         // Use MixerChanBuffer for smoother playback and lower latency
@@ -150,7 +150,7 @@ public sealed class OperatorAudioStream
         var mixerActive = Bass.ChannelIsActive(mixerHandle);
         var flags = BassMix.ChannelFlags(streamHandle, 0, 0);
         
-        Log.Info($"[OperatorAudio] ✓ Loaded: {fileName} | Duration: {duration:F3}s | Handle: {streamHandle} | Channels: {info.Channels} | Freq: {info.Frequency} | MixerAdd: {mixerAddTime:F2}ms | Update: {updateTime:F2}ms | StreamActive: {streamActive} | MixerActive: {mixerActive} | Flags: {flags}");
+        AudioConfig.LogInfo($"[OperatorAudio] ✓ Loaded: {fileName} | Duration: {duration:F3}s | Handle: {streamHandle} | Channels: {info.Channels} | Freq: {info.Frequency} | MixerAdd: {mixerAddTime:F2}ms | Update: {updateTime:F2}ms | StreamActive: {streamActive} | MixerActive: {mixerActive} | Flags: {flags}");
 
         return true;
     }
@@ -172,7 +172,7 @@ public sealed class OperatorAudioStream
             _updateCount++;
             
             var fileName = Path.GetFileName(FilePath);
-            Log.Debug($"[OperatorAudio] First update: {fileName} | Time: {currentTime:F3}");
+            AudioConfig.LogDebug($"[OperatorAudio] First update: {fileName} | Time: {currentTime:F3}");
             return;
         }
         
@@ -195,7 +195,7 @@ public sealed class OperatorAudioStream
             BassMix.ChannelFlags(StreamHandle, BassFlags.MixerChanBuffer, BassFlags.MixerChanPause);
             
             var fileName = Path.GetFileName(FilePath);
-            Log.Debug($"[OperatorAudio] UNMUTED (stale->active): {fileName} | Updates: {_updateCount} | TimeSinceUpdate: {timeSinceLastUpdate:F3}s");
+            AudioConfig.LogDebug($"[OperatorAudio] UNMUTED (stale->active): {fileName} | Updates: {_updateCount} | TimeSinceUpdate: {timeSinceLastUpdate:F3}s");
         }
         // Handle active -> stale transition (mute but keep stream alive)
         else if (!wasStale && isStale)
@@ -218,14 +218,14 @@ public sealed class OperatorAudioStream
         
         if (IsPlaying && !IsPaused && !_isMuted)
         {
-            Log.Debug($"[OperatorAudio] Play() - already playing: {fileName}");
+            AudioConfig.LogDebug($"[OperatorAudio] Play() - already playing: {fileName}");
             return;
         }
 
         var wasStale = _isMuted;
         var wasPaused = IsPaused;
         
-        Log.Debug($"[OperatorAudio] Play() - Starting: {fileName} | WasStale: {wasStale} | WasPaused: {wasPaused}");
+        AudioConfig.LogDebug($"[OperatorAudio] Play() - Starting: {fileName} | WasStale: {wasStale} | WasPaused: {wasPaused}");
         
         // Clear stale-muted state when explicitly playing
         _isMuted = false;
@@ -253,7 +253,7 @@ public sealed class OperatorAudioStream
         var currentFlags = BassMix.ChannelFlags(StreamHandle, 0, 0);
         var isPausedInMixer = (currentFlags & BassFlags.MixerChanPause) != 0;
         
-        Log.Info($"[OperatorAudio] ▶ Play(): {fileName} | FlagResult: {flagResult} | FlagTime: {flagTime:F2}ms | UpdateTime: {updateTime:F2}ms | StreamActive: {streamActive} | MixerActive: {mixerActive} | PausedInMixer: {isPausedInMixer}");
+        AudioConfig.LogInfo($"[OperatorAudio] ▶ Play(): {fileName} | FlagResult: {flagResult} | FlagTime: {flagTime:F2}ms | UpdateTime: {updateTime:F2}ms | StreamActive: {streamActive} | MixerActive: {mixerActive} | PausedInMixer: {isPausedInMixer}");
     }
 
     public void Pause()
@@ -266,7 +266,7 @@ public sealed class OperatorAudioStream
         IsPaused = true;
         
         var fileName = Path.GetFileName(FilePath);
-        Log.Debug($"[OperatorAudio] Paused: {fileName}");
+        AudioConfig.LogDebug($"[OperatorAudio] Paused: {fileName}");
     }
 
     public void Resume()
@@ -282,7 +282,7 @@ public sealed class OperatorAudioStream
         Bass.ChannelUpdate(MixerStreamHandle, 0);
         
         var fileName = Path.GetFileName(FilePath);
-        Log.Debug($"[OperatorAudio] Resumed: {fileName}");
+        AudioConfig.LogDebug($"[OperatorAudio] Resumed: {fileName}");
     }
 
     public void Stop()
@@ -304,7 +304,7 @@ public sealed class OperatorAudioStream
         BassMix.ChannelSetPosition(StreamHandle, position, PositionFlags.Bytes | PositionFlags.MixerReset);
         
         var fileName = Path.GetFileName(FilePath);
-        Log.Debug($"[OperatorAudio] Stopped: {fileName}");
+        AudioConfig.LogDebug($"[OperatorAudio] Stopped: {fileName}");
     }
 
     public void SetVolume(float volume, bool mute)
@@ -354,7 +354,7 @@ public sealed class OperatorAudioStream
         BassMix.ChannelSetPosition(StreamHandle, position, PositionFlags.Bytes | PositionFlags.MixerReset);
         
         var fileName = Path.GetFileName(FilePath);
-        Log.Debug($"[OperatorAudio] Seeked: {fileName} to {timeInSeconds:F3}s");
+        AudioConfig.LogDebug($"[OperatorAudio] Seeked: {fileName} to {timeInSeconds:F3}s");
     }
 
     public float GetLevel()
@@ -375,7 +375,7 @@ public sealed class OperatorAudioStream
                 var fileName = Path.GetFileName(FilePath);
                 var channelActive = Bass.ChannelIsActive(StreamHandle);
                 var mixerActive = Bass.ChannelIsActive(MixerStreamHandle);
-                Log.Debug($"[OperatorAudio] GetLevel() failed: {fileName} | Updates: {_updateCount} | IsMuted: {_isMuted} | StreamActive: {channelActive} | MixerActive: {mixerActive} | Error: {Bass.LastError}");
+                AudioConfig.LogDebug($"[OperatorAudio] GetLevel() failed: {fileName} | Updates: {_updateCount} | IsMuted: {_isMuted} | StreamActive: {channelActive} | MixerActive: {mixerActive} | Error: {Bass.LastError}");
             }
             return 0f;
         }
@@ -393,7 +393,7 @@ public sealed class OperatorAudioStream
         if (Duration < 1.0 && peak > 0f && _updateCount < 20)
         {
             var fileName = Path.GetFileName(FilePath);
-            Log.Debug($"[OperatorAudio] GetLevel() SUCCESS: {fileName} | Peak: {peak:F3} | Updates: {_updateCount}");
+            AudioConfig.LogDebug($"[OperatorAudio] GetLevel() SUCCESS: {fileName} | Peak: {peak:F3} | Updates: {_updateCount}");
         }
         
         return Math.Min(peak, 1f);
@@ -459,7 +459,7 @@ public sealed class OperatorAudioStream
         int bytesRequested = sampleCount * sizeof(short);
         
         // For mixer source channels, use BassMix.ChannelGetData
-        Log.Debug($"[OperatorAudio] UpdateWaveformFromPcm: About to call BassMix.ChannelGetData for {fileName} | Channels: {_cachedChannels} | BytesRequested: {bytesRequested}");
+        AudioConfig.LogDebug($"[OperatorAudio] UpdateWaveformFromPcm: About to call BassMix.ChannelGetData for {fileName} | Channels: {_cachedChannels} | BytesRequested: {bytesRequested}");
         
         int bytesReceived;
         try
@@ -472,13 +472,13 @@ public sealed class OperatorAudioStream
             return;
         }
         
-        Log.Debug($"[OperatorAudio] UpdateWaveformFromPcm: BassMix.ChannelGetData returned {bytesReceived} bytes for {fileName}");
+        AudioConfig.LogDebug($"[OperatorAudio] UpdateWaveformFromPcm: BassMix.ChannelGetData returned {bytesReceived} bytes for {fileName}");
 
         if (bytesReceived <= 0)
         {
             if (_updateCount < 10 || _updateCount % 100 == 0)
             {
-                Log.Debug($"[OperatorAudio] UpdateWaveformFromPcm: No data received for {fileName} | Error: {Bass.LastError}");
+                AudioConfig.LogDebug($"[OperatorAudio] UpdateWaveformFromPcm: No data received for {fileName} | Error: {Bass.LastError}");
             }
             return;
         }
@@ -488,7 +488,7 @@ public sealed class OperatorAudioStream
 
         if (frames <= 0)
         {
-            Log.Debug($"[OperatorAudio] UpdateWaveformFromPcm: No frames for {fileName} | SamplesReceived: {samplesReceived} | Channels: {_cachedChannels}");
+            AudioConfig.LogDebug($"[OperatorAudio] UpdateWaveformFromPcm: No frames for {fileName} | SamplesReceived: {samplesReceived} | Channels: {_cachedChannels}");
             return;
         }
 
@@ -520,7 +520,7 @@ public sealed class OperatorAudioStream
         
         if (_updateCount < 20)
         {
-            Log.Debug($"[OperatorAudio] UpdateWaveformFromPcm: SUCCESS for {fileName} | Frames: {frames} | WaveformSamples: {_waveformBuffer.Count}");
+            AudioConfig.LogDebug($"[OperatorAudio] UpdateWaveformFromPcm: SUCCESS for {fileName} | Frames: {frames} | WaveformSamples: {_waveformBuffer.Count}");
         }
     }
 
@@ -547,7 +547,7 @@ public sealed class OperatorAudioStream
     public void Dispose()
     {
         var fileName = Path.GetFileName(FilePath);
-        Log.Debug($"[OperatorAudio] Disposing: {fileName} | TotalUpdates: {_updateCount} | TotalStaleMutes: {_staleMuteCount}");
+        AudioConfig.LogDebug($"[OperatorAudio] Disposing: {fileName} | TotalUpdates: {_updateCount} | TotalStaleMutes: {_staleMuteCount}");
         
         Bass.ChannelStop(StreamHandle);
         BassMix.MixerRemoveChannel(StreamHandle);

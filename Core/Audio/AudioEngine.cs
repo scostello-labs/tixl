@@ -208,7 +208,7 @@ public static class AudioEngine
         // Ensure mixer is initialized
         if (AudioMixerManager.OperatorMixerHandle == 0)
         {
-            Log.Debug($"[AudioEngine] UpdateOperatorPlayback called but mixer not initialized, initializing now...");
+            AudioConfig.LogDebug($"[AudioEngine] UpdateOperatorPlayback called but mixer not initialized, initializing now...");
             AudioMixerManager.Initialize();
             
             if (AudioMixerManager.OperatorMixerHandle == 0)
@@ -222,7 +222,7 @@ public static class AudioEngine
         {
             state = new OperatorAudioState();
             _operatorAudioStates[operatorId] = state;
-            Log.Debug($"[AudioEngine] Created new audio state for operator: {operatorId}");
+            AudioConfig.LogDebug($"[AudioEngine] Created new audio state for operator: {operatorId}");
         }
 
         // Resolve file path if it's relative
@@ -233,14 +233,14 @@ public static class AudioEngine
             if (ResourceManager.TryResolvePath(filePath, null, out var absolutePath, out _))
             {
                 resolvedFilePath = absolutePath;
-                Log.Debug($"[AudioEngine] Resolved path: {filePath} → {absolutePath}");
+                AudioConfig.LogDebug($"[AudioEngine] Resolved path: {filePath} → {absolutePath}");
             }
         }
 
         // Handle file change
         if (state.CurrentFilePath != resolvedFilePath)
         {
-            Log.Debug($"[AudioEngine] File path changed for operator {operatorId}: '{state.CurrentFilePath}' → '{resolvedFilePath}'");
+            AudioConfig.LogDebug($"[AudioEngine] File path changed for operator {operatorId}: '{state.CurrentFilePath}' → '{resolvedFilePath}'");
             
             state.Stream?.Dispose();
             state.Stream = null;
@@ -255,7 +255,7 @@ public static class AudioEngine
                 {
                     var loadTime = (DateTime.Now - loadStartTime).TotalMilliseconds;
                     state.Stream = stream;
-                    Log.Debug($"[AudioEngine] Stream loaded in {loadTime:F2}ms for operator {operatorId}");
+                    AudioConfig.LogDebug($"[AudioEngine] Stream loaded in {loadTime:F2}ms for operator {operatorId}");
                 }
                 else
                 {
@@ -280,9 +280,9 @@ public static class AudioEngine
         
         // Log trigger events
         if (playTrigger)
-            Log.Debug($"[AudioEngine] ▶ Play TRIGGER for operator {operatorId}");
+            AudioConfig.LogDebug($"[AudioEngine] ▶ Play TRIGGER for operator {operatorId}");
         if (stopTrigger)
-            Log.Debug($"[AudioEngine] ■ Stop TRIGGER for operator {operatorId}");
+            AudioConfig.LogDebug($"[AudioEngine] ■ Stop TRIGGER for operator {operatorId}");
 
         // Handle stop trigger
         if (stopTrigger)
@@ -304,7 +304,7 @@ public static class AudioEngine
             state.IsPaused = false;
             
             var playTime = (DateTime.Now - playStartTime).TotalMilliseconds;
-            Log.Info($"[AudioEngine] ▶ Play executed in {playTime:F2}ms for operator {operatorId}");
+            AudioConfig.LogInfo($"[AudioEngine] ▶ Play executed in {playTime:F2}ms for operator {operatorId}");
         }
 
         // Always update volume, mute, panning, and speed when stream is active
@@ -320,7 +320,7 @@ public static class AudioEngine
                 var seekTimeInSeconds = (float)(seek * state.Stream.Duration);
                 state.Stream.Seek(seekTimeInSeconds);
                 state.PreviousSeek = seek;
-                Log.Debug($"[AudioEngine] Seek to {seek:F3} ({seekTimeInSeconds:F3}s) for operator {operatorId}");
+                AudioConfig.LogDebug($"[AudioEngine] Seek to {seek:F3} ({seekTimeInSeconds:F3}s) for operator {operatorId}");
             }
         }
     }

@@ -498,6 +498,21 @@ internal sealed class SettingsWindow : Window
                                                       ref ProjectSettings.Config.EnableBeatSyncProfiling,
                                                       "Logs beat sync timing to IO Window",
                                                       ProjectSettings.Defaults.EnableBeatSyncProfiling);
+                    
+                    FormInputs.AddVerticalSpace();
+                    FormInputs.AddSectionSubHeader("Audio System");
+                    FormInputs.SetIndentToLeft();
+                    
+                    var audioDebugChanged = FormInputs.AddCheckBox("Suppress Audio Debug Logs",
+                                                      ref UserSettings.Config.SuppressAudioDebugLogs,
+                                                      "Suppresses Debug and Info log messages from audio system classes. Warning and Error messages will still be logged.",
+                                                      UserSettings.Defaults.SuppressAudioDebugLogs);
+                    
+                    if (audioDebugChanged)
+                    {
+                        T3.Core.Audio.AudioConfig.SuppressDebugLogs = UserSettings.Config.SuppressAudioDebugLogs;
+                        changed = true;
+                    }
 
                     FormInputs.AddSectionSubHeader("Compilation");
 
