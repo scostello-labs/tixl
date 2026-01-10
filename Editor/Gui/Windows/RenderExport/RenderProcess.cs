@@ -194,7 +194,8 @@ internal static class RenderProcess
         }
         else
         {
-            _activeSession.TargetFolder = targetFilePath;
+            var directory = Path.GetDirectoryName(targetFilePath);
+            _activeSession.TargetFolder = directory ?? targetFilePath;
         }
 
         ScreenshotWriter.ClearQueue();

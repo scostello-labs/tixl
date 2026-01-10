@@ -16,7 +16,7 @@ internal sealed class RenderWindow : Window
 {
     public RenderWindow()
     {
-        Config.Title = "Render To File";
+        Config.Title = RenderWindowStrings.WindowTitle;
     }
 
     protected override void DrawContent()
@@ -33,27 +33,27 @@ internal sealed class RenderWindow : Window
     {
         if (RenderProcess.State == RenderProcess.States.NoOutputWindow)
         {
-            _lastHelpString = "No output view available";
-            CustomComponents.HelpText(_lastHelpString);
+            _uiState.LastHelpString = RenderWindowStrings.NoOutputView;
+            CustomComponents.HelpText(_uiState.LastHelpString);
             return;
         }
 
         if (RenderProcess.State == RenderProcess.States.NoValidOutputType)
         {
-            _lastHelpString = RenderProcess.MainOutputType == null
-                                  ? "The output view is empty"
-                                  : "Select or pin a Symbol with Texture2D output in order to render to file";
-            ImGui.Button("Start Render", new Vector2(-1, 0));
-            CustomComponents.TooltipForLastItem("Only Symbols with a texture2D output can be rendered to file");
+            _uiState.LastHelpString = RenderProcess.MainOutputType == null
+                                  ? RenderWindowStrings.OutputViewEmpty
+                                  : RenderWindowStrings.SymbolMustHaveTextureOutput;
+            ImGui.Button(RenderWindowStrings.StartRenderButton, new Vector2(-1, 0));
+            CustomComponents.TooltipForLastItem(RenderWindowStrings.TooltipTextureOutputRequired);
             ImGui.EndDisabled();
-            CustomComponents.HelpText(_lastHelpString);
+            CustomComponents.HelpText(_uiState.LastHelpString);
             return;
         }
 
-        _lastHelpString = "Ready to render.";
+        _uiState.LastHelpString = RenderWindowStrings.ReadyToRender;
 
         FormInputs.AddVerticalSpace();
-        FormInputs.AddSegmentedButtonWithLabel(ref RenderSettings.RenderMode, "Render Mode");
+        FormInputs.AddSegmentedButtonWithLabel(ref RenderSettings.RenderMode, RenderWindowStrings.RenderModeLabel);
 
         FormInputs.AddVerticalSpace();
 
@@ -78,20 +78,20 @@ internal sealed class RenderWindow : Window
         DrawRenderingControls();
         DrawOverwriteDialog();
 
-        CustomComponents.HelpText(RenderProcess.IsExporting ? RenderProcess.LastHelpString : _lastHelpString);
+        CustomComponents.HelpText(RenderProcess.IsExporting ? RenderProcess.LastHelpString : _uiState.LastHelpString);
     }
 
-    private static void DrawTimeSetup()
+    private void DrawTimeSetup()
     {
         FormInputs.SetIndentToParameters();
 
         // Range row
-        FormInputs.AddSegmentedButtonWithLabel(ref RenderSettings.TimeRange, "Range");
+        FormInputs.AddSegmentedButtonWithLabel(ref RenderSettings.TimeRange, RenderWindowStrings.RangeLabel);
         RenderTiming.ApplyTimeRange(RenderSettings.TimeRange, RenderSettings);
         
         // Scale row (now under Range)
         var oldRef = RenderSettings.Reference;
-        if (FormInputs.AddSegmentedButtonWithLabel(ref RenderSettings.Reference, "Scale"))
+        if (FormInputs.AddSegmentedButtonWithLabel(ref RenderSettings.Reference, RenderWindowStrings.ScaleLabel))
         {
             RenderSettings.StartInBars =
                 (float)RenderTiming.ConvertReferenceTime(RenderSettings.StartInBars, oldRef, RenderSettings.Reference, RenderSettings.Fps);
@@ -101,8 +101,8 @@ internal sealed class RenderWindow : Window
         FormInputs.AddVerticalSpace(5);
 
         // Start and End on separate rows (standard style)
-        var changed = FormInputs.AddFloat($"Start ({RenderSettings.Reference})", ref RenderSettings.StartInBars, 0, float.MaxValue, 0.1f, true);
-        changed |= FormInputs.AddFloat($"End ({RenderSettings.Reference})", ref RenderSettings.EndInBars, 0, float.MaxValue, 0.1f, true);
+        var changed = FormInputs.AddFloat($"{RenderWindowStrings.StartLabel} ({RenderSettings.Reference})", ref RenderSettings.StartInBars, 0, float.MaxValue, 0.1f, true);
+        changed |= FormInputs.AddFloat($"{RenderWindowStrings.EndLabel} ({RenderSettings.Reference})", ref RenderSettings.EndInBars, 0, float.MaxValue, 0.1f, true);
         
         if (changed)
             RenderSettings.TimeRange = RenderSettings.TimeRanges.Custom;
@@ -110,15 +110,18 @@ internal sealed class RenderWindow : Window
         FormInputs.AddVerticalSpace(5);
 
         // FPS row
-        if (FormInputs.AddFloat("FPS", ref RenderSettings.Fps, 1, 120, 0.1f, true))
+        if (FormInputs.AddFloat(RenderWindowStrings.FpsLabel, ref RenderSettings.Fps, 1, 120, 0.1f, true))
         {
-            RenderSettings.StartInBars = (float)RenderTiming.ConvertFps(RenderSettings.StartInBars, _lastValidFps, RenderSettings.Fps);
-            RenderSettings.EndInBars = (float)RenderTiming.ConvertFps(RenderSettings.EndInBars, _lastValidFps, RenderSettings.Fps);
-            _lastValidFps = RenderSettings.Fps;
+            if (RenderSettings.Reference == RenderSettings.TimeReference.Frames)
+            {
+                RenderSettings.StartInBars = (float)RenderTiming.ConvertFps(RenderSettings.StartInBars, _uiState.LastValidFps, RenderSettings.Fps);
+                RenderSettings.EndInBars = (float)RenderTiming.ConvertFps(RenderSettings.EndInBars, _uiState.LastValidFps, RenderSettings.Fps);
+            }
+            _uiState.LastValidFps = RenderSettings.Fps;
         }
 
         // Resolution row
-        FormInputs.DrawInputLabel("Resolution");
+        FormInputs.DrawInputLabel(RenderWindowStrings.ResolutionLabel);
         var resSize = FormInputs.GetAvailableInputSize(null, false, true);
         DrawResolutionPopoverCompact(resSize.X); 
         
@@ -129,8 +132,8 @@ internal sealed class RenderWindow : Window
         FormInputs.AddVerticalSpace(5);
         
         // Motion Blur Samples
-        if (FormInputs.AddInt("Motion Blur", ref RenderSettings.OverrideMotionBlurSamples, -1, 50, 1,
-                              "Number of motion blur samples. Set to -1 to disable. Requires [RenderWithMotionBlur] operator."))
+        if (FormInputs.AddInt(RenderWindowStrings.MotionBlurLabel, ref RenderSettings.OverrideMotionBlurSamples, -1, 50, 1,
+                              RenderWindowStrings.TooltipMotionBlur))
         {
             RenderSettings.OverrideMotionBlurSamples = Math.Clamp(RenderSettings.OverrideMotionBlurSamples, -1, 50);
         }
@@ -138,11 +141,11 @@ internal sealed class RenderWindow : Window
         // Show hint when motion blur is disabled
         if (RenderSettings.OverrideMotionBlurSamples == -1)
         {
-            FormInputs.AddHint("Motion blur disabled. (Use samples > 0 and [RenderWithMotionBlur])");
+            FormInputs.AddHint(RenderWindowStrings.HintMotionBlur);
         }
     }
 
-    private static void DrawResolutionPopoverCompact(float width)
+    private void DrawResolutionPopoverCompact(float width)
     {
         var currentPct = (int)(RenderSettings.ResolutionFactor * 100);
         ImGui.SetNextItemWidth(width);
@@ -151,7 +154,7 @@ internal sealed class RenderWindow : Window
         {
             ImGui.OpenPopup("ResolutionPopover");
         }
-        CustomComponents.TooltipForLastItem("Scale resolution of rendered frames.");
+        CustomComponents.TooltipForLastItem(RenderWindowStrings.TooltipResolutionScale);
 
         if (ImGui.BeginPopup("ResolutionPopover"))
         {
@@ -161,7 +164,7 @@ internal sealed class RenderWindow : Window
             if (ImGui.Selectable("200%", currentPct == 200)) RenderSettings.ResolutionFactor = 2.0f;
 
             CustomComponents.SeparatorLine();
-            ImGui.TextUnformatted("Custom:");
+            ImGui.TextUnformatted(RenderWindowStrings.CustomResolutionLabel);
             var customPct = RenderSettings.ResolutionFactor * 100f;
             if (ImGui.InputFloat("##CustomRes", ref customPct, 0, 0, "%.0f%%"))
             {
@@ -176,8 +179,8 @@ internal sealed class RenderWindow : Window
     {
         // Bitrate in Mbps
         var bitrateMbps = RenderSettings.Bitrate / 1_000_000f;
-        if (FormInputs.AddFloat("Bitrate", ref bitrateMbps, 0.1f, 500f, 0.5f, true, true,
-                                "Video bitrate in megabits per second."))
+        if (FormInputs.AddFloat(RenderWindowStrings.BitrateLabel, ref bitrateMbps, 0.1f, 500f, 0.5f, true, true,
+                                RenderWindowStrings.TooltipBitrate))
         {
             RenderSettings.Bitrate = (int)(bitrateMbps * 1_000_000f);
         }
@@ -199,9 +202,9 @@ internal sealed class RenderWindow : Window
         var directory = Path.GetDirectoryName(currentPath) ?? "./Render";
         var filename = Path.GetFileName(currentPath) ?? "render-v01.mp4";
 
-        FormInputs.AddFilePicker("Folder", ref directory!, ".\\Render", null, "Save folder.", FileOperations.FilePickerTypes.Folder);
+        FormInputs.AddFilePicker(RenderWindowStrings.FolderLabel, ref directory!, ".\\Render", null, RenderWindowStrings.SaveFolderLabel, FileOperations.FilePickerTypes.Folder);
 
-        if (FormInputs.AddStringInput("Filename", ref filename))
+        if (FormInputs.AddStringInput(RenderWindowStrings.FilenameLabel, ref filename))
         {
             filename = (filename ?? string.Empty).Trim();
             foreach (var c in Path.GetInvalidFileNameChars()) filename = filename.Replace(c, '_');
@@ -212,23 +215,23 @@ internal sealed class RenderWindow : Window
 
         if (RenderPaths.IsFilenameIncrementable())
         {
-            FormInputs.AddCheckBox("Auto-increment version", ref RenderSettings.AutoIncrementVersionNumber);
+            FormInputs.AddCheckBox(RenderWindowStrings.AutoIncrementLabel, ref RenderSettings.AutoIncrementVersionNumber);
         }
 
-        FormInputs.AddCheckBox("Export Audio", ref RenderSettings.ExportAudio);
+        FormInputs.AddCheckBox(RenderWindowStrings.ExportAudioLabel, ref RenderSettings.ExportAudio);
     }
 
-    private static void DrawImageSequenceSettings()
+    private void DrawImageSequenceSettings()
     {
-        FormInputs.AddEnumDropdown(ref RenderSettings.FileFormat, "Format");
+        FormInputs.AddEnumDropdown(ref RenderSettings.FileFormat, RenderWindowStrings.FormatLabel);
 
-        if (FormInputs.AddStringInput("Name", ref UserSettings.Config.RenderSequenceFileName))
+        if (FormInputs.AddStringInput(RenderWindowStrings.NameLabel, ref UserSettings.Config.RenderSequenceFileName))
         {
             UserSettings.Config.RenderSequenceFileName = (UserSettings.Config.RenderSequenceFileName ?? string.Empty).Trim();
             if (string.IsNullOrEmpty(UserSettings.Config.RenderSequenceFileName)) UserSettings.Config.RenderSequenceFileName = "output";
         }
 
-        FormInputs.AddFilePicker("Folder", ref UserSettings.Config.RenderSequenceFilePath!, ".\\ImageSequence ", null, "Save folder.", FileOperations.FilePickerTypes.Folder);
+        FormInputs.AddFilePicker(RenderWindowStrings.FolderLabel, ref UserSettings.Config.RenderSequenceFilePath!, ".\\ImageSequence ", null, RenderWindowStrings.SaveFolderLabel, FileOperations.FilePickerTypes.Folder);
     }
 
     private void DrawRenderSummary()
@@ -266,21 +269,18 @@ internal sealed class RenderWindow : Window
         ImGui.Unindent(5);
     }
     
-    private static string _cachedTargetPath = string.Empty;
-    private static double _lastPathUpdateTime = -1;
-
-    private static string GetCachedTargetFilePath(RenderSettings.RenderModes mode)
+    private string GetCachedTargetFilePath(RenderSettings.RenderModes mode)
     {
         var now = Playback.RunTimeInSecs;
-        if (now - _lastPathUpdateTime < 0.2 && !string.IsNullOrEmpty(_cachedTargetPath))
-            return _cachedTargetPath;
+        if (now - _uiState.LastPathUpdateTime < 0.2 && !string.IsNullOrEmpty(_uiState.CachedTargetPath))
+            return _uiState.CachedTargetPath;
 
-        _cachedTargetPath = RenderPaths.GetTargetFilePath(mode);
-        _lastPathUpdateTime = now;
-        return _cachedTargetPath;
+        _uiState.CachedTargetPath = RenderPaths.GetTargetFilePath(mode);
+        _uiState.LastPathUpdateTime = now;
+        return _uiState.CachedTargetPath;
     }
 
-    private static void DrawRenderingControls()
+    private void DrawRenderingControls()
     {
         if (!RenderProcess.IsExporting && !RenderProcess.IsToollRenderingSomething)
         {
@@ -288,12 +288,12 @@ internal sealed class RenderWindow : Window
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.BackgroundActive.Rgba);
             ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 4f);
             
-            if (ImGui.Button("Start Render", new Vector2(-1, 36 * T3Ui.UiScaleFactor)))
+            if (ImGui.Button(RenderWindowStrings.StartRenderButton, new Vector2(-1, 36 * T3Ui.UiScaleFactor)))
             {
                 var targetPath = GetCachedTargetFilePath(RenderSettings.RenderMode);
                 if (RenderPaths.FileExists(targetPath))
                 {
-                    _showOverwriteModal = true;
+                    _uiState.ShowOverwriteModal = true;
                 }
                 else
                 {
@@ -308,12 +308,12 @@ internal sealed class RenderWindow : Window
             var progress = (float)RenderProcess.Progress;
             var elapsed = Playback.RunTimeInSecs - RenderProcess.ExportStartedTimeLocal;
 
-            var timeRemainingStr = "Calculating...";
+            var timeRemainingStr = RenderWindowStrings.Calculating;
             if (progress > 0.01)
             {
                 var estimatedTotal = elapsed / progress;
                 var remaining = estimatedTotal - elapsed;
-                timeRemainingStr = StringUtils.HumanReadableDurationFromSeconds(remaining) + " remaining";
+                timeRemainingStr = StringUtils.HumanReadableDurationFromSeconds(remaining) + RenderWindowStrings.Remaining;
             }
 
             ImGui.ProgressBar(progress, new Vector2(-1, 16 * T3Ui.UiScaleFactor), $"{progress * 100:0}%");
@@ -325,55 +325,55 @@ internal sealed class RenderWindow : Window
             ImGui.PopFont();
 
             FormInputs.AddVerticalSpace(5);
-            if (ImGui.Button("Cancel Render", new Vector2(-1, 24 * T3Ui.UiScaleFactor)))
+            if (ImGui.Button(RenderWindowStrings.CancelRenderButton, new Vector2(-1, 24 * T3Ui.UiScaleFactor)))
             {
-                RenderProcess.Cancel($"Render cancelled after {StringUtils.HumanReadableDurationFromSeconds(elapsed)}");
+            RenderProcess.Cancel(RenderWindowStrings.RenderCancelled + StringUtils.HumanReadableDurationFromSeconds(elapsed));
             }
         }
     }
 
-    private static void DrawOverwriteDialog()
+    private void DrawOverwriteDialog()
     {
         // Handle deferred render start (from previous frame's Overwrite button click)
         // This is to have less freeze when clicking the "Overwrite" button.
-        if (_pendingRenderStart)
+        if (_uiState.PendingRenderStart)
         {
-            _pendingRenderStart = false;
+            _uiState.PendingRenderStart = false;
             RenderProcess.TryStart(RenderSettings);
         }
         
-        if (_showOverwriteModal)
+        if (_uiState.ShowOverwriteModal)
         {
-            _dummyOpen = true;
-            ImGui.OpenPopup("Overwrite?");
-            _showOverwriteModal = false;
+            _uiState.DummyOpen = true;
+            ImGui.OpenPopup(RenderWindowStrings.OverwriteTitle);
+            _uiState.ShowOverwriteModal = false;
         }
 
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(20, 20));
         
-        if (ImGui.BeginPopupModal("Overwrite?", ref _dummyOpen, ImGuiWindowFlags.AlwaysAutoResize))
+        if (ImGui.BeginPopupModal(RenderWindowStrings.OverwriteTitle, ref _uiState.DummyOpen, ImGuiWindowFlags.AlwaysAutoResize))
         {
             ImGui.BeginGroup();
             var targetPath = GetCachedTargetFilePath(RenderSettings.RenderMode);
             
-            ImGui.TextUnformatted("The file already exists:");
+            ImGui.TextUnformatted(RenderWindowStrings.OverwriteMessage);
             
             ImGui.PushFont(Fonts.FontBold);
             ImGui.TextUnformatted(Path.GetFileName(targetPath));
             ImGui.PopFont();
             
             ImGui.Dummy(new Vector2(0,10));
-            ImGui.TextUnformatted("Do you want to overwrite it?");
+            ImGui.TextUnformatted(RenderWindowStrings.OverwriteConfirm);
             FormInputs.AddVerticalSpace(20);
 
-            if (ImGui.Button("Overwrite", new Vector2(120, 0)))
+            if (ImGui.Button(RenderWindowStrings.OverwriteButton, new Vector2(120, 0)))
             {
                 // Defer render start to next frame so popup closes immediately
-                _pendingRenderStart = true;
+                _uiState.PendingRenderStart = true;
                 ImGui.CloseCurrentPopup();
             }
             ImGui.SameLine();
-            if (ImGui.Button("Cancel", new Vector2(120, 0)))
+            if (ImGui.Button(RenderWindowStrings.CancelButton, new Vector2(120, 0)))
             {
                 ImGui.CloseCurrentPopup();
             }
@@ -386,12 +386,6 @@ internal sealed class RenderWindow : Window
         }
         ImGui.PopStyleVar();
     }
-
-    private static bool _showOverwriteModal;
-    private static bool _pendingRenderStart;
-    private static bool _dummyOpen = true;
-
-
 
     // Helpers
     private RenderSettings.QualityLevel GetQualityLevelFromRate(float bitsPerPixelSecond)
@@ -409,8 +403,8 @@ internal sealed class RenderWindow : Window
 
     internal override List<Window> GetInstances() => [];
 
-    private static string _lastHelpString = string.Empty;
-    private static float _lastValidFps = RenderSettings.Fps;
+    private readonly WindowUiState _uiState = new();
+    
     private static RenderSettings RenderSettings => RenderSettings.Current;
 
     private readonly RenderSettings.QualityLevel[] _qualityLevels =
@@ -423,4 +417,65 @@ internal sealed class RenderWindow : Window
             new(0.5, "Very good", "Excellent quality, but large."),
             new(1, "Reference", "Indistinguishable. Very large files."),
         };
+
+    private sealed class WindowUiState
+    {
+        public string LastHelpString = string.Empty;
+        public float LastValidFps = RenderSettings.Current.Fps;
+        
+        // UI State for Overwrite Dialog
+        public bool ShowOverwriteModal;
+        public bool PendingRenderStart;
+        public bool DummyOpen = true;
+        
+        // Cached path
+        public string CachedTargetPath = string.Empty;
+        public double LastPathUpdateTime = -1;
+    }
+
+    private static class RenderWindowStrings
+    {
+        public const string WindowTitle = "Render To File";
+        public const string NoOutputView = "No output view available";
+        public const string OutputViewEmpty = "The output view is empty";
+        public const string SymbolMustHaveTextureOutput = "Select or pin a Symbol with Texture2D output in order to render to file";
+        public const string StartRenderButton = "Start Render";
+        public const string CancelRenderButton = "Cancel Render";
+        public const string TooltipTextureOutputRequired = "Only Symbols with a texture2D output can be rendered to file";
+        public const string ReadyToRender = "Ready to render.";
+        
+        public const string RenderModeLabel = "Render Mode";
+        public const string RangeLabel = "Range";
+        public const string ScaleLabel = "Scale";
+        public const string StartLabel = "Start";
+        public const string EndLabel = "End";
+        public const string FpsLabel = "FPS";
+        public const string ResolutionLabel = "Resolution";
+        public const string CustomResolutionLabel = "Custom:";
+        public const string TooltipResolutionScale = "Scale resolution of rendered frames.";
+        
+        public const string MotionBlurLabel = "Motion Blur";
+        public const string TooltipMotionBlur = "Number of motion blur samples. Set to -1 to disable. Requires [RenderWithMotionBlur] operator.";
+        public const string HintMotionBlur = "Motion blur disabled. (Use samples > 0 and [RenderWithMotionBlur])";
+        
+        public const string BitrateLabel = "Bitrate";
+        public const string TooltipBitrate = "Video bitrate in megabits per second.";
+        public const string FolderLabel = "Folder";
+        public const string SaveFolderLabel = "Save folder.";
+        public const string FilenameLabel = "Filename";
+        public const string FormatLabel = "Format";
+        public const string NameLabel = "Name";
+        public const string AutoIncrementLabel = "Auto-increment version";
+        public const string ExportAudioLabel = "Export Audio";
+        
+        public const string Calculating = "Calculating...";
+        public const string Remaining = " remaining";
+        public const string RenderCancelled = "Render cancelled after ";
+        
+        public const string OverwriteTitle = "Overwrite?";
+        public const string OverwriteMessage = "The file already exists:";
+        public const string OverwriteConfirm = "Do you want to overwrite it?";
+        public const string OverwriteButton = "Overwrite";
+        public const string CancelButton = "Cancel";
+    }
 }
