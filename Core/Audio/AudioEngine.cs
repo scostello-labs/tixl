@@ -181,7 +181,7 @@ public static class AudioEngine
     }
 
     #region Operator Audio Playback
-    private static readonly Dictionary<Guid, OperatorAudioState> _operatorAudioStates = new();
+    private static readonly Dictionary<Guid, StereoOperatorAudioState> _operatorAudioStates = new();
     private static readonly Dictionary<Guid, SpatialOperatorAudioState> _spatialOperatorAudioStates = new();
 
     // 3D Listener position and orientation
@@ -190,9 +190,9 @@ public static class AudioEngine
     private static Vector3 _listenerUp = new Vector3(0, 1, 0);
     private static bool _3dInitialized = false;
 
-    private class OperatorAudioState
+    private class StereoOperatorAudioState
     {
-        public OperatorAudioStream? Stream;
+        public StereoOperatorAudioStream? Stream;
         public string CurrentFilePath = string.Empty;
         public bool IsPaused;
         public float PreviousSeek = 0f;
@@ -268,7 +268,7 @@ public static class AudioEngine
 
         if (!_operatorAudioStates.TryGetValue(operatorId, out var state))
         {
-            state = new OperatorAudioState();
+            state = new StereoOperatorAudioState();
             _operatorAudioStates[operatorId] = state;
             AudioConfig.LogDebug($"[AudioEngine] Created new audio state for operator: {operatorId}");
         }
@@ -299,7 +299,7 @@ public static class AudioEngine
             if (!string.IsNullOrEmpty(resolvedFilePath))
             {
                 var loadStartTime = DateTime.Now;
-                if (OperatorAudioStream.TryLoadStream(resolvedFilePath, AudioMixerManager.OperatorMixerHandle, out var stream))
+                if (StereoOperatorAudioStream.TryLoadStream(resolvedFilePath, AudioMixerManager.OperatorMixerHandle, out var stream))
                 {
                     var loadTime = (DateTime.Now - loadStartTime).TotalMilliseconds;
                     state.Stream = stream;
