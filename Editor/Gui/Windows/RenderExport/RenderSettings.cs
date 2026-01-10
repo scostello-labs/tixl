@@ -23,6 +23,8 @@ internal sealed class RenderSettings
     public  RenderSettings.RenderModes RenderMode = RenderSettings.RenderModes.Video;
     public  int Bitrate = 25_000_000;
     public  bool AutoIncrementVersionNumber = true;
+    public  bool CreateSubFolder = false;
+    public  bool AutoIncrementSubFolder = true;
     public  bool ExportAudio = true;
     public  ScreenshotWriter.FileFormats FileFormat;
     public  RenderSettings.TimeRanges TimeRange = RenderSettings.TimeRanges.Custom;

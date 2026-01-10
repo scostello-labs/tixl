@@ -164,23 +164,43 @@ internal sealed class RenderWindow : Window
         }
         CustomComponents.TooltipForLastItem(RenderWindowStrings.TooltipResolutionScale);
 
-        if (ImGui.BeginPopup("ResolutionPopover"))
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(12, 12));
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(8, 8));
+        ImGui.SetNextWindowSize(new Vector2(160 * T3Ui.UiScaleFactor, 0));
+        
+        if (ImGui.BeginPopup("ResolutionPopover", ImGuiWindowFlags.NoMove))
         {
-            if (ImGui.Selectable("25%", currentPct == 25)) RenderSettings.ResolutionFactor = 0.25f;
-            if (ImGui.Selectable("50%", currentPct == 50)) RenderSettings.ResolutionFactor = 0.5f;
-            if (ImGui.Selectable("100%", currentPct == 100)) RenderSettings.ResolutionFactor = 1.0f;
-            if (ImGui.Selectable("200%", currentPct == 200)) RenderSettings.ResolutionFactor = 2.0f;
+            static void DrawSelectable(string label, float factor)
+            {
+                bool isSelected = Math.Abs(RenderSettings.ResolutionFactor - factor) < 0.001f;
+                if (ImGui.Selectable(label, isSelected))
+                {
+                    RenderSettings.ResolutionFactor = factor;
+                }
+            }
+
+            DrawSelectable("25%", 0.25f);
+            DrawSelectable("50%", 0.5f);
+            DrawSelectable("100%", 1.0f);
+            DrawSelectable("200%", 2.0f);
 
             CustomComponents.SeparatorLine();
+            
+            ImGui.PushStyleColor(ImGuiCol.Text, UiColors.TextMuted.Rgba);
             ImGui.TextUnformatted(RenderWindowStrings.CustomResolutionLabel);
+            ImGui.PopStyleColor();
+            
             var customPct = RenderSettings.ResolutionFactor * 100f;
+            ImGui.SetNextItemWidth(100 * T3Ui.UiScaleFactor);
             if (ImGui.InputFloat("##CustomRes", ref customPct, 0, 0, "%.0f%%"))
             {
-                customPct = Math.Clamp(customPct, 1f, 400f);
+                customPct = Math.Clamp(customPct, 1f, 1000f);
                 RenderSettings.ResolutionFactor = customPct / 100f;
             }
+            
             ImGui.EndPopup();
         }
+        ImGui.PopStyleVar(2);
     }
 
     private void DrawVideoSettings(Int2 size)
@@ -203,16 +223,16 @@ internal sealed class RenderWindow : Window
                                   ? RenderSettings.Bitrate / (double)totalPixels / RenderSettings.Fps 
                                   : 0;
 
-        var q = GetQualityLevelFromRate((float)bitsPerPixel);
-        FormInputs.AddHint($"{q.Title} quality (Est. {RenderSettings.Bitrate * duration / 1024 / 1024 / 8:0.#} MB)");
-        CustomComponents.TooltipForLastItem(q.Description);
+        var matchingQuality = GetQualityLevelFromRate((float)bitsPerPixel);
+        FormInputs.AddHint($"{matchingQuality.Title} quality (Est. {RenderSettings.Bitrate * duration / 1024 / 1024 / 8:0.#} MB)");
+        CustomComponents.TooltipForLastItem(matchingQuality.Description);
 
         // Path
         var currentPath = UserSettings.Config.RenderVideoFilePath ?? "./Render/render-v01.mp4";
         var directory = Path.GetDirectoryName(currentPath) ?? "./Render";
         var filename = Path.GetFileName(currentPath) ?? "render-v01.mp4";
 
-        FormInputs.AddFilePicker(RenderWindowStrings.FolderLabel, ref directory!, ".\\Render", null, RenderWindowStrings.SaveFolderLabel, FileOperations.FilePickerTypes.Folder);
+        FormInputs.AddFilePicker(RenderWindowStrings.MainFolderLabel, ref directory!, ".\\Render", null, RenderWindowStrings.SaveFolderLabel, FileOperations.FilePickerTypes.Folder);
 
         if (FormInputs.AddStringInput(RenderWindowStrings.FilenameLabel, ref filename))
         {
@@ -233,18 +253,37 @@ internal sealed class RenderWindow : Window
 
     private static void DrawImageSequenceSettings()
     {
-        FormInputs.AddEnumDropdown(ref RenderSettings.FileFormat, RenderWindowStrings.FormatLabel);
+        FormInputs.AddFilePicker(RenderWindowStrings.MainFolderLabel, ref UserSettings.Config.RenderSequenceFilePath!, ".\\ImageSequence ", null, RenderWindowStrings.SaveFolderLabel, FileOperations.FilePickerTypes.Folder);
 
-        if (FormInputs.AddStringInput(RenderWindowStrings.NameLabel, ref UserSettings.Config.RenderSequenceFileName))
+        if (FormInputs.AddStringInput(RenderWindowStrings.SubfolderLabel, ref UserSettings.Config.RenderSequenceFileName))
         {
             UserSettings.Config.RenderSequenceFileName = (UserSettings.Config.RenderSequenceFileName ?? string.Empty).Trim();
-            if (string.IsNullOrEmpty(UserSettings.Config.RenderSequenceFileName)) UserSettings.Config.RenderSequenceFileName = "output";
+            if (string.IsNullOrEmpty(UserSettings.Config.RenderSequenceFileName)) UserSettings.Config.RenderSequenceFileName = "v01";
         }
 
-        FormInputs.AddFilePicker(RenderWindowStrings.FolderLabel, ref UserSettings.Config.RenderSequenceFilePath!, ".\\ImageSequence ", null, RenderWindowStrings.SaveFolderLabel, FileOperations.FilePickerTypes.Folder);
+        if (FormInputs.AddStringInput(RenderWindowStrings.PrefixLabel, ref UserSettings.Config.RenderSequencePrefix))
+        {
+            UserSettings.Config.RenderSequencePrefix = (UserSettings.Config.RenderSequencePrefix ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(UserSettings.Config.RenderSequencePrefix)) UserSettings.Config.RenderSequencePrefix = "render";
+        }
+
+        FormInputs.AddEnumDropdown(ref RenderSettings.FileFormat, RenderWindowStrings.FormatLabel);
+
+        FormInputs.AddCheckBox(RenderWindowStrings.CreateSubFolderLabel, ref RenderSettings.CreateSubFolder);
+        FormInputs.AddCheckBox(RenderWindowStrings.AutoIncrementLabel, ref RenderSettings.AutoIncrementSubFolder);
+        
+        if (RenderSettings.AutoIncrementSubFolder)
+        {
+            var targetToIncrement = RenderSettings.CreateSubFolder ? UserSettings.Config.RenderSequenceFileName : UserSettings.Config.RenderSequencePrefix;
+            var hasVersion = RenderPaths.IsFilenameIncrementable(targetToIncrement);
+            if (!hasVersion)
+            {
+                FormInputs.AddHint(RenderWindowStrings.HintWillAppendVersion);
+            }
+        }
     }
 
-    private void DrawRenderSummary()
+    private static void DrawRenderSummary()
     {
         var size = RenderProcess.MainOutputOriginalSize;
         var scaledWidthRaw = (int)(size.Width * RenderSettings.ResolutionFactor);
@@ -258,7 +297,7 @@ internal sealed class RenderWindow : Window
         var endSec = RenderTiming.ReferenceTimeToSeconds(RenderSettings.EndInBars, RenderSettings.Reference, RenderSettings.Fps);
         var duration = Math.Max(0, endSec - startSec);
 
-        var outputPath = GetCachedTargetFilePath(RenderSettings.RenderMode);
+        var outputPath = RenderPaths.GetExpectedTargetDisplayPath(RenderSettings.Current.RenderMode);
         string format = RenderSettings.RenderMode == RenderSettings.RenderModes.Video 
                             ? "MP4 Video" 
                             : $"{RenderSettings.FileFormat} Sequence";
@@ -363,11 +402,15 @@ internal sealed class RenderWindow : Window
         {
             ImGui.BeginGroup();
             var targetPath = GetCachedTargetFilePath(RenderSettings.RenderMode);
-            
-            ImGui.TextUnformatted(RenderWindowStrings.OverwriteMessage);
+            bool isFolder = RenderSettings.RenderMode == RenderSettings.RenderModes.ImageSequence && RenderSettings.CreateSubFolder;
+
+            var displayPath = isFolder ? Path.GetFileName(Path.GetDirectoryName(targetPath)) : Path.GetFileName(targetPath);
+            var message = isFolder ? RenderWindowStrings.OverwriteFolderMessage : RenderWindowStrings.OverwriteMessage;
+
+            ImGui.TextUnformatted(message);
             
             ImGui.PushFont(Fonts.FontBold);
-            ImGui.TextUnformatted(Path.GetFileName(targetPath));
+            ImGui.TextUnformatted(displayPath);
             ImGui.PopFont();
             
             ImGui.Dummy(new Vector2(0,10));
@@ -398,15 +441,15 @@ internal sealed class RenderWindow : Window
     // Helpers
     private RenderSettings.QualityLevel GetQualityLevelFromRate(float bitsPerPixelSecond)
     {
-        RenderSettings.QualityLevel q = default;
-        for (var i = _qualityLevels.Length - 1; i >= 0; i--)
+        RenderSettings.QualityLevel matchingQuality = default;
+        for (var i = _definedQualityLevels.Length - 1; i >= 0; i--)
         {
-            q = _qualityLevels[i];
-            if (q.MinBitsPerPixelSecond < bitsPerPixelSecond)
+            matchingQuality = _definedQualityLevels[i];
+            if (matchingQuality.MinBitsPerPixelSecond < bitsPerPixelSecond)
                 break;
         }
 
-        return q;
+        return matchingQuality;
     }
 
     internal override List<Window> GetInstances() => [];
@@ -415,7 +458,7 @@ internal sealed class RenderWindow : Window
     
     private static RenderSettings RenderSettings => RenderSettings.Current;
 
-    private readonly RenderSettings.QualityLevel[] _qualityLevels =
+    private readonly RenderSettings.QualityLevel[] _definedQualityLevels =
         [
             new(0.01, "Poor", "Very low quality. Consider lower resolution."),
             new(0.02, "Low", "Probable strong artifacts"),
@@ -468,12 +511,16 @@ internal sealed class RenderWindow : Window
         
         public const string BitrateLabel = "Bitrate";
         public const string TooltipBitrate = "Video bitrate in megabits per second.";
-        public const string FolderLabel = "Folder";
+        public const string MainFolderLabel = "Main Folder";
         public const string SaveFolderLabel = "Save folder.";
         public const string FilenameLabel = "Filename";
         public const string FormatLabel = "Format";
-        public const string NameLabel = "Name";
+        public const string SubfolderPrefixLabel = "Subfolder / Prefix";
+        public const string SubfolderLabel = "Subfolder";
+        public const string PrefixLabel = "Filename Prefix";
         public const string AutoIncrementLabel = "Auto-increment version";
+        public const string CreateSubFolderLabel = "Create subfolder";
+        public const string HintWillAppendVersion = "Suffix '_v01' will be added after render";
         public const string ExportAudioLabel = "Export Audio (experimental)";
         
         public const string Calculating = "Calculating...";
@@ -481,7 +528,8 @@ internal sealed class RenderWindow : Window
         public const string RenderCancelled = "Render cancelled after ";
         
         public const string OverwriteTitle = "Overwrite?";
-        public const string OverwriteMessage = "The file already exists:";
+        public const string OverwriteMessage = "A file with this name already exists:";
+        public const string OverwriteFolderMessage = "A folder with this name already exists and is not empty:";
         public const string OverwriteConfirm = "Do you want to overwrite it?";
         public const string OverwriteButton = "Overwrite";
         public const string CancelButton = "Cancel";

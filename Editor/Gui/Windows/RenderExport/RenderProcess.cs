@@ -112,8 +112,25 @@ internal static class RenderProcess
         LastHelpString = $"Render {GetTargetFilePath(_activeSession.Settings.RenderMode)} finished {successful} in {StringUtils.HumanReadableDurationFromSeconds(duration)}";
         Log.Debug(LastHelpString);
 
-        if (_activeSession.Settings.AutoIncrementVersionNumber && success && _activeSession.Settings.RenderMode == RenderSettings.RenderModes.Video)
-            RenderPaths.TryIncrementVideoFileNameInUserSettings();
+        if (success)
+        {
+            if (_activeSession.Settings.RenderMode == RenderSettings.RenderModes.Video && _activeSession.Settings.AutoIncrementVersionNumber)
+            {
+                RenderPaths.TryIncrementVideoFileNameInUserSettings();
+            }
+            else if (_activeSession.Settings.RenderMode == RenderSettings.RenderModes.ImageSequence && _activeSession.Settings.AutoIncrementSubFolder)
+            {
+                if (_activeSession.Settings.CreateSubFolder)
+                {
+                    UserSettings.Config.RenderSequenceFileName = RenderPaths.GetNextIncrementedPath(UserSettings.Config.RenderSequenceFileName);
+                }
+                else
+                {
+                    UserSettings.Config.RenderSequencePrefix = RenderPaths.GetNextIncrementedPath(UserSettings.Config.RenderSequencePrefix);
+                }
+                UserSettings.Save();
+            }
+        }
 
         Cleanup();
         IsToollRenderingSomething = false;
