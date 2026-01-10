@@ -357,7 +357,7 @@ UserSettings (Editor) → AudioConfig (Core) → Audio Classes
    ```
 
 2. **Audio Classes** - Use shared logging helpers
-   - `OperatorAudioStream.cs`
+   - `StereoOperatorAudioStream.cs`
    - `AudioMixerManager.cs`
    - `AudioEngine.cs`
    - `StereoAudioPlayer.cs`
@@ -462,7 +462,7 @@ Log.Error("[OperatorAudio] Critical failure");
 
 **Audio Class Implementation:**
 ```csharp
-// In OperatorAudioStream.cs, AudioEngine.cs, etc.
+// In StereoOperatorAudioStream.cs, AudioEngine.cs, etc.
 
 // ✅ Use shared helpers for Debug/Info
 AudioConfig.LogDebug("[OperatorAudio] Loading file...");
