@@ -122,12 +122,14 @@ public static class AudioEngine
         _updatedClipTimes.Clear();
     }
 
-    public static void SetMute(bool configAudioMuted)
+    public static void SetMute(bool configSoundtrackMute)
     {
-        IsMuted = configAudioMuted;
+        IsMuted = configSoundtrackMute;
     }
 
     public static bool IsMuted { get; private set; }
+    // Optionally, add a new property for global mute if you want to use it in the engine
+    public static bool IsGlobalMuted => ProjectSettings.Config.GlobalMute;
 
 
 

@@ -203,11 +203,27 @@ internal sealed class SettingsWindow : Window
                                                    "Controls the distance until items such as keyframes snap in the timeline",
                                                    UserSettings.Defaults.SnapStrength);
 
-                    changed |= FormInputs.AddFloat("Audio Volume",
-                                                   ref ProjectSettings.Config.PlaybackVolume,
+                    changed |= FormInputs.AddFloat("Global Volume",
+                                                   ref ProjectSettings.Config.GlobalPlaybackVolume,
+                                                   0.0f, 1.0f, 0.01f, true, true,
+                                                   "Affects all audio output at the global mixer level.",
+                                                   ProjectSettings.Defaults.GlobalPlaybackVolume);
+
+                    changed |= FormInputs.AddCheckBox("Global Mute",
+                                                    ref ProjectSettings.Config.GlobalMute,
+                                                    "Mute all audio output at the global mixer level.",
+                                                    ProjectSettings.Defaults.GlobalMute);
+
+                    changed |= FormInputs.AddFloat("Soundtrack Volume",
+                                                   ref ProjectSettings.Config.SoundtrackPlaybackVolume,
                                                    0.0f, 10f, 0.01f, true, true,
-                                                   "Limit the audio playback volume",
-                                                   ProjectSettings.Defaults.PlaybackVolume);
+                                                   "Limit the audio playback volume for the soundtrack",
+                                                   ProjectSettings.Defaults.SoundtrackPlaybackVolume);
+
+                    changed |= FormInputs.AddCheckBox("Soundtrack Mute",
+                                                    ref ProjectSettings.Config.SoundtrackMute,
+                                                    "Mute soundtrack audio only.",
+                                                    ProjectSettings.Defaults.SoundtrackMute);
 
                     changed |= FormInputs.AddEnumDropdown(ref UserSettings.Config.FrameStepAmount,
                                                           "Frame step amount",
@@ -395,11 +411,27 @@ internal sealed class SettingsWindow : Window
                     FormInputs.AddVerticalSpace();
                     
                     FormInputs.SetIndentToParameters();
-                    changed |= FormInputs.AddFloat("Audio Volume",
-                                                   ref ProjectSettings.Config.PlaybackVolume,
+                    changed |= FormInputs.AddFloat("Global Volume",
+                                                   ref ProjectSettings.Config.GlobalPlaybackVolume,
+                                                   0.0f, 1.0f, 0.01f, true, true,
+                                                   "Affects all audio output at the global mixer level.",
+                                                   ProjectSettings.Defaults.GlobalPlaybackVolume);
+
+                    changed |= FormInputs.AddCheckBox("Global Mute",
+                                                    ref ProjectSettings.Config.GlobalMute,
+                                                    "Mute all audio output at the global mixer level.",
+                                                    ProjectSettings.Defaults.GlobalMute);
+
+                    changed |= FormInputs.AddFloat("Soundtrack Volume",
+                                                   ref ProjectSettings.Config.SoundtrackPlaybackVolume,
                                                    0.0f, 10f, 0.01f, true, true,
-                                                   "Limit the audio playback volume",
-                                                   ProjectSettings.Defaults.PlaybackVolume);
+                                                   "Limit the audio playback volume for the soundtrack",
+                                                   ProjectSettings.Defaults.SoundtrackPlaybackVolume);
+
+                    changed |= FormInputs.AddCheckBox("Soundtrack Mute",
+                                                    ref ProjectSettings.Config.SoundtrackMute,
+                                                    "Mute soundtrack audio only.",
+                                                    ProjectSettings.Defaults.SoundtrackMute);
                     
                     FormInputs.AddVerticalSpace();
                     FormInputs.SetIndentToLeft();

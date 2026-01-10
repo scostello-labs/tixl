@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Diagnostics.CodeAnalysis;
 using ManagedBass;
@@ -167,8 +167,10 @@ public sealed class AudioClipStream
 
         Bass.ChannelSetAttribute(StreamHandle, ChannelAttribute.Volume, 
                                  clip.Volume 
-                                 * ProjectSettings.Config.PlaybackVolume
-                                 * (ProjectSettings.Config.AudioMuted ? 0f:1f));
+                                 * ProjectSettings.Config.SoundtrackPlaybackVolume
+                                 * ProjectSettings.Config.GlobalPlaybackVolume
+                                 * (ProjectSettings.Config.SoundtrackMute ? 0f:1f)
+                                 * (ProjectSettings.Config.GlobalMute ? 0f:1f));
         
 
         // We may not fall behind or skip ahead in playback

@@ -462,11 +462,13 @@ For detailed implementation information, refer to the documentation index above 
 
 - ✅ Switching external input devices 
 -     [AudioMixerManager.Shutdown -> AudioMixerManager.Initialize]
-- ✅ AudioRection
-- ✅ Adding a soundtrack to a project
--     Soundtrack retains timeline sync and waveform generation
-- ✅ Rendering a project with soundtrack duration to mp4
-- PlayVideo with audio (and audio level)
+- ✅ AudioReaction
+- ❌ Adding a soundtrack to a project
+-     ❌ Soundtrack stops proper playback for other audio operators
+-     ✅ Soundtrack retains timeline sync and waveform generation
+- ❌ Rendering a project with soundtrack duration to mp4
+-     ❌ See above - need to debug soundtrack stopping other audio operators
+- ✅ PlayVideo with audio (and audio level)
 - Toggling audio mute button
 - Changing audio level in Settings
 - Exporting a project to the player (This will need to release rebuild of the player and might be difficult to test. I can help here.)
