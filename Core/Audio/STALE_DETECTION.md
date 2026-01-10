@@ -129,38 +129,6 @@ regardless of operator state.
 
 ---
 
-## Best Practices
-
-### For Audio Developers
-
-✅ **DO:**
-- Use stale detection for all audio operators (enabled by default)
-- Disable operators when not needed (streams continue silently, saves some CPU)
-- Trust the automatic mute/unmute system
-- **Use the mute checkbox in the UI - it will be respected even when returning from stale state**
-
-❌ **DON'T:**
-- Manually stop audio when disabling operators (redundant)
-- Add manual delays/waits before disabling (not needed)
-- Work around stale detection (it's optimized and reliable)
-- **Worry about stale detection overriding your mute settings - it respects user mute state**
-
-### For Audio System Development
-
-✅ **DO:**
-- Keep stale detection logic in AudioEngine only
-- Use `SetStaleMuted()` for all stream muting needs
-- Log state transitions for debugging
-- Test edge cases (rapid enable/disable, multiple instances)
-
-❌ **DON'T:**
-- Call `SetStaleMuted()` from operators (handled by engine)
-- Modify `_operatorsUpdatedThisFrame` outside of AudioEngine
-- Implement time-based detection in streams (use frame-based)
-- Disable stale detection (it's a core safety feature)
-
----
-
 ## Conclusion
 
 The stale detection system provides automatic, reliable, and performant muting of inactive audio operators. By leveraging frame-based tracking in the AudioEngine, it solves the fundamental problem of detecting inactive operators without relying on operator-level Update() calls.
