@@ -464,7 +464,12 @@ public static class AudioEngine
         float minDistance,
         float maxDistance,
         float speed = 1.0f,
-        float seek = 0f)
+        float seek = 0f,
+        Vector3? orientation = null,
+        float innerConeAngle = 360f,
+        float outerConeAngle = 360f,
+        float outerConeVolume = 1.0f,
+        int mode3D = 0)
     {
         // Ensure mixer is initialized
         if (AudioMixerManager.OperatorMixerHandle == 0)
@@ -579,6 +584,24 @@ public static class AudioEngine
         {
             state.Stream.SetVolume(volume, mute);
             state.Stream.SetSpeed(speed);
+
+            // Update advanced 3D parameters if provided
+            if (orientation.HasValue && orientation.Value.Length() > 0.001f)
+            {
+                state.Stream.Set3DOrientation(orientation.Value);
+            }
+
+            // Update cone parameters if they differ from defaults (360° = omnidirectional)
+            if (Math.Abs(innerConeAngle - 360f) > 0.1f || Math.Abs(outerConeAngle - 360f) > 0.1f || Math.Abs(outerConeVolume - 1.0f) > 0.001f)
+            {
+                state.Stream.Set3DCone(innerConeAngle, outerConeAngle, outerConeVolume);
+            }
+
+            // Update 3D mode if not default (0 = Normal)
+            if (mode3D != 0)
+            {
+                state.Stream.Set3DMode((Mode3D)mode3D);
+            }
 
             // Handle seek
             if (Math.Abs(seek - state.PreviousSeek) > 0.001f && seek >= 0f && seek <= 1f)

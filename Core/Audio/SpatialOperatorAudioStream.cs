@@ -31,8 +31,16 @@ public sealed class SpatialOperatorAudioStream
     
     // 3D positioning parameters
     private Vector3 _position = Vector3.Zero;
+    private Vector3 _velocity = Vector3.Zero;
+    private Vector3 _orientation = new Vector3(0, 0, -1); // Default: facing forward
     private float _minDistance = 1.0f;
     private float _maxDistance = 100.0f;
+    private Mode3D _3dMode = Mode3D.Normal; // Default 3D mode from ManagedBass
+    
+    // 3D processing parameters
+    private float _innerAngleDegrees = 360.0f; // Full omnidirectional by default
+    private float _outerAngleDegrees = 360.0f;
+    private float _outerVolume = 1.0f; // Volume multiplier outside outer cone
     
     // Cached channel info
     private int _cachedChannels;
@@ -73,10 +81,10 @@ public sealed class SpatialOperatorAudioStream
         AudioConfig.LogDebug($"[SpatialAudio] Loading: {fileName} ({fileSize} bytes)");
 
         var startTime = DateTime.Now;
-        // Create as DECODE stream for mixer compatibility
-        // We handle 3D positioning through software-based attenuation and panning
+        // Create as mono stream with 3D flags for BASS 3D audio support
+        // BASS 3D audio requires mono streams - if the file is stereo, we'll need to convert or use only first channel
         var streamHandle = Bass.CreateStream(filePath, 0, 0, 
-            BassFlags.Decode | BassFlags.Float | BassFlags.AsyncFile);
+            BassFlags.Decode | BassFlags.Float | BassFlags.AsyncFile | BassFlags.Mono);
         var createTime = (DateTime.Now - startTime).TotalMilliseconds;
 
         if (streamHandle == 0)
@@ -154,13 +162,50 @@ public sealed class SpatialOperatorAudioStream
                          _cachedFrequency = info.Frequency
                      };
 
+        // Initialize 3D attributes with default values
+        stream.Initialize3DAudio();
+
         var streamActive = Bass.ChannelIsActive(streamHandle);
         var mixerActive = Bass.ChannelIsActive(mixerHandle);
         var flags = BassMix.ChannelFlags(streamHandle, 0, 0);
         
-        AudioConfig.LogInfo($"[SpatialAudio] ✓ Loaded: {fileName} | Duration: {duration:F3}s | Handle: {streamHandle} | Channels: {info.Channels} | Freq: {info.Frequency} | MixerAdd: {mixerAddTime:F2}ms | Update: {updateTime:F2}ms | StreamActive: {streamActive} | MixerActive: {mixerActive} | Flags: {flags}");
+        AudioConfig.LogInfo($"[SpatialAudio] ✓ Loaded: {fileName} | Duration: {duration:F3}s | Handle: {streamHandle} | Channels: {info.Channels} | Freq: {info.Frequency} | MixerAdd: {mixerAddTime:F2}ms | Update: {updateTime:F2}ms | StreamActive: {streamActive} | MixerActive: {mixerActive} | Flags: {flags} | 3D: Enabled");
 
         return true;
+    }
+
+    /// <summary>
+    /// Initialize BASS 3D audio attributes for this stream
+    /// </summary>
+    private void Initialize3DAudio()
+    {
+        // Set initial 3D attributes using BASS native 3D audio
+        // Parameters: mode, min distance, max distance, inner angle, outer angle, outer volume
+        if (!Bass.ChannelSet3DAttributes(StreamHandle, _3dMode, _minDistance, _maxDistance, 
+            (int)_innerAngleDegrees, (int)_outerAngleDegrees, _outerVolume))
+        {
+            var error = Bass.LastError;
+            Log.Warning($"[SpatialAudio] Failed to set 3D attributes: {error}");
+        }
+        else
+        {
+            AudioConfig.LogDebug($"[SpatialAudio] 3D attributes initialized | Mode: {_3dMode} | MinDist: {_minDistance} | MaxDist: {_maxDistance} | InnerAngle: {_innerAngleDegrees}° | OuterAngle: {_outerAngleDegrees}°");
+        }
+
+        // Set initial 3D position
+        if (!Bass.ChannelSet3DPosition(StreamHandle, To3DVector(_position), To3DVector(_orientation), To3DVector(_velocity)))
+        {
+            var error = Bass.LastError;
+            Log.Warning($"[SpatialAudio] Failed to set initial 3D position: {error}");
+        }
+    }
+
+    /// <summary>
+    /// Convert System.Numerics.Vector3 to ManagedBass.Vector3D
+    /// </summary>
+    private static ManagedBass.Vector3D To3DVector(Vector3 v)
+    {
+        return new ManagedBass.Vector3D(v.X, v.Y, v.Z);
     }
 
     public void UpdateStaleDetection(double currentTime)
@@ -212,63 +257,112 @@ public sealed class SpatialOperatorAudioStream
         }
     }
 
+    /// <summary>
+    /// Update 3D position using native BASS 3D audio
+    /// </summary>
     public void Update3DPosition(Vector3 position, float minDistance, float maxDistance)
     {
+        // Update position for velocity calculation
+        var deltaPos = position - _position;
+        var timeDelta = 1.0f / 60.0f; // Assume ~60fps, could be improved with actual time delta
+        _velocity = deltaPos / timeDelta;
+        
         _position = position;
         _minDistance = Math.Max(0.1f, minDistance);
         _maxDistance = Math.Max(_minDistance + 0.1f, maxDistance);
 
-        // Get listener state from AudioEngine
-        var listenerPos = AudioEngine.Get3DListenerPosition();
-        var listenerForward = AudioEngine.Get3DListenerForward();
-        var listenerUp = AudioEngine.Get3DListenerUp();
-        
-        // Calculate distance from listener to sound source
-        var distance = Vector3.Distance(listenerPos, position);
-        
-        // Calculate distance-based attenuation (inverse distance law with min/max clamping)
-        float attenuation = 1.0f;
-        if (distance > _minDistance)
+        // Update 3D attributes if distance parameters changed
+        if (!Bass.ChannelSet3DAttributes(StreamHandle, _3dMode, _minDistance, _maxDistance, 
+            (int)_innerAngleDegrees, (int)_outerAngleDegrees, _outerVolume))
         {
-            if (distance >= _maxDistance)
+            var error = Bass.LastError;
+            if (_updateCount % 300 == 0) // Log errors occasionally to avoid spam
             {
-                attenuation = 0.0f; // Silent beyond max distance
-            }
-            else
-            {
-                // Linear falloff between min and max distance
-                attenuation = 1.0f - ((distance - _minDistance) / (_maxDistance - _minDistance));
+                Log.Warning($"[SpatialAudio] Failed to update 3D attributes: {error}");
             }
         }
 
-        // Apply attenuation as volume
-        var spatialVolume = _currentVolume * attenuation;
-        Bass.ChannelSetAttribute(StreamHandle, ChannelAttribute.Volume, spatialVolume);
-
-        // Calculate 3D panning based on relative position and listener orientation
-        var toSound = position - listenerPos;
-        
-        // Calculate left-right panning using listener's local coordinate system
-        float panValue = 0.0f;
-        if (toSound.Length() > 0.001f)
+        // Update 3D position using BASS native 3D positioning
+        if (!Bass.ChannelSet3DPosition(StreamHandle, To3DVector(_position), To3DVector(_orientation), To3DVector(_velocity)))
         {
-            // Calculate right vector (cross product of forward and up)
-            var listenerRight = Vector3.Normalize(Vector3.Cross(listenerForward, listenerUp));
-            
-            // Project sound direction onto listener's right vector
-            // Positive = right, Negative = left
-            panValue = Vector3.Dot(Vector3.Normalize(toSound), listenerRight);
-            panValue = Math.Clamp(panValue, -1.0f, 1.0f);
+            var error = Bass.LastError;
+            if (_updateCount % 300 == 0) // Log errors occasionally to avoid spam
+            {
+                Log.Warning($"[SpatialAudio] Failed to update 3D position: {error}");
+            }
         }
 
-        Bass.ChannelSetAttribute(StreamHandle, ChannelAttribute.Pan, panValue);
-        
+        // Apply 3D processing - this calculates the actual 3D effect based on listener position
+        // Note: Bass.Apply3D() should be called once per frame, typically in the AudioEngine
+        // We'll call it here for each stream update to ensure immediate response
+        Bass.Apply3D();
+
         // Log position updates occasionally
         if (_updateCount % 60 == 0) // Every 60 updates (~1 second at 60fps)
         {
             var fileName = Path.GetFileName(FilePath);
-            AudioConfig.LogDebug($"[SpatialAudio] Position update: {fileName} | Pos: {position} | Dist: {distance:F2} | Atten: {attenuation:F3} | Pan: {panValue:F3}");
+            var listenerPos = AudioEngine.Get3DListenerPosition();
+            var distance = Vector3.Distance(listenerPos, position);
+            AudioConfig.LogDebug($"[SpatialAudio] Position update: {fileName} | Pos: {position} | Vel: {_velocity.Length():F2} | Dist: {distance:F2} | MinD: {_minDistance:F2} | MaxD: {_maxDistance:F2}");
         }
+    }
+
+    /// <summary>
+    /// Set the 3D orientation (direction the sound source is facing)
+    /// </summary>
+    public void Set3DOrientation(Vector3 orientation)
+    {
+        _orientation = Vector3.Normalize(orientation);
+        
+        if (!Bass.ChannelSet3DPosition(StreamHandle, To3DVector(_position), To3DVector(_orientation), To3DVector(_velocity)))
+        {
+            var error = Bass.LastError;
+            Log.Warning($"[SpatialAudio] Failed to update 3D orientation: {error}");
+        }
+        
+        Bass.Apply3D();
+    }
+
+    /// <summary>
+    /// Set the 3D cone angles for directional sound
+    /// </summary>
+    public void Set3DCone(float innerAngleDegrees, float outerAngleDegrees, float outerVolume)
+    {
+        _innerAngleDegrees = Math.Clamp(innerAngleDegrees, 0f, 360f);
+        _outerAngleDegrees = Math.Clamp(outerAngleDegrees, 0f, 360f);
+        _outerVolume = Math.Clamp(outerVolume, 0f, 1f);
+        
+        if (!Bass.ChannelSet3DAttributes(StreamHandle, _3dMode, _minDistance, _maxDistance, 
+            (int)_innerAngleDegrees, (int)_outerAngleDegrees, _outerVolume))
+        {
+            var error = Bass.LastError;
+            Log.Warning($"[SpatialAudio] Failed to update 3D cone: {error}");
+        }
+        
+        Bass.Apply3D();
+        
+        var fileName = Path.GetFileName(FilePath);
+        AudioConfig.LogDebug($"[SpatialAudio] Cone updated: {fileName} | Inner: {_innerAngleDegrees}° | Outer: {_outerAngleDegrees}° | OuterVol: {_outerVolume:F2}");
+    }
+
+    /// <summary>
+    /// Set the 3D processing mode
+    /// </summary>
+    public void Set3DMode(Mode3D mode)
+    {
+        _3dMode = mode;
+        
+        if (!Bass.ChannelSet3DAttributes(StreamHandle, _3dMode, _minDistance, _maxDistance, 
+            (int)_innerAngleDegrees, (int)_outerAngleDegrees, _outerVolume))
+        {
+            var error = Bass.LastError;
+            Log.Warning($"[SpatialAudio] Failed to update 3D mode: {error}");
+        }
+        
+        Bass.Apply3D();
+        
+        var fileName = Path.GetFileName(FilePath);
+        AudioConfig.LogDebug($"[SpatialAudio] 3D mode updated: {fileName} | Mode: {_3dMode}");
     }
 
     public void Play()
@@ -296,7 +390,10 @@ public sealed class SpatialOperatorAudioStream
         Bass.ChannelUpdate(MixerStreamHandle, 0);
         var updateTime = (DateTime.Now - startTime).TotalMilliseconds;
         
-        AudioConfig.LogInfo($"[SpatialAudio] ▶ Play(): {fileName} | FlagTime: {flagTime:F2}ms | UpdateTime: {updateTime:F2}ms | Pos: {_position}");
+        // Apply 3D after starting playback
+        Bass.Apply3D();
+        
+        AudioConfig.LogInfo($"[SpatialAudio] ▶ Play(): {fileName} | FlagTime: {flagTime:F2}ms | UpdateTime: {updateTime:F2}ms | Pos: {_position} | 3D: Enabled");
     }
 
     public void Pause()
@@ -320,6 +417,7 @@ public sealed class SpatialOperatorAudioStream
         IsPaused = false;
         
         Bass.ChannelUpdate(MixerStreamHandle, 0);
+        Bass.Apply3D();
         
         var fileName = Path.GetFileName(FilePath);
         AudioConfig.LogDebug($"[SpatialAudio] Resumed: {fileName}");

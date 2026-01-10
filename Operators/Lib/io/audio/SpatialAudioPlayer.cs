@@ -53,6 +53,22 @@ namespace Lib.io.audio
         [Input(Guid = "9a4e2f7c-3d8b-4c1f-8e5a-7b2d6f9c4a3e")]
         public readonly InputSlot<float> Seek = new();
 
+        // 3D Audio Advanced Parameters
+        [Input(Guid = "1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e")]
+        public readonly InputSlot<Vector3> SourceOrientation = new();
+
+        [Input(Guid = "2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e7f")]
+        public readonly InputSlot<float> InnerConeAngle = new();
+
+        [Input(Guid = "3d4e5f6a-7b8c-9d0e-1f2a-3b4c5d6e7f8a")]
+        public readonly InputSlot<float> OuterConeAngle = new();
+
+        [Input(Guid = "4e5f6a7b-8c9d-0e1f-2a3b-4c5d6e7f8a9b")]
+        public readonly InputSlot<float> OuterConeVolume = new();
+
+        [Input(Guid = "5f6a7b8c-9d0e-1f2a-3b4c-5d6e7f8a9b0c", MappedType = typeof(Audio3DModes))]
+        public readonly InputSlot<int> Audio3DMode = new();
+
         // Test/Debug inputs
         [Input(Guid = "5f2e9a4c-7d3b-4e8f-9c1a-6f2e8b7d3a5c")]
         public readonly InputSlot<bool> EnableTestMode = new();
@@ -194,6 +210,19 @@ namespace Lib.io.audio
             var speed = Speed.GetValue(context);
             var seek = Seek.GetValue(context);
 
+            // Get advanced 3D audio parameters
+            var sourceOrientation = SourceOrientation.GetValue(context);
+            var innerConeAngle = InnerConeAngle.GetValue(context);
+            var outerConeAngle = OuterConeAngle.GetValue(context);
+            var outerConeVolume = OuterConeVolume.GetValue(context);
+            var audio3DMode = Audio3DMode.GetValue(context);
+
+            // Clamp cone parameters to valid ranges
+            innerConeAngle = Math.Clamp(innerConeAngle, 0f, 360f);
+            outerConeAngle = Math.Clamp(outerConeAngle, 0f, 360f);
+            outerConeVolume = Math.Clamp(outerConeVolume, 0f, 1f);
+            audio3DMode = Math.Clamp(audio3DMode, 0, 2); // 0=Normal, 1=Relative, 2=Off
+
             // Update the listener position in the AudioEngine
             // This allows the spatial audio system to calculate distance and panning
             AudioEngine.Set3DListenerPosition(
@@ -232,7 +261,12 @@ namespace Lib.io.audio
                 minDistance: minDistance,
                 maxDistance: maxDistance,
                 speed: speed,
-                seek: seek
+                seek: seek,
+                orientation: sourceOrientation,
+                innerConeAngle: innerConeAngle,
+                outerConeAngle: outerConeAngle,
+                outerConeVolume: outerConeVolume,
+                mode3D: audio3DMode
             );
             var updateTime = (DateTime.Now - updateStart).TotalMilliseconds;
             
@@ -254,14 +288,16 @@ namespace Lib.io.audio
             {
                 DebugInfo.Value = $"TEST MODE (Spatial) | File: {System.IO.Path.GetFileName(filePath)} | " +
                                  $"Playing: {IsPlaying.Value} | Paused: {IsPaused.Value} | " +
-                                 $"Level: {GetLevel.Value:F3} | Source: {sourcePosition} | Listener: {listenerPosition} | Time: {context.LocalFxTime:F3}";
+                                 $"Level: {GetLevel.Value:F3} | Source: {sourcePosition} | Listener: {listenerPosition} | " +
+                                 $"Orient: {sourceOrientation} | Cone: {innerConeAngle:F0}°/{outerConeAngle:F0}° | Mode: {(Audio3DModes)audio3DMode} | Time: {context.LocalFxTime:F3}";
             }
             else
             {
                 DebugInfo.Value = $"File: {System.IO.Path.GetFileName(filePath)} | " +
                                  $"Playing: {IsPlaying.Value} | Paused: {IsPaused.Value} | " +
                                  $"Level: {GetLevel.Value:F3} | Source: {sourcePosition} | Listener: {listenerPosition} | " +
-                                 $"MinDist: {minDistance:F1} | MaxDist: {maxDistance:F1}";
+                                 $"MinDist: {minDistance:F1} | MaxDist: {maxDistance:F1} | " +
+                                 $"Orient: {sourceOrientation} | Cone: {innerConeAngle:F0}°/{outerConeAngle:F0}° | Mode: {(Audio3DModes)audio3DMode}";
             }
         }
 
@@ -378,6 +414,13 @@ namespace Lib.io.audio
                     // Ignore cleanup errors
                 }
             }
+        }
+
+        private enum Audio3DModes
+        {
+            Normal = 0,    // BASS_3DMODE_NORMAL
+            Relative = 1,  // BASS_3DMODE_RELATIVE
+            Off = 2        // BASS_3DMODE_OFF
         }
     }
 }
