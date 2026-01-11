@@ -159,7 +159,6 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
         public string RenderSequenceFileName = "v01";
         public string RenderSequencePrefix = "render";
 
-
         public bool EnableFrameProfiling = true;
         public bool KeepTraceForLogMessages = false;
         public bool EnableGCProfiling = false;
@@ -182,6 +181,9 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
         public int GridOutputColumnCount = 16;
         //private string _defaultNewProjectDirectory = _defaultProjectFolder;
         //public string DefaultNewProjectDirectory => _defaultNewProjectDirectory ??= _defaultProjectFolder;
+
+        // Rendering Profiling
+        public bool ShowRenderProfilingLogs = false;
 
         private static readonly string _defaultProjectFolder = FileLocations.DefaultProjectFolder;
     }
@@ -274,4 +276,5 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
     {
         Config.LastOpsForWindows[title] = opInstanceId;
     }
+    // Rendering Profiling
 }

@@ -615,22 +615,13 @@ internal sealed class SettingsWindow : Window
                     FormInputs.SetIndentToLeft();
                     FormInputs.AddSectionSubHeader("Audio System");
                     FormInputs.AddVerticalSpace();
-                    var audioDebugChanged = FormInputs.AddCheckBox("Show Logs",
+                    var audioDebugChanged = FormInputs.AddCheckBox("Show Audio Logs",
                         ref UserSettings.Config.ShowAudioDebugLogs,
                         "Shows Debug and Info log messages from audio system classes. Warning and Error messages will still be logged.",
                         UserSettings.Defaults.ShowAudioDebugLogs);
                     if (audioDebugChanged)
                     {
                         T3.Core.Audio.AudioConfig.ShowLogs = UserSettings.Config.ShowAudioDebugLogs;
-                        changed = true;
-                    }
-                    var audioRenderingDebugChanged = FormInputs.AddCheckBox("Show Render Logs",
-                        ref UserSettings.Config.ShowAudioRenderingDebugLogs,
-                        "Shows Debug and Info log messages from audio rendering classes (e.g., export, offline rendering).",
-                        UserSettings.Defaults.ShowAudioRenderingDebugLogs);
-                    if (audioRenderingDebugChanged)
-                    {
-                        T3.Core.Audio.AudioConfig.ShowRenderLogs = UserSettings.Config.ShowAudioRenderingDebugLogs;
                         changed = true;
                     }
                     changed |= FormInputs.AddCheckBox("Profile Beat Syncing",
@@ -670,6 +661,28 @@ internal sealed class SettingsWindow : Window
                         ref UserSettings.Config.ShowOperatorStats,
                         "Draws an context overlay with various operator stats.",
                         UserSettings.Defaults.ShowOperatorStats);
+                    FormInputs.AddVerticalSpace();
+                    FormInputs.SetIndentToLeft();
+                    FormInputs.AddSectionSubHeader("Rendering");
+                    // Add Show Audio Render Logs here
+                    var audioRenderingDebugChanged = FormInputs.AddCheckBox("Show Audio Render Logs",
+                        ref UserSettings.Config.ShowAudioRenderingDebugLogs,
+                        "Shows Debug and Info log messages from audio rendering classes (e.g., export, offline rendering).",
+                        UserSettings.Defaults.ShowAudioRenderingDebugLogs);
+                    if (audioRenderingDebugChanged)
+                    {
+                        T3.Core.Audio.AudioConfig.ShowRenderLogs = UserSettings.Config.ShowAudioRenderingDebugLogs;
+                        changed = true;
+                    }
+                    // Change label for video rendering logs
+                    var renderProfilingChanged = FormInputs.AddCheckBox("Show Video Render Logs",
+                        ref UserSettings.Config.ShowRenderProfilingLogs,
+                        "Shows Debug and Info log messages from rendering export (e.g., SaveVideoFrameAndAdvance).",
+                        false);
+                    if (renderProfilingChanged)
+                    {
+                        changed = true;
+                    }
                     FormInputs.AddVerticalSpace();
                     break;
                 }
