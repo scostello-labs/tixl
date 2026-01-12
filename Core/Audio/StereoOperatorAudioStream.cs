@@ -386,9 +386,9 @@ public sealed class StereoOperatorAudioStream
         if (_exportLevel.HasValue)
             return _exportLevel.Value;
         // Debug log for troubleshooting metering after export
-        T3.Core.Logging.Log.Debug($"[Metering] IsPlaying={IsPlaying}, IsPaused={IsPaused}, StreamHandle={StreamHandle}, StaleMuted={_isStaleMuted}");
+        //T3.Core.Logging.Log.Debug($"[Metering] IsPlaying={IsPlaying}, IsPaused={IsPaused}, StreamHandle={StreamHandle}, StaleMuted={_isStaleMuted}");
         var level = BassMix.ChannelGetLevel(StreamHandle);
-        T3.Core.Logging.Log.Debug($"[Metering] BassMix.ChannelGetLevel={level}");
+        //T3.Core.Logging.Log.Debug($"[Metering] BassMix.ChannelGetLevel={level}");
         if (!IsPlaying || (IsPaused && !_isStaleMuted))
             return 0f;
         if (level == -1)
