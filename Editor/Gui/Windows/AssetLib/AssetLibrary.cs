@@ -129,7 +129,7 @@ internal sealed partial class AssetLibrary : Window
         var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
         package = parts.Length > 0 ? parts[0] : string.Empty;
-        folders = parts.Length > 2
+        folders = parts.Length > 1
                       ? parts[0..^1].ToList()
                       : [];
     }
