@@ -396,7 +396,7 @@ internal static class PlaceHolderUi
             }
         }
 
-        WindowContentExtend.ExtendToLastItem(150);
+        WindowContentExtend.ExtendToLastItem(200);
         return result;
     }
 
@@ -410,14 +410,14 @@ internal static class PlaceHolderUi
         var symbolNamespace = symbolUi.Symbol.Namespace;
         var isRelevantNamespace = IsRelevantNamespace(context, symbolNamespace);
 
-        var color = symbolUi.Symbol.OutputDefinitions.Count > 0
-                        ? TypeUiRegistry.GetPropertiesForType(symbolUi.Symbol.OutputDefinitions[0]?.ValueType).Color
-                        : UiColors.Gray;
+        var type = symbolUi.Symbol.OutputDefinitions.Count > 0
+                        ? symbolUi.Symbol.OutputDefinitions[0]?.ValueType
+                        : null;
 
-        if (!isRelevantNamespace)
-        {
-            color = color.Fade(0.4f);
-        }
+        
+        TypeUiRegistry.TryGetPropertiesForType(type, out var properties);
+        var color = properties.Color;
+
 
         ImGui.PushStyleColor(ImGuiCol.Header, ColorVariations.OperatorBackground.Apply(color).Rgba);
         var hoverColor = ColorVariations.OperatorBackgroundHover.Apply(color).Rgba;
@@ -458,6 +458,14 @@ internal static class PlaceHolderUi
 
         ImGui.SameLine(ImGui.GetItemRectMin().X - ImGui.GetWindowPos().X);
         ImGui.TextUnformatted(symbolUi.Symbol.Name);
+
+        if (type != null)
+        {
+            ImGui.SameLine(0,10);
+            ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.3f);
+            ImGui.TextUnformatted(type.Name.ToString());
+            ImGui.PopStyleVar();
+        }
 
         ImGui.PopStyleColor(3);
         ImGui.PopID();

@@ -652,7 +652,7 @@ internal sealed class SymbolBrowser
     private ImDrawListPtr _drawList;
     private bool _selectedItemChanged;
 
-    private static Vector2 ResultListSize => new Vector2(250, 300) * T3Ui.UiScaleFactor;
+    private static Vector2 ResultListSize => new Vector2(250, 300) * new Vector2(2,1) * T3Ui.UiScaleFactor;
     private readonly Vector4 _namespaceColor = new Color(1, 1, 1, 0.4f);
 
     private SymbolUi _selectedSymbolUi;

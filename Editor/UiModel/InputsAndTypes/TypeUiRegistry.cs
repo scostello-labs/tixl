@@ -13,7 +13,16 @@ public static class TypeUiRegistry
 
     internal static bool TryGetPropertiesForType(Type type, out UiProperties properties)
     {
-        return _entries.TryGetValue(type, out properties);
+        properties = UiProperties.Default;
+        if (type == null)
+            return false;
+
+        if (_entries.TryGetValue(type, out properties))
+        {
+            return true;
+        }
+        properties = UiProperties.Default;
+        return false;
     }
         
     internal static void SetProperties(Type type, UiProperties properties)

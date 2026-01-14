@@ -28,7 +28,7 @@ internal sealed partial class MagGraphView
 
         if (result == ChangeSymbol.SymbolModificationResults.Nothing)
         {
-            result |= KeyboardActions.HandleKeyboardActions(_context);
+            KeyboardActions.HandleKeyboardActions(_context);
         }
 
         if (_context.ProjectView.InstView is not { IsValid: true })
@@ -37,7 +37,7 @@ internal sealed partial class MagGraphView
         }
         else
         {
-            HandleDropping(_context);
+            DropHandling.HandleDropping(_context);
 
             // Update view scope if required
             if (FitViewToSelectionHandling.FitViewToSelectionRequested)
@@ -59,15 +59,12 @@ internal sealed partial class MagGraphView
                 UpdateCanvas(out _, editingFlags);
 
             // Store previous connection lines damped positions before layout recomputes
-            if (_context.Layout.MagConnections != null)
+            _previousConnectionPositions.Clear();
+            foreach (var c in _context.Layout.MagConnections)
             {
-                _previousConnectionPositions.Clear();
-                foreach (var c in _context.Layout.MagConnections)
+                if (c.DampedSourcePos != Vector2.Zero || c.DampedTargetPos != Vector2.Zero)
                 {
-                    if (c.DampedSourcePos != Vector2.Zero || c.DampedTargetPos != Vector2.Zero)
-                    {
-                        _previousConnectionPositions[c.ConnectionHash] = (c.DampedSourcePos, c.DampedTargetPos);
-                    }
+                    _previousConnectionPositions[c.ConnectionHash] = (c.DampedSourcePos, c.DampedTargetPos);
                 }
             }
 
@@ -292,8 +289,7 @@ internal sealed partial class MagGraphView
     private void InvalidateSelectedGizmoProviders(MagGraphItem item)
     {
         if (item.Variant == MagGraphItem.Variants.Operator
-            && item.Instance is ITransformable transformable
-            && _context.Selector.IsSelected(item)
+            && item.Instance is ITransformable && _context.Selector.IsSelected(item)
             && item.Instance.Inputs.Count > 0)
         {
             item.Instance.Inputs[0].DirtyFlag.ForceInvalidate();

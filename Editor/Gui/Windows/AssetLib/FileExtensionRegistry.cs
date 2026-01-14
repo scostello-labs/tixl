@@ -1,4 +1,6 @@
 ﻿#nullable enable
+using System.IO;
+
 namespace T3.Editor.Gui.Windows.AssetLib;
 
 
@@ -7,10 +9,35 @@ namespace T3.Editor.Gui.Windows.AssetLib;
 /// </summary>
 internal static class FileExtensionRegistry
 {
-    public static int GetId(string ext) => _map.TryGetValue(ext, out var id) 
+    public static int GetUniqueId(string ext) => _map.TryGetValue(ext, out var id) 
                                                ? id 
                                                : _map[ext]=_next++;
 
+    internal static bool TryGetExtensionIdForFilePath(string filepath, out int id)
+    {
+        id = -1;
+
+        try
+        {
+            var extension = Path.GetExtension(filepath);
+            if (extension.Length < 2)
+                return false;
+
+            if (!_map.TryGetValue(extension[1..], out id))
+            {
+                id = -1;
+                return false;
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Can't get extension from {filepath}: " + e.Message);
+            return false;
+        }
+        
+        return true;
+    }
+    
     public static List<int> IdsFromFileFilter(string filter)
     {
         var list = new List<int>();
@@ -46,7 +73,7 @@ internal static class FileExtensionRegistry
             {
                 var ext = ExtractExtensionFromPattern(pat);
                 if (ext is null) continue;
-                ids.Add(GetId(ext));
+                ids.Add(GetUniqueId(ext));
             }
         }
     }

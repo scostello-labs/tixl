@@ -88,7 +88,7 @@ internal static class DragAndDropHandling
         var color = Color.Orange.Fade(isHovered ? 1f : 0.5f);
         var thickness = isHovered ? 2f : 1f;
 
-        ImGui.GetForegroundDrawList().AddRect(min, max, color, 0, ImDrawFlags.None, thickness);
+        ImGui.GetWindowDrawList().AddRect(min, max, color, 0, ImDrawFlags.None, thickness);
 
         if (!isHovered && !_externalDropJustHappened)
             return false;
