@@ -68,7 +68,7 @@ public sealed class StringInputUi : InputValueUi<string>
                 {
                     if (value != null)
                     {
-                        ResourceManager.TryResolvePath(value, FilePickingUi.SearchResourceConsumer, out var absolutePath, out _);
+                        ResourceManager.TryResolveRelativePath(value, FilePickingUi.SearchResourceConsumer, out var absolutePath, out _);
                         if (!File.Exists(absolutePath))
                         {
                             Log.Error("Can't open non-existing file " + absolutePath);

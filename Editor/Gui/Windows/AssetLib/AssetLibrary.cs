@@ -76,7 +76,7 @@ internal sealed partial class AssetLibrary : Window
         {
             if (!_state.AssetCache.TryGetValue(aliasedPath, out var asset))
             {
-                if (!ResourceManager.TryResolvePath(aliasedPath, _state.Composition, out var absolutePath, out var package))
+                if (!ResourceManager.TryResolveRelativePath(aliasedPath, _state.Composition, out var absolutePath, out var package))
                 {
                     Log.Warning($"Can't find file {aliasedPath}");
                     continue;
@@ -153,7 +153,7 @@ internal sealed partial class AssetLibrary : Window
         if (TryGetFileInputFromInstance(instance, out _state.ActivePathInput, out var stringInputUi))
         {
             var filePath = _state.ActivePathInput.GetCurrentValue();
-            ResourceManager.TryResolvePath(filePath, instance, out _state.ActiveAbsolutePath, out _);
+            ResourceManager.TryResolveRelativePath(filePath, instance, out _state.ActiveAbsolutePath, out _);
 
             if (UserSettings.Config.SyncWithOperatorSelection)
             {

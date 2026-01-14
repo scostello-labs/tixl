@@ -45,7 +45,7 @@ internal sealed class PlayVideo : Instance<PlayVideo>, IStatusProvider
                                 : context.Playback.SecondsFromBars(context.LocalTime);
 
         var relativePath = Path.GetValue(context);
-        if (!ResourceManager.TryResolvePath(relativePath, this, out var absolutePath, out _))
+        if (!ResourceManager.TryResolveRelativePath(relativePath, this, out var absolutePath, out _))
         {
             _playbackController.ErrorMessageForStatus = "Can't find video " + relativePath;
             return;

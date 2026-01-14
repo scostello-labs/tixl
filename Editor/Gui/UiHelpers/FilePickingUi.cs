@@ -47,7 +47,7 @@ internal static class FilePickingUi
         }
 
         var isFolder = type == FileOperations.FilePickerTypes.Folder;
-        var exists = ResourceManager.TryResolvePath(filterAndSelectedPath, SearchResourceConsumer, out _, out _, isFolder);
+        var exists = ResourceManager.TryResolveRelativePath(filterAndSelectedPath, SearchResourceConsumer, out _, out _, isFolder);
 
         var warning = type switch
                           {

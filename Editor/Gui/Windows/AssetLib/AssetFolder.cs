@@ -43,7 +43,7 @@ internal sealed class AssetFolder
         FolderType = type;
 
         AliasPath = GetAliasPath();
-        if (!ResourceManager.TryResolvePath(AliasPath, selectedInstance, out AbsolutePath, out _, isFolder: true))
+        if (!ResourceManager.TryResolveRelativePath(AliasPath, selectedInstance, out AbsolutePath, out _, isFolder: true))
         {
             Log.Warning($"Can't resolve folder path ? {AliasPath}");
         }

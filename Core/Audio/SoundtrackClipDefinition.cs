@@ -11,11 +11,11 @@ using T3.Serialization;
 namespace T3.Core.Audio;
 
 /// <summary>
-/// A wrapper that provides access to file resources of <see cref="SoundtrackClipDefinition"/> and their
+/// A wrapper that provides access to file resources of <see cref="AudioClipDefinition"/> and their
 /// and their filepath .This is then used by the <see cref="AudioEngine"/> to generate
 /// <see cref="AudioClipStream"/>s for playback.
 /// </summary>
-public sealed record AudioClipResourceHandle(SoundtrackClipDefinition Clip, IResourceConsumer? Owner)
+public sealed record AudioClipResourceHandle(AudioClipDefinition Clip, IResourceConsumer? Owner)
 {
     public bool TryGetFileResource([NotNullWhen(true)] out FileResource? file)
     {
@@ -43,7 +43,7 @@ public sealed record AudioClipResourceHandle(SoundtrackClipDefinition Clip, IRes
     /// </summary>
     public bool TryToApplyFilePath(string newFilePath, Instance composition)
     {
-        if (!ResourceManager.TryResolvePath(newFilePath, composition, out var absolutePath, out var resourceContainer))
+        if (!ResourceManager.TryResolveRelativePath(newFilePath, composition, out var absolutePath, out var resourceContainer))
         {
             Clip.FilePath = string.Empty;
             return false;
@@ -122,7 +122,7 @@ public sealed class SoundtrackClipDefinition
             writer.WriteValue(nameof(IsSoundtrack), IsSoundtrack);
             if (string.IsNullOrEmpty(FilePath))
             {
-                Log.Warning("Empty file path in SoundtrackClip.");
+                Log.Warning("Empty file path in AudioClip.");
             }
             else
             {

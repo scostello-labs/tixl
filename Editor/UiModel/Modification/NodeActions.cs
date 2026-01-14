@@ -491,7 +491,7 @@ internal static class NodeActions
         {
             var relative = op.Path.GetCurrentValue();
             var instance = op.Instance;
-            return ResourceManager.TryResolvePath(relative, instance, out filePath, out package);
+            return ResourceManager.TryResolveRelativePath(relative, instance, out filePath, out package);
         }
     }
 
