@@ -196,6 +196,7 @@ public static class AudioEngine
     
     // Track which operators were updated this frame for stale detection
     private static readonly HashSet<Guid> _operatorsUpdatedThisFrame = new();
+    private static int _lastStaleCheckFrame = -1; // Track which frame we last checked for stale operators
 
     // 3D Listener position and orientation
     private static Vector3 _listenerPosition = Vector3.Zero;
@@ -695,53 +696,50 @@ public static class AudioEngine
     private static bool _bassInitialized;
 
     /// <summary>
-    /// Check all operator audio streams and mute those that weren't updated this frame
-    /// This runs every frame to detect when operators are no longer being evaluated
+    /// Check all operator audio streams and mute those that weren't updated this frame.
+    /// Skipped during export rendering.
     /// </summary>
     private static void CheckAndMuteStaleOperators(double currentTime)
     {
-        // Check stereo operators
-        foreach (var kvp in _operatorAudioStates)
+        // Skip during export - audio is handled separately
+        if (Playback.Current?.IsRenderingToFile == true)
         {
-            var operatorId = kvp.Key;
-            var state = kvp.Value;
-            
-            if (state.Stream == null)
-                continue;
+            _operatorsUpdatedThisFrame.Clear();
+            return;
+        }
+        
+        // Prevent double-execution per frame
+        var currentFrame = Playback.FrameCount;
+        if (_lastStaleCheckFrame == currentFrame)
+            return;
+        _lastStaleCheckFrame = currentFrame;
+        
+        // Check stereo operators
+        foreach (var (operatorId, state) in _operatorAudioStates)
+        {
+            if (state.Stream == null) continue;
 
-            // Operator was NOT updated this frame = it's stale
             bool isStale = !_operatorsUpdatedThisFrame.Contains(operatorId);
-            
-            // Only call SetStaleMuted when state actually changes
-            // This prevents calling it every frame for already-stale operators
             if (state.IsStale != isStale)
             {
-                state.Stream.SetStaleMuted(isStale, isStale ? "Operator not evaluated" : "Operator active");
+                state.Stream.SetStaleMuted(isStale);
                 state.IsStale = isStale;
             }
         }
 
         // Check spatial operators
-        foreach (var kvp in _spatialOperatorAudioStates)
+        foreach (var (operatorId, state) in _spatialOperatorAudioStates)
         {
-            var operatorId = kvp.Key;
-            var state = kvp.Value;
-            
-            if (state.Stream == null)
-                continue;
+            if (state.Stream == null) continue;
 
-            // Operator was NOT updated this frame = it's stale
             bool isStale = !_operatorsUpdatedThisFrame.Contains(operatorId);
-            
-            // Only call SetStaleMuted when state actually changes
             if (state.IsStale != isStale)
             {
-                state.Stream.SetStaleMuted(isStale, isStale ? "Operator not evaluated" : "Operator active");
+                state.Stream.SetStaleMuted(isStale);
                 state.IsStale = isStale;
             }
         }
 
-        // Clear the set for next frame
         _operatorsUpdatedThisFrame.Clear();
     }
 
@@ -770,44 +768,49 @@ public static class AudioEngine
     }
 
     /// <summary>
-    /// Restores operator audio streams to live playback state.
-    /// Called by AudioRendering.EndRecording() during export cleanup.
+    /// Restores operator audio streams to live playback state after export.
+    /// Called by AudioRendering.EndRecording().
     /// </summary>
     internal static void RestoreOperatorAudioStreams()
     {
-        Log.Debug("[AudioEngine] RestoreOperatorAudioStreams called");
-        
-        // 1. Clear export metering state so streams resume live metering
-        foreach (var state in _operatorAudioStates.Values)
-            state.Stream?.ClearExportMetering();
-        foreach (var state in _spatialOperatorAudioStates.Values)
-            state.Stream?.ClearExportMetering();
-        
-        // 2. Clear stale-muted state for all streams
-        foreach (var state in _operatorAudioStates.Values)
-            state.Stream?.SetStaleMuted(false, "Resumed after export");
-        foreach (var state in _spatialOperatorAudioStates.Values)
-            state.Stream?.SetStaleMuted(false, "Resumed after export");
-        
-        // 3. Resume any paused streams
-        foreach (var kvp in _operatorAudioStates)
+        // Ensure global mixer is playing
+        if (AudioMixerManager.GlobalMixerHandle != 0)
         {
-            if (kvp.Value.Stream != null && kvp.Value.IsPaused)
-            {
-                kvp.Value.Stream.Resume();
-                kvp.Value.IsPaused = false;
-            }
+            if (Bass.ChannelIsActive(AudioMixerManager.GlobalMixerHandle) != PlaybackState.Playing)
+                Bass.ChannelPlay(AudioMixerManager.GlobalMixerHandle, false);
+            Bass.ChannelUpdate(AudioMixerManager.GlobalMixerHandle, 0);
         }
-        foreach (var kvp in _spatialOperatorAudioStates)
+        
+        // Restore all stereo streams
+        foreach (var state in _operatorAudioStates.Values)
         {
-            if (kvp.Value.Stream != null && kvp.Value.IsPaused)
+            if (state.Stream != null)
             {
-                kvp.Value.Stream.Resume();
-                kvp.Value.IsPaused = false;
+                state.Stream.ClearExportMetering();
+                state.Stream.RestartAfterExport();
+                state.Stream.SetStaleMuted(false);
+                state.IsStale = false;
             }
         }
         
-        Log.Debug("[AudioEngine] RestoreOperatorAudioStreams complete");
+        // Restore all spatial streams
+        foreach (var state in _spatialOperatorAudioStates.Values)
+        {
+            if (state.Stream != null)
+            {
+                state.Stream.ClearExportMetering();
+                state.Stream.RestartAfterExport();
+                state.Stream.SetStaleMuted(false);
+                state.IsStale = false;
+            }
+        }
+        
+        // Clear stale tracking to prevent immediate re-muting
+        _operatorsUpdatedThisFrame.Clear();
+        
+        // Final mixer update
+        if (AudioMixerManager.GlobalMixerHandle != 0)
+            Bass.ChannelUpdate(AudioMixerManager.GlobalMixerHandle, 0);
     }
 
     /// <summary>
@@ -857,24 +860,3 @@ public static class AudioEngine
         AudioMixerManager.SetGlobalVolume(ProjectSettings.Config.GlobalPlaybackVolume);
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
