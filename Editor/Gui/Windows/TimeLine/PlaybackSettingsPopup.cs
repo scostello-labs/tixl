@@ -453,10 +453,9 @@ internal static class PlaybackSettingsPopup
                 
             if (settings.AudioClips.Count > 0)
             {
-                Bass.Configure(Configuration.UpdateThreads, true);
-                Bass.Free();
-                Bass.Init();
-                Bass.Start();
+                // Don't call Bass.Free() directly - this destroys all operator streams!
+                // Instead, ensure the mixer is properly initialized
+                // AudioMixerManager handles BASS initialization internally
                 Playback.Current.Bpm = settings.AudioClips[0].Bpm;
                 if (Playback.Current.Settings != null)
                     Playback.Current.Settings.Syncing = PlaybackSettings.SyncModes.Timeline;
@@ -471,11 +470,7 @@ internal static class PlaybackSettingsPopup
                 Playback.Current = T3Ui.DefaultBeatTimingPlayback;
                 UserSettings.Config.ShowTimeline = false;
                 UserSettings.Config.EnableIdleMotion = true;
-                Bass.Configure(Configuration.UpdateThreads, true);
-                    
-                Bass.Free();
-                Bass.Init();
-                Bass.Start();
+                // Don't call Bass.Free() directly - this destroys all operator streams!
                 Playback.Current.PlaybackSpeed = 1;
             }
             else
@@ -483,7 +478,6 @@ internal static class PlaybackSettingsPopup
                 Playback.Current = T3Ui.DefaultTimelinePlayback;
                 UserSettings.Config.ShowTimeline = true;
                 Playback.Current.PlaybackSpeed = 0;
-
             }
         }
     }

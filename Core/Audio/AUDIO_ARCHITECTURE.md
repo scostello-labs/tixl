@@ -1,6 +1,6 @@
 # Audio System Architecture
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Last Updated:** 2026-01-10  
 **Status:** Production Ready
 
@@ -29,6 +29,7 @@ The T3 audio system is a high-performance, low-latency audio engine built on Man
 - **Real-time analysis**: FFT spectrum, waveform, and level metering
 - **Centralized configuration**: Single source of truth for all audio settings
 - **Debug control**: Suppressible logging for cleaner development experience
+- **Isolated offline analysis**: Waveform image generation without interfering with playback
 
 ---
 
@@ -54,6 +55,7 @@ The T3 audio system is a high-performance, low-latency audio engine built on Man
 │ • Buffer mgmt    │      │ • Buffer sizes   │
 │ • Device I/O     │      │ • FFT settings   │
 │ • 3D listener    │      │ • Log control    │
+│ • Offline mixer  │      │                  │
 └────────┬─────────┘      └──────────────────┘
          │
          ▼
@@ -77,8 +79,47 @@ The T3 audio system is a high-performance, low-latency audio engine built on Man
 │ StereoAudioPlayer│ SpatialAudioPlayer       │
 ├──────────────────┼──────────────────────────┤
 │ • 10 parameters  │ • 21 parameters          │
-│ • Real-time I/O  │ • Full 3D control        │
 └──────────────────┴──────────────────────────┘
+```
+
+### Mixer Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        AudioMixerManager                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌─────────────────┐   ┌─────────────────┐                              │
+│  │ Operator Clips  │   │ Soundtrack Clips│                              │
+│  └────────┬────────┘   └────────┬────────┘                              │
+│           │                     │                                       │
+│           ▼                     ▼                                       │
+│  ┌─────────────────┐   ┌─────────────────┐                              │
+│  │ Operator Mixer  │   │ Soundtrack Mixer│                              │
+│  │    (Decode)     │   │    (Decode)     │                              │
+│  └────────┬────────┘   └────────┬────────┘                              │
+│           │                     │                                       │
+│           └──────────┬──────────┘                                       │
+│                      ▼                                                  │
+│             ┌─────────────────┐                                         │
+│             │  Global Mixer   │──────────────▶ Soundcard Output         │
+│             │ (Float, NonStop)│                                         │
+│             └─────────────────┘                                         │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    ISOLATED (No Output)                         │    │
+│  │  ┌─────────────────┐                                            │    │
+│  │  │ Analysis Stream │──────▶ FFT/Waveform Data                   │    │
+│  │  │  (Decode Only)  │                                            │    │
+│  │  └─────────────────┘                                            │    │
+│  │                                                                 │    │
+│  │  ┌─────────────────┐                                            │    │
+│  │  │ Offline Mixer   │──────▶ Image Generation                    │    │
+│  │  │  (Decode Only)  │       (Waveform/Spectrum PNG)              │    │
+│  │  └─────────────────┘                                            │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Signal Flow
@@ -97,6 +138,13 @@ Audio File → Mono Decode → 3D Position → Distance Attenuation
                          Cone Direction → Doppler Effect → 3D Mix → Output
                               ↓
                          Listener Orientation
+```
+
+**Offline Analysis (Waveform Image Generation):**
+```
+Audio File → Offline Stream (Decode Only) → FFT Analysis → Image Generation
+                    ↓
+              NO OUTPUT (completely isolated from playback)
 ```
 
 ---
@@ -466,8 +514,7 @@ For detailed implementation information, refer to the documentation index above 
 - ❌ Adding a soundtrack to a project
 -     ❌ Soundtrack stops proper playback for other audio operators
 -     ✅ Soundtrack retains timeline sync and waveform generation
-- ❌ Rendering a project with soundtrack duration to mp4
--     ❌ See above - need to debug soundtrack stopping other audio operators
+- ✅ Rendering a project with soundtrack duration to mp4
 - ✅ PlayVideo with audio (and audio level)
 - Toggling audio mute button
 - Changing audio level in Settings

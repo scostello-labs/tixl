@@ -11,18 +11,27 @@ namespace T3.Core.Audio;
 /// Manages the audio mixer architecture with separate paths for operator clips and soundtrack clips
 /// Architecture: Operator Clip(s) > Operator Mixer > Global Mixer > Soundcard
 ///               Soundtrack Clip(s) > Soundtrack Mixer > Global Mixer > Soundcard
+///               Analysis streams > Offline Mixer (no output, decode only)
 /// </summary>
 public static class AudioMixerManager
 {
     private static int _globalMixerHandle;
     private static int _operatorMixerHandle;
     private static int _soundtrackMixerHandle;
+    private static int _offlineMixerHandle;
     private static bool _initialized;
     private static int _flacPluginHandle;
+    private static readonly object _offlineMixerLock = new();
 
     public static int GlobalMixerHandle => _globalMixerHandle;
     public static int OperatorMixerHandle => _operatorMixerHandle;
     public static int SoundtrackMixerHandle => _soundtrackMixerHandle;
+    
+    /// <summary>
+    /// Offline mixer for analysis tasks (waveform image generation, FFT analysis, etc.)
+    /// This mixer does NOT output to the soundcard and is completely isolated from playback.
+    /// </summary>
+    public static int OfflineMixerHandle => _offlineMixerHandle;
     
     public static void Initialize()
     {
@@ -140,6 +149,19 @@ public static class AudioMixerManager
         }
         AudioConfig.LogDebug($"[AudioMixer] Soundtrack mixer created: Handle={_soundtrackMixerHandle}");
 
+        // Create offline mixer for analysis (decode only, no output to soundcard)
+        // This mixer is used for waveform image generation and other analysis tasks
+        AudioConfig.LogDebug("[AudioMixer] Creating offline analysis mixer stream...");
+        _offlineMixerHandle = BassMix.CreateMixerStream(AudioConfig.MixerFrequency, 2, BassFlags.Decode | BassFlags.Float);
+        if (_offlineMixerHandle == 0)
+        {
+            Log.Warning($"[AudioMixer] Failed to create offline mixer: {Bass.LastError}. Analysis tasks may interfere with playback.");
+        }
+        else
+        {
+            AudioConfig.LogDebug($"[AudioMixer] Offline analysis mixer created: Handle={_offlineMixerHandle}");
+        }
+
         // Add operator mixer to global mixer with buffer flag for smooth mixing
         AudioConfig.LogDebug("[AudioMixer] Adding operator mixer to global mixer...");
         if (!BassMix.MixerAddChannel(_globalMixerHandle, _operatorMixerHandle, BassFlags.MixerChanBuffer))
@@ -161,6 +183,8 @@ public static class AudioMixerManager
         {
             AudioConfig.LogDebug("[AudioMixer] Soundtrack mixer added to global mixer successfully");
         }
+
+        // Note: Offline mixer is NOT added to global mixer - it's completely isolated
 
         // Start the global mixer playing (outputs to soundcard)
         AudioConfig.LogDebug("[AudioMixer] Starting global mixer playback...");
@@ -187,6 +211,7 @@ public static class AudioMixerManager
         
         Bass.StreamFree(_operatorMixerHandle);
         Bass.StreamFree(_soundtrackMixerHandle);
+        Bass.StreamFree(_offlineMixerHandle);
         Bass.StreamFree(_globalMixerHandle);
         
         // Unload FLAC plugin
@@ -217,5 +242,51 @@ public static class AudioMixerManager
     {
         if (!_initialized) return;
         Bass.ChannelSetAttribute(_globalMixerHandle, ChannelAttribute.Volume, volume);
+    }
+
+    /// <summary>
+    /// Creates a decode-only stream for offline analysis (waveform image generation, FFT, etc.)
+    /// This stream is NOT connected to any output and will not interfere with playback.
+    /// The caller is responsible for freeing the stream with Bass.StreamFree() when done.
+    /// </summary>
+    /// <param name="filePath">Absolute path to the audio file</param>
+    /// <returns>Stream handle, or 0 if creation failed</returns>
+    public static int CreateOfflineAnalysisStream(string filePath)
+    {
+        // Ensure BASS is initialized
+        if (!_initialized)
+        {
+            Initialize();
+        }
+
+        lock (_offlineMixerLock)
+        {
+            // Create a decode-only stream (no output to soundcard)
+            var stream = Bass.CreateStream(filePath, 0, 0, BassFlags.Decode | BassFlags.Prescan | BassFlags.Float);
+            if (stream == 0)
+            {
+                var error = Bass.LastError;
+                Log.Warning($"[AudioMixer] Failed to create offline analysis stream for '{filePath}': {error}");
+                return 0;
+            }
+
+            AudioConfig.LogDebug($"[AudioMixer] Created offline analysis stream: Handle={stream} for '{filePath}'");
+            return stream;
+        }
+    }
+
+    /// <summary>
+    /// Frees an offline analysis stream created by CreateOfflineAnalysisStream.
+    /// </summary>
+    public static void FreeOfflineAnalysisStream(int streamHandle)
+    {
+        if (streamHandle == 0)
+            return;
+
+        lock (_offlineMixerLock)
+        {
+            Bass.StreamFree(streamHandle);
+            AudioConfig.LogDebug($"[AudioMixer] Freed offline analysis stream: Handle={streamHandle}");
+        }
     }
 }
