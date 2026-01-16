@@ -1,10 +1,9 @@
-using ManagedBass;
-using ManagedBass.Mix;
-using System.Numerics;
+using System;
 using System.Collections.Generic;
+using System.Numerics;
+using ManagedBass;
 using T3.Core.Audio;
 using T3.Core.Logging;
-using System;
 
 namespace Lib.io.audio
 {
@@ -154,68 +153,16 @@ namespace Lib.io.audio
         {
             if (_operatorId == Guid.Empty)
             {
-                _operatorId = ComputeInstanceGuid();
-                AudioConfig.LogAudioDebug($"[SpatialAudioPlayer] Initialized with operator ID: {_operatorId}");
+                _operatorId = AudioPlayerUtils.ComputeInstanceGuid(InstancePath);
+                AudioConfig.LogAudioDebug($"[SpatialAudioPlayer] Initialized: {_operatorId}");
             }
 
 #if DEBUG
-            var enableTestMode = EnableTestMode.GetValue(context);
-            var triggerShortTest = TriggerShortTest.GetValue(context);
-            var triggerLongTest = TriggerLongTest.GetValue(context);
-            var testFrequency = TestFrequency.GetValue(context);
-            if (testFrequency <= 0) testFrequency = 440f; // Default to A4
-
-            string filePath;
-            bool shouldPlay;
-
-            // Test mode handling
-            if (enableTestMode)
-            {
-                // Detect rising edge on short test trigger
-                if (triggerShortTest && !_previousShortTestTrigger)
-                {
-                    AudioConfig.LogAudioInfo("[SpatialAudioPlayer] ▶ Generating SHORT test tone (0.1s) - TRIGGER DETECTED");
-                    var genStart = DateTime.Now;
-                    _testFilePath = GenerateTestTone(testFrequency, 0.1f, "short");
-                    var genTime = (DateTime.Now - genStart).TotalMilliseconds;
-                    AudioConfig.LogAudioInfo($"[SpatialAudioPlayer] Test tone generated in {genTime:F2}ms");
-                    shouldPlay = true;
-                    _testModeActive = true;
-                }
-                // Detect rising edge on long test trigger
-                else if (triggerLongTest && !_previousLongTestTrigger)
-                {
-                    AudioConfig.LogAudioInfo("[SpatialAudioPlayer] ▶ Generating LONG test tone (2.0s) - TRIGGER DETECTED");
-                    var genStart = DateTime.Now;
-                    _testFilePath = GenerateTestTone(testFrequency, 2.0f, "long");
-                    var genTime = (DateTime.Now - genStart).TotalMilliseconds;
-                    AudioConfig.LogAudioInfo($"[SpatialAudioPlayer] Test tone generated in {genTime:F2}ms");
-                    shouldPlay = true;
-                    _testModeActive = true;
-                }
-                else
-                {
-                    shouldPlay = false;
-                }
-
-                _previousShortTestTrigger = triggerShortTest;
-                _previousLongTestTrigger = triggerLongTest;
-
-                filePath = _testFilePath;
-            }
-            else
-            {
-                _testModeActive = false;
-                filePath = AudioFile.GetValue(context);
-                shouldPlay = PlayAudio.GetValue(context);
-            }
+            var (filePath, shouldPlay) = HandleTestMode(context);
 #else
             string filePath = AudioFile.GetValue(context);
             bool shouldPlay = PlayAudio.GetValue(context);
 #endif
-
-            // Set the current file path for logging
-            CurrentFilePath = filePath;
 
             var shouldStop = StopAudio.GetValue(context);
             var shouldPause = PauseAudio.GetValue(context);
@@ -225,64 +172,36 @@ namespace Lib.io.audio
             var listenerPosition = ListenerPosition.GetValue(context);
             var listenerForward = ListenerForward.GetValue(context);
             var listenerUp = ListenerUp.GetValue(context);
-            
-            // Ensure listener orientation vectors are normalized and valid
-            if (listenerForward.Length() < 0.001f)
-                listenerForward = new Vector3(0, 0, 1); // Default forward (Z+)
-            else
-                listenerForward = Vector3.Normalize(listenerForward);
-                
-            if (listenerUp.Length() < 0.001f)
-                listenerUp = new Vector3(0, 1, 0); // Default up (Y+)
-            else
-                listenerUp = Vector3.Normalize(listenerUp);
-            
+
+            // Normalize listener orientation
+            listenerForward = listenerForward.Length() < 0.001f ? new Vector3(0, 0, 1) : Vector3.Normalize(listenerForward);
+            listenerUp = listenerUp.Length() < 0.001f ? new Vector3(0, 1, 0) : Vector3.Normalize(listenerUp);
+
             var minDistance = MinDistance.GetValue(context);
-            if (minDistance <= 0) minDistance = 1.0f; // Default min distance
+            if (minDistance <= 0) minDistance = 1.0f;
             var maxDistance = MaxDistance.GetValue(context);
-            if (maxDistance <= minDistance) maxDistance = minDistance + 10.0f; // Default max distance
+            if (maxDistance <= minDistance) maxDistance = minDistance + 10.0f;
+
             var speed = Speed.GetValue(context);
             var seek = Seek.GetValue(context);
-
-            // Get advanced 3D audio parameters
             var sourceOrientation = SourceOrientation.GetValue(context);
-            var innerConeAngle = InnerConeAngle.GetValue(context);
-            var outerConeAngle = OuterConeAngle.GetValue(context);
-            var outerConeVolume = OuterConeVolume.GetValue(context);
-            var audio3DMode = Audio3DMode.GetValue(context);
+            var innerConeAngle = Math.Clamp(InnerConeAngle.GetValue(context), 0f, 360f);
+            var outerConeAngle = Math.Clamp(OuterConeAngle.GetValue(context), 0f, 360f);
+            var outerConeVolume = Math.Clamp(OuterConeVolume.GetValue(context), 0f, 1f);
+            var audio3DMode = Math.Clamp(Audio3DMode.GetValue(context), 0, 2);
 
-            // Clamp cone parameters to valid ranges
-            innerConeAngle = Math.Clamp(innerConeAngle, 0f, 360f);
-            outerConeAngle = Math.Clamp(outerConeAngle, 0f, 360f);
-            outerConeVolume = Math.Clamp(outerConeVolume, 0f, 1f);
-            audio3DMode = Math.Clamp(audio3DMode, 0, 2); // 0=Normal, 1=Relative, 2=Off
-
-            // Update the listener position in the AudioEngine
-            // This allows the spatial audio system to calculate distance and panning
-            AudioEngine.Set3DListenerPosition(
-                position: listenerPosition,
-                forward: listenerForward,
-                up: listenerUp);
+            AudioEngine.Set3DListenerPosition(listenerPosition, listenerForward, listenerUp);
 
             // Handle pause/resume transitions
-            var pauseStateChanged = shouldPause != _wasPausedLastFrame;
-            if (pauseStateChanged)
+            if (shouldPause != _wasPausedLastFrame)
             {
                 if (shouldPause)
-                {
-                    AudioConfig.LogAudioDebug($"[SpatialAudioPlayer] Pausing operator {_operatorId}");
                     AudioEngine.PauseSpatialOperator(_operatorId);
-                }
                 else
-                {
-                    AudioConfig.LogAudioDebug($"[SpatialAudioPlayer] Resuming operator {_operatorId}");
                     AudioEngine.ResumeSpatialOperator(_operatorId);
-                }
             }
             _wasPausedLastFrame = shouldPause;
 
-            // Send all state to AudioEngine with 3D positioning
-            var updateStart = DateTime.Now;
             AudioEngine.UpdateSpatialOperatorPlayback(
                 operatorId: _operatorId,
                 localFxTime: context.LocalFxTime,
@@ -300,17 +219,8 @@ namespace Lib.io.audio
                 innerConeAngle: innerConeAngle,
                 outerConeAngle: outerConeAngle,
                 outerConeVolume: outerConeVolume,
-                mode3D: audio3DMode
-            );
-            var updateTime = (DateTime.Now - updateStart).TotalMilliseconds;
-            
-            // Log timing if significant
-            if (updateTime > 1.0)
-            {
-                AudioConfig.LogAudioDebug($"[SpatialAudioPlayer] UpdateSpatialOperatorPlayback took {updateTime:F2}ms");
-            }
+                mode3D: audio3DMode);
 
-            // Get outputs from engine
             IsPlaying.Value = AudioEngine.IsSpatialOperatorStreamPlaying(_operatorId);
             IsPaused.Value = AudioEngine.IsSpatialOperatorPaused(_operatorId);
             GetLevel.Value = AudioEngine.GetSpatialOperatorLevel(_operatorId);
@@ -318,212 +228,81 @@ namespace Lib.io.audio
             GetSpectrum.Value = AudioEngine.GetSpatialOperatorSpectrum(_operatorId);
 
 #if DEBUG
-            // Build debug info
-            if (_testModeActive)
-            {
-                DebugInfo.Value = $"TEST MODE (Spatial) | File: {System.IO.Path.GetFileName(filePath)} | " +
-                                 $"Playing: {IsPlaying.Value} | Paused: {IsPaused.Value} | " +
-                                 $"Level: {GetLevel.Value:F3} | Source: {sourcePosition} | Listener: {listenerPosition} | " +
-                                 $"Orient: {sourceOrientation} | Cone: {innerConeAngle:F0}°/{outerConeAngle:F0}° | Mode: {(Audio3DModes)audio3DMode} | Time: {context.LocalFxTime:F3}";
-            }
-            else
-            {
-                DebugInfo.Value = $"File: {System.IO.Path.GetFileName(filePath)} | " +
-                                 $"Playing: {IsPlaying.Value} | Paused: {IsPaused.Value} | " +
-                                 $"Level: {GetLevel.Value:F3} | Source: {sourcePosition} | Listener: {listenerPosition} | " +
-                                 $"MinDist: {minDistance:F1} | MaxDist: {maxDistance:F1} | " +
-                                 $"Orient: {sourceOrientation} | Cone: {innerConeAngle:F0}°/{outerConeAngle:F0}° | Mode: {(Audio3DModes)audio3DMode}";
-            }
+            DebugInfo.Value = _testModeActive
+                ? $"TEST MODE (Spatial) | Playing: {IsPlaying.Value} | Pos: {sourcePosition} | Level: {GetLevel.Value:F3}"
+                : $"Playing: {IsPlaying.Value} | Pos: {sourcePosition} | Level: {GetLevel.Value:F3}";
 #endif
         }
 
 #if DEBUG
-        private string GenerateTestTone(float frequency, float durationSeconds, string label)
+        private (string filePath, bool shouldPlay) HandleTestMode(EvaluationContext context)
         {
-            const int sampleRate = 48000;
-            const int channels = 1; // Mono for 3D spatial audio
-            int sampleCount = (int)(sampleRate * durationSeconds);
+            var enableTestMode = EnableTestMode.GetValue(context);
+            var triggerShortTest = TriggerShortTest.GetValue(context);
+            var triggerLongTest = TriggerLongTest.GetValue(context);
+            var testFrequency = TestFrequency.GetValue(context);
+            if (testFrequency <= 0) testFrequency = 440f;
 
-            // Create a temporary WAV file
-            var tempPath = System.IO.Path.Combine(
-                System.IO.Path.GetTempPath(),
-                $"t3_test_tone_spatial_{label}_{frequency}hz_{durationSeconds}s_{DateTime.Now.Ticks}.wav");
-
-            try
+            if (!enableTestMode)
             {
-                using var fileStream = new System.IO.FileStream(tempPath, System.IO.FileMode.Create);
-                using var writer = new System.IO.BinaryWriter(fileStream);
-
-                // Write WAV header
-                int dataSize = sampleCount * channels * sizeof(short);
-                int fileSize = 36 + dataSize;
-
-                writer.Write(new[] { 'R', 'I', 'F', 'F' });
-                writer.Write(fileSize);
-                writer.Write(new[] { 'W', 'A', 'V', 'E' });
-                writer.Write(new[] { 'f', 'm', 't', ' ' });
-                writer.Write(16); // fmt chunk size
-                writer.Write((short)1); // PCM format
-                writer.Write((short)channels);
-                writer.Write(sampleRate);
-                writer.Write(sampleRate * channels * sizeof(short)); // byte rate
-                writer.Write((short)(channels * sizeof(short))); // block align
-                writer.Write((short)16); // bits per sample
-                writer.Write(new[] { 'd', 'a', 't', 'a' });
-                writer.Write(dataSize);
-
-                // Generate sine wave with envelope to avoid clicks
-                const float envelopeDuration = 0.005f; // 5ms fade in/out
-                int envelopeSamples = (int)(sampleRate * envelopeDuration);
-
-                for (int i = 0; i < sampleCount; i++)
-                {
-                    float t = i / (float)sampleRate;
-                    float sample = (float)Math.Sin(2.0 * Math.PI * frequency * t);
-
-                    // Apply envelope
-                    if (i < envelopeSamples)
-                    {
-                        sample *= i / (float)envelopeSamples;
-                    }
-                    else if (i > sampleCount - envelopeSamples)
-                    {
-                        sample *= (sampleCount - i) / (float)envelopeSamples;
-                    }
-
-                    short sampleValue = (short)(sample * 16384); // 50% amplitude
-
-                    // Write mono
-                    writer.Write(sampleValue);
-                }
-
-                AudioConfig.LogAudioDebug($"Generated spatial test tone: {tempPath} ({durationSeconds}s @ {frequency}Hz, MONO)");
-                return tempPath;
+                _testModeActive = false;
+                return (AudioFile.GetValue(context), PlayAudio.GetValue(context));
             }
-            catch (Exception ex)
+
+            bool shouldPlay = false;
+            if (triggerShortTest && !_previousShortTestTrigger)
             {
-                Log.Error($"Failed to generate test tone: {ex.Message}");
-                return string.Empty;
+                _testFilePath = AudioPlayerUtils.GenerateTestTone(testFrequency, 0.1f, "spatial_short", 1);
+                shouldPlay = true;
+                _testModeActive = true;
             }
+            else if (triggerLongTest && !_previousLongTestTrigger)
+            {
+                _testFilePath = AudioPlayerUtils.GenerateTestTone(testFrequency, 2.0f, "spatial_long", 1);
+                shouldPlay = true;
+                _testModeActive = true;
+            }
+
+            _previousShortTestTrigger = triggerShortTest;
+            _previousLongTestTrigger = triggerLongTest;
+
+            return (_testFilePath, shouldPlay);
         }
 #endif
-
-        private Guid ComputeInstanceGuid()
-        {
-            unchecked
-            {
-                ulong hash = 0xCBF29CE484222325;
-                const ulong prime = 0x100000001B3;
-
-                foreach (var id in InstancePath)
-                {
-                    var bytes = id.ToByteArray();
-                    foreach (var b in bytes)
-                    {
-                        hash ^= b;
-                        hash *= prime;
-                    }
-                }
-
-                var guidBytes = new byte[16];
-                var hashBytes = BitConverter.GetBytes(hash);
-                Array.Copy(hashBytes, 0, guidBytes, 0, 8);
-                Array.Copy(hashBytes, 0, guidBytes, 8, 8);
-                return new Guid(guidBytes);
-            }
-        }
 
         /// <summary>
         /// Render audio for export. This is called by AudioRendering during export.
         /// </summary>
         public int RenderAudio(double startTime, double duration, float[] buffer)
         {
-            int targetSampleRate = T3.Core.Audio.AudioConfig.MixerFrequency;
-            int targetChannels = 2;
-            if (T3.Core.Audio.AudioEngine.TryGetSpatialOperatorStream(_operatorId, out var stream) && stream != null)
-            {
-                return stream.RenderAudio(startTime, duration, buffer, targetSampleRate, targetChannels);
-            }
+            if (AudioEngine.TryGetSpatialOperatorStream(_operatorId, out var stream) && stream != null)
+                return stream.RenderAudio(startTime, duration, buffer, AudioConfig.MixerFrequency, 2);
+
             Array.Clear(buffer, 0, buffer.Length);
             return buffer.Length;
         }
 
-        public void CleanupExportDecodeStream()
+        public void RestoreVolumeAfterExport()
         {
-            if (_exportDecodeStream != 0)
-            {
-                Bass.StreamFree(_exportDecodeStream);
-                _exportDecodeStream = 0;
-            }
-            _exportIsPlaying = false;
-            _exportLastPlay = false;
-            _exportLastStop = false;
-            _exportLastSeek = 0f;
-            _exportLastTime = -1;
+            if (AudioEngine.TryGetSpatialOperatorStream(_operatorId, out var stream) && stream != null)
+                Bass.ChannelSetAttribute(stream.StreamHandle, ChannelAttribute.Volume, Volume.Value);
         }
 
         ~SpatialAudioPlayer()
         {
-            // NOTE: No need to unregister from AudioExportSourceRegistry since we don't register
-
             if (_operatorId != Guid.Empty)
-            {
                 AudioEngine.UnregisterOperator(_operatorId);
-            }
 
 #if DEBUG
-            // Clean up test files
-            if (!string.IsNullOrEmpty(_testFilePath) && System.IO.File.Exists(_testFilePath))
-            {
-                try
-                {
-                    System.IO.File.Delete(_testFilePath);
-                }
-                catch
-                {
-                    // Ignore cleanup errors
-                }
-            }
+            AudioPlayerUtils.CleanupTestFile(_testFilePath);
 #endif
-        }
-
-        /// <summary>
-        /// Update metering values from a rendered/export buffer (for offline export)
-        /// </summary>
-        public void UpdateFromBuffer(float[] buffer)
-        {
-            if (AudioEngine.TryGetSpatialOperatorStream(_operatorId, out var stream) && stream != null)
-            {
-                stream.UpdateFromBuffer(buffer);
-            }
-        }
-
-        /// <summary>
-        /// Clears export metering values so live metering resumes after export.
-        /// </summary>
-        public void ClearExportMetering()
-        {
-            if (AudioEngine.TryGetSpatialOperatorStream(_operatorId, out var stream) && stream != null)
-            {
-                stream.ClearExportMetering();
-            }
-        }
-
-        public void RestoreVolumeAfterExport()
-        {
-            var intendedVolume = Volume.Value;
-            if (T3.Core.Audio.AudioEngine.TryGetSpatialOperatorStream(_operatorId, out var stream) && stream != null)
-            {
-                ManagedBass.Bass.ChannelSetAttribute(stream.StreamHandle, ManagedBass.ChannelAttribute.Volume, intendedVolume);
-                T3.Core.Logging.Log.Debug($"[AudioRestore] Set Stream Volume: handle={stream.StreamHandle}, volume={intendedVolume}");
-            }
         }
 
         private enum Audio3DModes
         {
-            Normal = 0,    // BASS_3DMODE_NORMAL
-            Relative = 1,  // BASS_3DMODE_RELATIVE
-            Off = 2        // BASS_3DMODE_OFF
+            Normal = 0,
+            Relative = 1,
+            Off = 2
         }
     }
 }
