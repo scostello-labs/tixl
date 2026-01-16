@@ -182,10 +182,9 @@ public static class AudioMixerManager
         }
 
         // Add soundtrack mixer to global mixer
-        // Note: We do NOT use MixerChanBuffer for the soundtrack mixer because we need accurate
-        // position tracking for sync with the source streams.
+        // Use MixerChanBuffer to enable level metering via BassMix.ChannelGetLevel
         AudioConfig.LogAudioDebug("[AudioMixer] Adding soundtrack mixer to global mixer...");
-        if (!BassMix.MixerAddChannel(_globalMixerHandle, _soundtrackMixerHandle, BassFlags.Default))
+        if (!BassMix.MixerAddChannel(_globalMixerHandle, _soundtrackMixerHandle, BassFlags.MixerChanBuffer))
         {
             Log.Error($"[AudioMixer] Failed to add soundtrack mixer to global mixer: {Bass.LastError}");
         }
@@ -298,5 +297,66 @@ public static class AudioMixerManager
             Bass.StreamFree(streamHandle);
             AudioConfig.LogAudioDebug($"[AudioMixer] Freed offline analysis stream: Handle={streamHandle}");
         }
+    }
+
+    /// <summary>
+    /// Gets the current audio level from the global mixer (0.0 to 1.0 normalized).
+    /// Returns the maximum of left and right channels.
+    /// Uses non-destructive level reading to avoid consuming audio data.
+    /// </summary>
+    public static float GetGlobalMixerLevel()
+    {
+        if (!_initialized || _globalMixerHandle == 0)
+            return 0f;
+
+        // Use ChannelGetLevelEx with a short time window for responsive metering
+        // This doesn't consume audio data like ChannelGetLevel does
+        float[] levels = new float[2];
+        if (!Bass.ChannelGetLevel(_globalMixerHandle, levels, 0.05f, LevelRetrievalFlags.Stereo))
+            return 0f;
+
+        return Math.Max(levels[0], levels[1]);
+    }
+
+    /// <summary>
+    /// Gets the current audio level from the operator mixer (0.0 to 1.0 normalized).
+    /// Returns the maximum of left and right channels.
+    /// Uses BassMix.ChannelGetLevel for decode streams with MixerChanBuffer.
+    /// </summary>
+    public static float GetOperatorMixerLevel()
+    {
+        if (!_initialized || _operatorMixerHandle == 0)
+            return 0f;
+
+        // For decode streams with MixerChanBuffer, use BassMix.ChannelGetLevel
+        // This reads from the mixer's buffer without consuming data
+        var level = BassMix.ChannelGetLevel(_operatorMixerHandle);
+        if (level == -1)
+            return 0f;
+
+        var left = (level & 0xFFFF) / 32768f;
+        var right = ((level >> 16) & 0xFFFF) / 32768f;
+        return Math.Max(left, right);
+    }
+
+    /// <summary>
+    /// Gets the current audio level from the soundtrack mixer (0.0 to 1.0 normalized).
+    /// Returns the maximum of left and right channels.
+    /// Uses BassMix.ChannelGetLevel for decode streams with MixerChanBuffer.
+    /// </summary>
+    public static float GetSoundtrackMixerLevel()
+    {
+        if (!_initialized || _soundtrackMixerHandle == 0)
+            return 0f;
+
+        // For decode streams with MixerChanBuffer, use BassMix.ChannelGetLevel
+        // This reads from the mixer's buffer without consuming data
+        var level = BassMix.ChannelGetLevel(_soundtrackMixerHandle);
+        if (level == -1)
+            return 0f;
+
+        var left = (level & 0xFFFF) / 32768f;
+        var right = ((level >> 16) & 0xFFFF) / 32768f;
+        return Math.Max(left, right);
     }
 }

@@ -38,6 +38,11 @@ internal sealed class SettingsWindow : Window
 
     private Categories _activeCategory;
     private bool? _showAdvancedAudioSettings;
+    
+    // Audio level meter smoothing
+    private static float _smoothedGlobalLevel = 0f;
+    private static float _smoothedOperatorLevel = 0f;
+    private static float _smoothedSoundtrackLevel = 0f;
 
     protected override void DrawContent()
     {
@@ -100,14 +105,6 @@ internal sealed class SettingsWindow : Window
 
                     if (UserSettings.Config.GraphStyle == UserSettings.GraphStyles.Magnetic)
                     {
-                        // changed |= FormInputs.AddCheckBox("Disconnect on unsnap",
-                        //                                   ref UserSettings.Config.DisconnectOnUnsnap,
-                        //                                   """
-                        //                                   Defines if unsnapping operators from a block will automatically disconnect them.
-                        //                                   Ops dragged out between snapped blocks will always be disconnected.
-                        //                                   """,
-                        //                                   UserSettings.Defaults.DisconnectOnUnsnap);
-
                         changed |= FormInputs.AddCheckBox("Snap horizontally",
                                                           ref UserSettings.Config.EnableHorizontalSnapping,
                                                           """
@@ -203,43 +200,11 @@ internal sealed class SettingsWindow : Window
                                                    0.0f, 0.2f, 0.01f, true, true,
                                                    "Controls the distance until items such as keyframes snap in the timeline",
                                                    UserSettings.Defaults.SnapStrength);
-
-                    float globalVolume = ProjectSettings.Config.GlobalPlaybackVolume;
-                    bool globalVolumeChanged = FormInputs.AddFloat("Global Volume",
-                                                   ref globalVolume,
-                                                   0.0f, 1.0f, 0.01f, true, true,
-                                                   "Affects all audio output at the global mixer level.",
-                                                   ProjectSettings.Defaults.GlobalPlaybackVolume);
-                    if (globalVolumeChanged)
-                    {
-                        AudioEngine.SetGlobalVolume(globalVolume);
-                    }
-
-                    changed |= FormInputs.AddCheckBox("Global Mute",
-                                                    ref ProjectSettings.Config.GlobalMute,
-                                                    "Mute all audio output at the global mixer level.",
-                                                    ProjectSettings.Defaults.GlobalMute);
-
-                    changed |= FormInputs.AddFloat("Soundtrack Volume",
-                                                   ref ProjectSettings.Config.SoundtrackPlaybackVolume,
-                                                   0.0f, 10f, 0.01f, true, true,
-                                                   "Limit the audio playback volume for the soundtrack",
-                                                   ProjectSettings.Defaults.SoundtrackPlaybackVolume);
-
-                    changed |= FormInputs.AddCheckBox("Soundtrack Mute",
-                                                    ref ProjectSettings.Config.SoundtrackMute,
-                                                    "Mute soundtrack audio only.",
-                                                    ProjectSettings.Defaults.SoundtrackMute);
-
-                    changed |= FormInputs.AddEnumDropdown(ref UserSettings.Config.FrameStepAmount,
-                                                          "Frame step amount",
-                                                          "Controls the next rounding and step amount when jumping between frames.\nDefault shortcut is Shift+Cursor Left/Right"
-                                                        , UserSettings.Defaults.FrameStepAmount);
-
                     changed |= FormInputs.AddCheckBox("Reset time after playback",
                                                       ref UserSettings.Config.ResetTimeAfterPlayback,
                                                       "After the playback is halted, the time will reset to the moment when the playback began. This feature proves beneficial for iteratively reviewing animations without requiring manual rewinding.",
                                                       UserSettings.Defaults.ResetTimeAfterPlayback);
+
 
                     FormInputs.AddVerticalSpace();
                     FormInputs.AddSectionSubHeader("Skill Quest");
@@ -416,22 +381,44 @@ internal sealed class SettingsWindow : Window
                     FormInputs.AddSectionHeader("Audio System");
                     FormInputs.AddVerticalSpace();
                     FormInputs.SetIndentToParameters();
+                    
+                    // Global Mixer section
+                    FormInputs.AddSectionSubHeader("Global Mixer");
                     changed |= FormInputs.AddFloat("Global Volume",
                                                    ref ProjectSettings.Config.GlobalPlaybackVolume,
                                                    0.0f, 1.0f, 0.01f, true, true,
                                                    "Affects all audio output at the global mixer level.",
                                                    ProjectSettings.Defaults.GlobalPlaybackVolume);
 
+                    // Global Mixer Level Meter
+                    DrawAudioLevelMeter("Global Level", AudioMixerManager.GetGlobalMixerLevel(), ref _smoothedGlobalLevel);
+
                     changed |= FormInputs.AddCheckBox("Global Mute",
                                                     ref ProjectSettings.Config.GlobalMute,
                                                     "Mute all audio output at the global mixer level.",
                                                     ProjectSettings.Defaults.GlobalMute);
 
+                    FormInputs.AddVerticalSpace();
+                    
+                    // Operator Mixer section
+                    FormInputs.AddSectionSubHeader("Operator Audio");
+                    
+                    // Operator Mixer Level Meter
+                    DrawAudioLevelMeter("Operator Level", AudioMixerManager.GetOperatorMixerLevel(), ref _smoothedOperatorLevel);
+
+                    FormInputs.AddVerticalSpace();
+                    
+                    // Soundtrack Mixer section
+                    FormInputs.AddSectionSubHeader("Soundtrack");
+                    
                     changed |= FormInputs.AddFloat("Soundtrack Volume",
                                                    ref ProjectSettings.Config.SoundtrackPlaybackVolume,
                                                    0.0f, 10f, 0.01f, true, true,
                                                    "Limit the audio playback volume for the soundtrack",
                                                    ProjectSettings.Defaults.SoundtrackPlaybackVolume);
+
+                    // Soundtrack Mixer Level Meter
+                    DrawAudioLevelMeter("Soundtrack Level", AudioMixerManager.GetSoundtrackMixerLevel(), ref _smoothedSoundtrackLevel);
 
                     changed |= FormInputs.AddCheckBox("Soundtrack Mute",
                                                     ref ProjectSettings.Config.SoundtrackMute,
@@ -513,8 +500,8 @@ internal sealed class SettingsWindow : Window
                                                        UserSettings.Defaults.AudioHighPassCutoffFrequency);
                     }
 #endif
-                }
                     break;
+                }
                 case Categories.Midi:
                 {
                     FormInputs.AddSectionHeader("Midi");
@@ -522,7 +509,6 @@ internal sealed class SettingsWindow : Window
                     if (ImGui.Button("Rescan devices"))
                     {
                         MidiConnectionManager.Rescan();
-                        //MidiOutConnectionManager.Init();
                         CompatibleMidiDeviceHandling.InitializeConnectedDevices();
                     }
 
@@ -704,6 +690,47 @@ internal sealed class SettingsWindow : Window
     internal override List<Window> GetInstances()
     {
         return new List<Window>();
+    }
+
+    /// <summary>
+    /// Draws an audio level meter with clipping indicator, similar to PlaybackSettingsPopup
+    /// </summary>
+    private static void DrawAudioLevelMeter(string label, float currentLevel, ref float smoothedLevel)
+    {
+        var dl = ImGui.GetWindowDrawList();
+        FormInputs.DrawInputLabel(label);
+        ImGui.InvisibleButton("##" + label + "Meter", new Vector2(-1, ImGui.GetFrameHeight()));
+
+        // Smooth the level (decay slower than attack)
+        smoothedLevel = currentLevel > smoothedLevel 
+            ? currentLevel 
+            : Math.Max(currentLevel, smoothedLevel - 2f * ImGui.GetIO().DeltaTime);
+
+        var min = ImGui.GetItemRectMin();
+        var max = ImGui.GetItemRectMax();
+        var paddedWidth = (max.X - min.X) * 0.80f;
+        var paddedHeight = (max.Y - min.Y) / 3f;
+        max.X = min.X + paddedWidth;
+
+        // Full gradient bar: green on left, orange on right
+        dl.AddRectFilledMultiColor(
+            new Vector2(min.X, min.Y + paddedHeight),
+            new Vector2(min.X + paddedWidth, max.Y - paddedHeight),
+            UiColors.StatusControlled, UiColors.StatusWarning,
+            UiColors.StatusWarning, UiColors.StatusControlled);
+
+        // Cover the unfilled portion (draw from right edge to level position)
+        var levelPosition = min.X + paddedWidth * smoothedLevel;
+        dl.AddRectFilled(
+            new Vector2(levelPosition, min.Y + paddedHeight),
+            new Vector2(max.X, max.Y - paddedHeight),
+            UiColors.BackgroundHover);
+
+        // Peak/clipping LED indicator
+        dl.AddRectFilled(
+            new Vector2(max.X + 5f * T3Ui.UiScaleFactor, min.Y + paddedHeight),
+            new Vector2(max.X + 25f * T3Ui.UiScaleFactor, max.Y - paddedHeight),
+            currentLevel >= 1f ? UiColors.StatusError : UiColors.BackgroundHover);
     }
 }
 
