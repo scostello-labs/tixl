@@ -268,7 +268,7 @@ internal static class RenderProcess
             }
             try
             {
-                _activeSession.VideoWriter = new Mp4VideoWriter(targetFilePath, MainOutputRenderedSize, _activeSession.Settings.ExportAudio)
+                _activeSession.VideoWriter = new Mp4VideoWriter(targetFilePath, MainOutputOriginalSize, MainOutputRenderedSize, _activeSession.Settings.ExportAudio)
                 {
                     Bitrate = _activeSession.Settings.Bitrate,
                     Framerate = (int)_activeSession.Settings.Fps
