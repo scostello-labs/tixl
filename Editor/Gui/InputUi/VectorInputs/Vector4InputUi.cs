@@ -1,7 +1,8 @@
-﻿using ImGuiNET;
+using ImGuiNET;
 using T3.Core.DataTypes;
 using T3.Core.Operator;
 using T3.Core.Operator.Slots;
+using T3.Editor.Gui.InputUi.CombinedInputs;
 using T3.Editor.Gui.Interaction;
 using T3.Editor.UiModel.InputsAndTypes;
 
@@ -39,6 +40,12 @@ internal sealed class Vector4InputUi : FloatVectorInputValueUi<Vector4>
 
     protected override InputEditStateFlags DrawEditControl(string name, Symbol.Child.Input input, ref Vector4 float4Value, bool readOnly)
     {
+        // Check for ADSR mapping (by type name to avoid cross-project dependency)
+        if (MappedType?.Name == "AdsrMapping")
+        {
+            return AdsrEnvelopeInputUi.DrawAdsrControl(ref float4Value, input.IsDefault);
+        }
+        
         float4Value.CopyTo(FloatComponents);
         var thumbWidth = ImGui.GetFrameHeight();
         var inputEditState = VectorValueEdit.Draw(FloatComponents, Min, Max, Scale, ClampMin, ClampMax, thumbWidth+1);

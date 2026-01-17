@@ -6,6 +6,7 @@ using ManagedBass;
 using ManagedBass.Mix;
 using T3.Core.Audio;
 using T3.Core.Logging;
+using System.Numerics; // Required for Vector4
 
 namespace Lib.io.audio
 {
@@ -13,6 +14,7 @@ namespace Lib.io.audio
     /// Generates test tones procedurally in real-time via the operator mixer.
     /// No external files are created - audio is synthesized on-the-fly.
     /// Play input is a trigger (0→1 pulse) that starts playback for the specified duration.
+    /// Includes ADSR envelope for shaping the amplitude over time.
     /// </summary>
     [Guid("7c8f3a2e-9d4b-4e1f-8a5c-6b2d9f7e4c3a")]
     internal sealed class TestToneGenerator : Instance<TestToneGenerator>, IAudioExportSource
@@ -38,6 +40,10 @@ namespace Lib.io.audio
         [Input(Guid = "5a7e9f2c-8d4b-4c1f-9a5e-3b2d6f7c8a4e", MappedType = typeof(WaveformTypes))]
         public readonly InputSlot<int> WaveformType = new();
 
+        // ADSR Envelope as Vector4: X=Attack, Y=Decay, Z=Sustain, W=Release
+        [Input(Guid = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", MappedType = typeof(AdsrMapping))]
+        public readonly InputSlot<Vector4> Envelope = new();
+
         [Output(Guid = "b7e2c1a4-5d3f-4e8a-9c2f-1e4b7a6c3d8f")]
         public readonly Slot<Command> Result = new();
 
@@ -53,6 +59,9 @@ namespace Lib.io.audio
         [Output(Guid = "7f8e9d2a-4b5c-3e89-8f12-6a5b9c8d0e2f")]
         public readonly Slot<List<float>> GetSpectrum = new();
 
+        [Output(Guid = "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b")]
+        public readonly Slot<float> EnvelopeValue = new();
+
         private Guid _operatorId;
         private ProceduralToneStream? _toneStream;
         private bool _previousTrigger;
@@ -65,6 +74,7 @@ namespace Lib.io.audio
             GetLevel.UpdateAction += Update;
             GetWaveform.UpdateAction += Update;
             GetSpectrum.UpdateAction += Update;
+            EnvelopeValue.UpdateAction += Update;
         }
 
         private void Update(EvaluationContext context)
@@ -83,6 +93,13 @@ namespace Lib.io.audio
             var panning = Panning.GetValue(context);
             var waveformType = WaveformType.GetValue(context);
 
+            // ADSR envelope from Vector4: X=Attack, Y=Decay, Z=Sustain, W=Release
+            var envelope = Envelope.GetValue(context);
+            var attack = envelope.X > 0 ? envelope.X : 0.01f;
+            var decay = envelope.Y > 0 ? envelope.Y : 0.1f;
+            var sustain = envelope.Z >= 0 ? Math.Clamp(envelope.Z, 0f, 1f) : 0.7f;
+            var release = envelope.W > 0 ? envelope.W : 0.3f;
+
             // Apply defaults
             if (frequency <= 0) frequency = 440f;
             if (duration <= 0) duration = float.MaxValue; // 0 or negative = infinite
@@ -96,16 +113,20 @@ namespace Lib.io.audio
                 GetLevel.Value = 0;
                 GetWaveform.Value = null;
                 GetSpectrum.Value = null;
+                EnvelopeValue.Value = 0;
                 return;
             }
 
             // Update parameters (can be changed while playing)
             _toneStream.Frequency = frequency;
             _toneStream.WaveformType = (WaveformTypes)waveformType;
+            _toneStream.SetAdsr(attack, decay, sustain, release);
+            _toneStream.SetPanning(panning); // Always update panning
 
             // Trigger on rising edge only (0→1)
-            // Falling edge (1→0) does NOT stop playback - this is a trigger, not a gate
+            // Falling edge (1→0) triggers release phase
             var triggered = trigger && !_previousTrigger;
+            var released = !trigger && _previousTrigger;
             _previousTrigger = trigger;
 
             if (triggered)
@@ -115,19 +136,24 @@ namespace Lib.io.audio
                 _toneStream.Play();
                 AudioConfig.LogAudioDebug($"[TestToneGenerator] ▶ Triggered @ {frequency}Hz for {(duration < float.MaxValue ? $"{duration}s" : "∞")}");
             }
+            else if (released && _toneStream.IsPlaying)
+            {
+                // Start release phase when trigger goes low
+                _toneStream.StartRelease();
+                AudioConfig.LogAudioDebug($"[TestToneGenerator] ~ Release started");
+            }
 
-            // Check if duration elapsed (stream handles this internally)
+            // Check if duration elapsed or envelope finished
             if (_toneStream.HasFinished)
             {
                 _toneStream.Stop();
-                AudioConfig.LogAudioDebug($"[TestToneGenerator] ■ Duration elapsed");
+                AudioConfig.LogAudioDebug($"[TestToneGenerator] ■ Finished");
             }
 
-            // Update volume/mute/panning while playing
+            // Update volume/mute while playing
             if (_toneStream.IsPlaying)
             {
                 _toneStream.SetVolume(volume, mute);
-                _toneStream.SetPanning(panning);
             }
 
             // Register for export if playing
@@ -146,6 +172,7 @@ namespace Lib.io.audio
             GetLevel.Value = _toneStream.GetLevel();
             GetWaveform.Value = _toneStream.GetWaveform();
             GetSpectrum.Value = _toneStream.GetSpectrum();
+            EnvelopeValue.Value = _toneStream.GetEnvelopeValue();
         }
 
         private void EnsureToneStream()
@@ -197,9 +224,26 @@ namespace Lib.io.audio
         }
 
         /// <summary>
+        /// Marker enum for MappedType to trigger ADSR envelope UI for Vector4
+        /// </summary>
+        public enum AdsrMapping { }
+
+        /// <summary>
+        /// ADSR envelope stages
+        /// </summary>
+        private enum EnvelopeStage
+        {
+            Idle,
+            Attack,
+            Decay,
+            Sustain,
+            Release
+        }
+
+        /// <summary>
         /// Procedural tone stream that generates waveforms in real-time via BASS callback stream.
         /// Uses a StreamProcedure callback to ensure continuous, accurate sample generation.
-        /// Duration is tracked by counting generated samples for sample-accurate timing.
+        /// Includes ADSR envelope for amplitude shaping.
         /// </summary>
         private sealed class ProceduralToneStream
         {
@@ -219,6 +263,18 @@ namespace Lib.io.audio
             private long _samplesGenerated;
             private long _totalSamplesToGenerate;
             private volatile int _hasFinished;
+
+            // ADSR envelope parameters (in seconds)
+            private volatile float _attackTime = 0.01f;
+            private volatile float _decayTime = 0.1f;
+            private volatile float _sustainLevel = 0.7f;
+            private volatile float _releaseTime = 0.3f;
+
+            // ADSR state
+            private volatile int _envelopeStage = (int)EnvelopeStage.Idle;
+            private double _envelopeValue;
+            private long _envelopeSampleCount;
+            private double _releaseStartValue;
 
             public float Frequency
             {
@@ -257,6 +313,26 @@ namespace Lib.io.audio
             {
                 _mixerHandle = mixerHandle;
                 _streamProc = StreamCallback;
+            }
+
+            public void SetAdsr(float attack, float decay, float sustain, float release)
+            {
+                _attackTime = Math.Max(0.001f, attack);
+                _decayTime = Math.Max(0.001f, decay);
+                _sustainLevel = Math.Clamp(sustain, 0f, 1f);
+                _releaseTime = Math.Max(0.001f, release);
+            }
+
+            public float GetEnvelopeValue() => (float)_envelopeValue;
+
+            public void StartRelease()
+            {
+                if (_envelopeStage != (int)EnvelopeStage.Idle && _envelopeStage != (int)EnvelopeStage.Release)
+                {
+                    _releaseStartValue = _envelopeValue;
+                    _envelopeSampleCount = 0;
+                    Interlocked.Exchange(ref _envelopeStage, (int)EnvelopeStage.Release);
+                }
             }
 
             public static ProceduralToneStream? Create(int mixerHandle)
@@ -313,17 +389,31 @@ namespace Lib.io.audio
                 bool hasLimit = totalLimit > 0 && totalLimit < long.MaxValue;
                 long remaining = hasLimit ? Math.Max(0, totalLimit - _samplesGenerated) : long.MaxValue;
 
-                // Determine effective volume (0 if not playing, finished, or muted)
+                // Determine effective volume (0 if not playing or muted)
                 bool effectivelyPlaying = playing && (!hasLimit || remaining > 0);
-                float vol = effectivelyPlaying && !_isMuted ? _currentVolume : 0f;
+                float baseVol = effectivelyPlaying && !_isMuted ? _currentVolume : 0f;
 
                 double phaseIncrement = 2.0 * Math.PI * freq / SampleRate;
 
                 int samplesToGenerate = hasLimit ? (int)Math.Min(sampleCount, remaining) : sampleCount;
 
+                // ADSR parameters
+                float attackTime = _attackTime;
+                float decayTime = _decayTime;
+                float sustainLevel = _sustainLevel;
+                float releaseTime = _releaseTime;
+
+                long attackSamples = (long)(attackTime * SampleRate);
+                long decaySamples = (long)(decayTime * SampleRate);
+                long releaseSamples = (long)(releaseTime * SampleRate);
+
                 for (int i = 0; i < samplesToGenerate; i++)
                 {
-                    float sample = GenerateSampleStatic(_phase, waveType) * vol;
+                    // Calculate envelope
+                    float envelopeGain = CalculateEnvelope(
+                        attackSamples, decaySamples, sustainLevel, releaseSamples);
+
+                    float sample = GenerateSampleStatic(_phase, waveType) * baseVol * envelopeGain;
                     _phase += phaseIncrement;
 
                     // Keep phase in reasonable range to avoid precision loss
@@ -336,6 +426,8 @@ namespace Lib.io.audio
 
                     floatBuffer[i * 2] = sample * leftGain;
                     floatBuffer[i * 2 + 1] = sample * rightGain;
+
+                    _envelopeSampleCount++;
                 }
 
                 // Fill remainder with silence if we hit the limit
@@ -357,10 +449,80 @@ namespace Lib.io.audio
                     }
                 }
 
+                // Check if release phase completed
+                if (_envelopeStage == (int)EnvelopeStage.Release && _envelopeValue <= 0.0001)
+                {
+                    Interlocked.Exchange(ref _hasFinished, 1);
+                }
+
                 // Copy to unmanaged buffer
                 Marshal.Copy(floatBuffer, 0, buffer, floatCount);
 
                 return length;
+            }
+
+            private float CalculateEnvelope(long attackSamples, long decaySamples, float sustainLevel, long releaseSamples)
+            {
+                var stage = (EnvelopeStage)_envelopeStage;
+
+                switch (stage)
+                {
+                    case EnvelopeStage.Idle:
+                        _envelopeValue = 0;
+                        break;
+
+                    case EnvelopeStage.Attack:
+                        if (_envelopeSampleCount < attackSamples)
+                        {
+                            // Linear attack from 0 to 1
+                            _envelopeValue = (double)_envelopeSampleCount / attackSamples;
+                        }
+                        else
+                        {
+                            // Move to decay
+                            _envelopeValue = 1.0;
+                            _envelopeSampleCount = 0;
+                            Interlocked.Exchange(ref _envelopeStage, (int)EnvelopeStage.Decay);
+                        }
+                        break;
+
+                    case EnvelopeStage.Decay:
+                        if (_envelopeSampleCount < decaySamples)
+                        {
+                            // Linear decay from 1 to sustain level
+                            double decayProgress = (double)_envelopeSampleCount / decaySamples;
+                            _envelopeValue = 1.0 - decayProgress * (1.0 - sustainLevel);
+                        }
+                        else
+                        {
+                            // Move to sustain
+                            _envelopeValue = sustainLevel;
+                            _envelopeSampleCount = 0;
+                            Interlocked.Exchange(ref _envelopeStage, (int)EnvelopeStage.Sustain);
+                        }
+                        break;
+
+                    case EnvelopeStage.Sustain:
+                        _envelopeValue = sustainLevel;
+                        // Stay in sustain until release is triggered
+                        break;
+
+                    case EnvelopeStage.Release:
+                        if (_envelopeSampleCount < releaseSamples)
+                        {
+                            // Linear release from release start value to 0
+                            double releaseProgress = (double)_envelopeSampleCount / releaseSamples;
+                            _envelopeValue = _releaseStartValue * (1.0 - releaseProgress);
+                        }
+                        else
+                        {
+                            _envelopeValue = 0;
+                            Interlocked.Exchange(ref _envelopeStage, (int)EnvelopeStage.Idle);
+                        }
+                        break;
+                }
+
+                return (float)Math.Max(0, Math.Min(1, _envelopeValue));
             }
 
             private static readonly Random _noiseRng = new();
@@ -410,6 +572,11 @@ namespace Lib.io.audio
                 _samplesGenerated = 0;
                 Interlocked.Exchange(ref _hasFinished, 0);
 
+                // Reset envelope to attack phase
+                _envelopeValue = 0;
+                _envelopeSampleCount = 0;
+                Interlocked.Exchange(ref _envelopeStage, (int)EnvelopeStage.Attack);
+
                 // Calculate total samples based on duration
                 float dur = _durationSeconds;
                 _totalSamplesToGenerate = dur >= float.MaxValue / 2f
@@ -430,6 +597,9 @@ namespace Lib.io.audio
                 Bass.ChannelSetAttribute(_streamHandle, ChannelAttribute.Volume, 0f);
                 _phase = 0;
                 _samplesGenerated = 0;
+                _envelopeValue = 0;
+                _envelopeSampleCount = 0;
+                Interlocked.Exchange(ref _envelopeStage, (int)EnvelopeStage.Idle);
                 Interlocked.Exchange(ref _hasFinished, 0);
             }
 
@@ -445,8 +615,8 @@ namespace Lib.io.audio
             public void SetPanning(float panning)
             {
                 _currentPanning = Math.Clamp(panning, -1f, 1f);
-                if (_isPlaying == 1)
-                    Bass.ChannelSetAttribute(_streamHandle, ChannelAttribute.Pan, _currentPanning);
+                // Note: Don't use Bass.ChannelSetAttribute for pan on decode streams
+                // Panning is applied manually in StreamCallback
             }
 
             public float GetLevel()
@@ -515,7 +685,8 @@ namespace Lib.io.audio
 
                 for (int i = 0; i < sampleCount; i++)
                 {
-                    float sample = GenerateSampleStatic(_phase, waveType) * _currentVolume;
+                    float envelopeGain = (float)_envelopeValue;
+                    float sample = GenerateSampleStatic(_phase, waveType) * _currentVolume * envelopeGain;
                     _phase += phaseIncrement;
 
                     if (_phase >= 2.0 * Math.PI)
