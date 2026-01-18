@@ -46,35 +46,56 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
     {
         var modified = InputEditStateFlags.Nothing;
         var drawList = ImGui.GetWindowDrawList();
-        
         var availableWidth = ImGui.GetContentRegionAvail().X;
         var frameHeight = ImGui.GetFrameHeight();
-        
-        // Compact layout: envelope graph on top, parameters below
         var envelopeHeight = frameHeight * 2f;
-        
         var startPos = ImGui.GetCursorScreenPos();
         var envelopeArea = new ImRect(
             startPos,
             new Vector2(startPos.X + availableWidth, startPos.Y + envelopeHeight)
         );
 
-        // Draw envelope background
-        drawList.AddRectFilled(envelopeArea.Min, envelopeArea.Max, UiColors.BackgroundFull.Fade(0.3f));
-        drawList.AddRect(envelopeArea.Min, envelopeArea.Max, UiColors.BackgroundFull.Fade(0.5f));
+        // Draw envelope background (match operator style)
+        //drawList.AddRectFilled(envelopeArea.Min, envelopeArea.Max, UiColors.BackgroundFull.Fade(0.3f));
 
-        // Draw envelope curve
-        DrawEnvelopeCurve(drawList, envelopeArea, envelope);
+        // --- Draw area under envelope curve with dark color ---
+        var attack = Math.Max(0.001f, envelope.X);
+        var decay = Math.Max(0.001f, envelope.Y);
+        var sustain = Math.Clamp(envelope.Z, 0f, 1f);
+        var release = Math.Max(0.001f, envelope.W);
+        const float sustainDuration = 0.2f;
+        var width = envelopeArea.GetWidth();
+        var height = envelopeArea.GetHeight();
+        var totalTime = attack + decay + sustainDuration + release;
+        var attackX = envelopeArea.Min.X + width * (attack / totalTime);
+        var decayX = envelopeArea.Min.X + width * ((attack + decay) / totalTime);
+        var sustainX = envelopeArea.Min.X + width * ((attack + decay + sustainDuration) / totalTime);
+        var baseY = envelopeArea.Max.Y - 2;
+        var peakY = envelopeArea.Min.Y + 2;
+        var sustainY = envelopeArea.Max.Y - (height - 4) * sustain - 2;
+        var points = new Vector2[5];
+        points[0] = new Vector2(envelopeArea.Min.X, baseY);
+        points[1] = new Vector2(attackX, peakY);
+        points[2] = new Vector2(decayX, sustainY);
+        points[3] = new Vector2(sustainX, sustainY);
+        points[4] = new Vector2(envelopeArea.Max.X, baseY);
+        var fillPoints = new Vector2[points.Length + 2];
+        fillPoints[0] = new Vector2(envelopeArea.Min.X, baseY);
+        for (var i = 0; i < points.Length; i++)
+            fillPoints[i + 1] = points[i];
+        fillPoints[^1] = new Vector2(envelopeArea.Max.X, baseY);
+        drawList.AddConvexPolyFilled(ref fillPoints[0], fillPoints.Length, UiColors.BackgroundFull.Fade(0.3f));
 
-        // Make the envelope area interactive for dragging
+        // Draw envelope curve and handles
+        modified |= DrawEnvelopeCurveWithHandles(drawList, envelopeArea, ref envelope);
+
+        // Make the envelope area interactive for dragging (legacy drag)
         ImGui.SetCursorScreenPos(envelopeArea.Min);
         ImGui.InvisibleButton("##envelope_drag", envelopeArea.GetSize());
-        
-        if (ImGui.IsItemActive())
+        if (ImGui.IsItemActive() && _activeDragTarget == DragTarget.None)
         {
             modified |= HandleEnvelopeDrag(ref envelope, envelopeArea, cloneIfModified);
         }
-
         if (ImGui.IsItemHovered())
         {
             ImGui.SetTooltip("Drag to adjust: A (left), D (mid-left), S (vertical), R (right)");
@@ -82,130 +103,156 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
 
         // Move cursor below the envelope graph
         ImGui.SetCursorScreenPos(new Vector2(startPos.X, envelopeArea.Max.Y + 2));
-
-        // Draw compact parameter controls
         modified |= DrawParameterRow(ref envelope, availableWidth, cloneIfModified);
-
         return modified;
     }
 
-    private static void DrawEnvelopeCurve(ImDrawListPtr drawList, ImRect area, Vector4 envelope)
+    // --- Draw envelope curve with handles ---
+    private static InputEditStateFlags DrawEnvelopeCurveWithHandles(ImDrawListPtr drawList, ImRect area, ref Vector4 envelope)
     {
+        var modified = InputEditStateFlags.Nothing;
         var attack = Math.Max(0.001f, envelope.X);
         var decay = Math.Max(0.001f, envelope.Y);
         var sustain = Math.Clamp(envelope.Z, 0f, 1f);
         var release = Math.Max(0.001f, envelope.W);
-        
         const float sustainDuration = 0.2f;
-        var points = SampleEnvelopeCurve(attack, decay, sustain, release, 64, sustainDuration);
         var width = area.GetWidth();
         var height = area.GetHeight();
-        
-        // Calculate segment positions
         var totalTime = attack + decay + sustainDuration + release;
-        var attackEnd = attack / totalTime;
-        var decayEnd = (attack + decay) / totalTime;
-        var sustainEnd = (attack + decay + sustainDuration) / totalTime;
+        var attackX = area.Min.X + width * (attack / totalTime);
+        var decayX = area.Min.X + width * ((attack + decay) / totalTime);
+        var sustainX = area.Min.X + width * ((attack + decay + sustainDuration) / totalTime);
+        var sustainY = area.Max.Y - (height - 4) * sustain - 2;
+        var peakY = area.Min.Y + 2;
 
-        // Draw segment indicators
-        var attackX = area.Min.X + width * attackEnd;
-        var decayX = area.Min.X + width * decayEnd;
-        var sustainX = area.Min.X + width * sustainEnd;
-
-        // Subtle segment lines
-        drawList.AddLine(
-            new Vector2(attackX, area.Min.Y),
-            new Vector2(attackX, area.Max.Y),
-            UiColors.TextMuted.Fade(0.3f), 1);
-        drawList.AddLine(
-            new Vector2(decayX, area.Min.Y),
-            new Vector2(decayX, area.Max.Y),
-            UiColors.TextMuted.Fade(0.3f), 1);
-        drawList.AddLine(
-            new Vector2(sustainX, area.Min.Y),
-            new Vector2(sustainX, area.Max.Y),
-            UiColors.TextMuted.Fade(0.3f), 1);
-
-        // Draw sustain level line
-        var sustainY = area.Max.Y - height * sustain;
-        drawList.AddLine(
-            new Vector2(decayX, sustainY),
-            new Vector2(sustainX, sustainY),
-            UiColors.StatusAnimated.Fade(0.4f), 1);
-
-        // Draw the envelope curve
-        var curvePoints = new Vector2[points.Length];
-        for (var i = 0; i < points.Length; i++)
-        {
-            var x = area.Min.X + (float)i / (points.Length - 1) * width;
-            var y = area.Max.Y - points[i] * (height - 4) - 2; // Small padding
-            curvePoints[i] = new Vector2(x, y);
-        }
-
-        // Draw filled area under curve
-        var fillPoints = new Vector2[points.Length + 2];
-        fillPoints[0] = new Vector2(area.Min.X, area.Max.Y);
-        for (var i = 0; i < points.Length; i++)
-        {
-            fillPoints[i + 1] = curvePoints[i];
-        }
-        fillPoints[^1] = new Vector2(area.Max.X, area.Max.Y);
-        
-        drawList.AddConvexPolyFilled(ref fillPoints[0], fillPoints.Length, UiColors.StatusAnimated.Fade(0.15f));
+        // --- Draw envelope curve with 5 points (classic style) ---
+        var points = new Vector2[5];
+        points[0] = new Vector2(area.Min.X, area.Max.Y - 2);      // Start
+        points[1] = new Vector2(attackX, peakY);                  // Attack peak
+        points[2] = new Vector2(decayX, sustainY);                // End of decay
+        points[3] = new Vector2(sustainX, sustainY);              // End of sustain
+        points[4] = new Vector2(area.Max.X, area.Max.Y - 2);      // End of release
 
         // Draw curve line
-        drawList.AddPolyline(ref curvePoints[0], curvePoints.Length, UiColors.StatusAnimated, ImDrawFlags.None, 2);
+        drawList.AddPolyline(ref points[0], points.Length, UiColors.WidgetLine, ImDrawFlags.None, 1.5f);
+
+        // Draw grid lines (matching AnimValueUi style)
+        drawList.AddLine(new Vector2(attackX, area.Min.Y), new Vector2(attackX, area.Max.Y), UiColors.WidgetAxis, 1);
+        drawList.AddLine(new Vector2(decayX, area.Min.Y), new Vector2(decayX, area.Max.Y), UiColors.WidgetAxis, 1);
+        drawList.AddLine(new Vector2(sustainX, area.Min.Y), new Vector2(sustainX, area.Max.Y), UiColors.WidgetAxis, 1);
+
+        // Draw sustain level line
+        drawList.AddLine(new Vector2(decayX, sustainY), new Vector2(sustainX, sustainY), UiColors.WidgetAxis, 1);
 
         // Draw labels
         var labelColor = UiColors.TextMuted;
         ImGui.PushFont(Fonts.FontSmall);
-        
-        // Position labels at segment centers
         var labelY = area.Max.Y - 12;
         drawList.AddText(new Vector2(area.Min.X + 2, labelY), labelColor, "A");
         drawList.AddText(new Vector2(attackX + 2, labelY), labelColor, "D");
         drawList.AddText(new Vector2(decayX + 2, labelY), labelColor, "S");
         drawList.AddText(new Vector2(sustainX + 2, labelY), labelColor, "R");
-        
         ImGui.PopFont();
+
+        // --- Handle logic ---
+        var scale = new Vector2(1, 1); // No zoom in compact UI
+        var handles = new[]
+        {
+            new HandleInfo(DragTarget.Attack, new Vector2(attackX, peakY), "Attack"),
+            new HandleInfo(DragTarget.Decay, new Vector2(decayX, sustainY), "Decay"),
+            new HandleInfo(DragTarget.Sustain, new Vector2((decayX + sustainX) / 2, sustainY), "Sustain"),
+            new HandleInfo(DragTarget.Release, new Vector2(area.Max.X - 2, area.Max.Y - 2), "Release")
+        };
+        modified |= DrawAndHandleHandles(drawList, area, handles, scale, ref envelope);
+        return modified;
     }
 
-    private static float[] SampleEnvelopeCurve(float attack, float decay, float sustain, float release, int points, float sustainDuration)
+    private enum DragTarget { None, Attack, Decay, Sustain, Release }
+    private readonly struct HandleInfo(DragTarget target, Vector2 position, string label)
     {
-        var result = new float[points];
-        var totalDuration = attack + decay + sustainDuration + release;
-        var releaseStartTime = attack + decay + sustainDuration;
+        public readonly DragTarget Target = target;
+        public readonly Vector2 Position = position;
+        public readonly string Label = label;
+    }
 
-        for (var i = 0; i < points; i++)
+    // --- Draw and handle draggable handles ---
+    private static InputEditStateFlags DrawAndHandleHandles(ImDrawListPtr drawList, ImRect area, HandleInfo[] handles, Vector2 scale, ref Vector4 envelope)
+    {
+        var modified = InputEditStateFlags.Nothing;
+        var mousePos = ImGui.GetMousePos();
+        // Diamond size and style matching AdsrEnvelopeUi
+        var diamondSize = 8f;
+        var half = diamondSize / 2f;
+        var anyHandleActive = false;
+        var hoveredTarget = DragTarget.None;
+
+        for (int i = 0; i < handles.Length; i++)
         {
-            var t = (float)i / (points - 1) * totalDuration;
-            
-            if (t >= releaseStartTime)
+            var handle = handles[i];
+            var id = $"##adsr_handle_{i}";
+            ImGui.SetCursorScreenPos(handle.Position - new Vector2(half, half));
+            ImGui.InvisibleButton(id, new Vector2(diamondSize, diamondSize));
+            var isHovered = ImGui.IsItemHovered();
+            var isActiveHandle = ImGui.IsItemActive();
+            if (isHovered && !anyHandleActive)
             {
-                // Release phase
-                var releaseTime = t - releaseStartTime;
-                result[i] = releaseTime >= release ? 0f : sustain * (1f - releaseTime / release);
+                hoveredTarget = handle.Target;
             }
-            else if (t < attack)
+            if (isActiveHandle)
             {
-                // Attack phase
-                result[i] = t / attack;
+                hoveredTarget = handle.Target;
+                anyHandleActive = true;
             }
-            else if (t < attack + decay)
+            // Draw diamond (rotated square)
+            var fillColor = isHovered || isActiveHandle ? UiColors.ForegroundFull : UiColors.StatusAnimated;
+            var outlineColor = 0xFF000000; // Black border
+            var center = handle.Position;
+            var diamond = new Vector2[4];
+            diamond[0] = new Vector2(center.X, center.Y - half); // top
+            diamond[1] = new Vector2(center.X + half, center.Y); // right
+            diamond[2] = new Vector2(center.X, center.Y + half); // bottom
+            diamond[3] = new Vector2(center.X - half, center.Y); // left
+            drawList.AddConvexPolyFilled(ref diamond[0], 4, fillColor);
+            drawList.AddPolyline(ref diamond[0], 4, outlineColor, ImDrawFlags.Closed, 1f);
+            if (isHovered)
             {
-                // Decay phase
-                var decayTime = t - attack;
-                result[i] = 1f - (decayTime / decay) * (1f - sustain);
+                ImGui.SetTooltip($"{handle.Label}: drag to adjust");
             }
-            else
+            // Handle dragging
+            if (isActiveHandle)
             {
-                // Sustain phase
-                result[i] = sustain;
+                var delta = ImGui.GetIO().MouseDelta;
+                var width = area.GetWidth();
+                var height = area.GetHeight();
+                var timeSensitivity = 0.5f;
+                if (ImGui.GetIO().KeyShift)
+                    timeSensitivity *= 0.1f;
+                var newEnvelope = envelope;
+                switch (handle.Target)
+                {
+                    case DragTarget.Attack:
+                        newEnvelope.X = Math.Max(0.001f, newEnvelope.X + delta.X / width * timeSensitivity);
+                        break;
+                    case DragTarget.Decay:
+                        newEnvelope.Y = Math.Max(0.001f, newEnvelope.Y + delta.X / width * timeSensitivity);
+                        break;
+                    case DragTarget.Sustain:
+                        newEnvelope.Z = Math.Clamp(newEnvelope.Z - delta.Y / height, 0f, 1f);
+                        break;
+                    case DragTarget.Release:
+                        newEnvelope.W = Math.Max(0.001f, newEnvelope.W + delta.X / width * timeSensitivity);
+                        break;
+                }
+                envelope = newEnvelope;
+                modified = InputEditStateFlags.Modified;
             }
         }
-
-        return result;
+        return modified;
     }
+
+    private static DragTarget _activeDragTarget = DragTarget.None;
+    private static Vector4 _dragStartEnvelope;
+    private static Vector2 _dragStartMousePos;
 
     private static InputEditStateFlags HandleEnvelopeDrag(ref Vector4 envelope, ImRect area, bool cloneIfModified)
     {
@@ -236,25 +283,21 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
 
         if (relX < attackEnd)
         {
-            // Attack segment
             envelope.X = Math.Max(0.001f, envelope.X + mouseDelta.X * sensitivity);
             modified = InputEditStateFlags.Modified;
         }
         else if (relX < decayEnd)
         {
-            // Decay segment
             envelope.Y = Math.Max(0.001f, envelope.Y + mouseDelta.X * sensitivity);
             modified = InputEditStateFlags.Modified;
         }
         else if (relX < sustainEnd)
         {
-            // Sustain segment - vertical drag changes sustain level
             envelope.Z = Math.Clamp(envelope.Z - mouseDelta.Y * 0.01f, 0f, 1f);
             modified = InputEditStateFlags.Modified;
         }
         else
         {
-            // Release segment
             envelope.W = Math.Max(0.001f, envelope.W + mouseDelta.X * sensitivity);
             modified = InputEditStateFlags.Modified;
         }
@@ -265,9 +308,8 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
     private static InputEditStateFlags DrawParameterRow(ref Vector4 envelope, float availableWidth, bool cloneIfModified)
     {
         var modified = InputEditStateFlags.Nothing;
-        var paramWidth = (availableWidth - 12) / 4; // 4 parameters with small gaps
+        var paramWidth = (availableWidth - 12) / 4;
 
-        // Store original values
         var attack = envelope.X;
         var decay = envelope.Y;
         var sustain = envelope.Z;
@@ -276,7 +318,6 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
         ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(3, 0));
         ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(2, 2));
 
-        // Attack
         ImGui.SetNextItemWidth(paramWidth);
         if (ImGui.DragFloat("##A", ref attack, 0.001f, 0.001f, 10f, "A:%.3f"))
         {
@@ -287,7 +328,6 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
 
         ImGui.SameLine();
 
-        // Decay
         ImGui.SetNextItemWidth(paramWidth);
         if (ImGui.DragFloat("##D", ref decay, 0.001f, 0.001f, 10f, "D:%.3f"))
         {
@@ -298,7 +338,6 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
 
         ImGui.SameLine();
 
-        // Sustain
         ImGui.SetNextItemWidth(paramWidth);
         if (ImGui.DragFloat("##S", ref sustain, 0.01f, 0f, 1f, "S:%.2f"))
         {
@@ -309,7 +348,6 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
 
         ImGui.SameLine();
 
-        // Release
         ImGui.SetNextItemWidth(paramWidth);
         if (ImGui.DragFloat("##R", ref release, 0.001f, 0.001f, 10f, "R:%.3f"))
         {
