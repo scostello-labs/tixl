@@ -80,11 +80,11 @@ public class ProjectSettings : Settings<ProjectSettings.ConfigData>
         public static bool ShowVideoRenderingDebugLogs = false;
 
         // Audio
-        public static bool GlobalMute;
+        public static bool GlobalMute = false;
         public static float GlobalPlaybackVolume = 1;
-        public static bool SoundtrackMute;
+        public static bool SoundtrackMute = false;
         public static float SoundtrackPlaybackVolume = 1;
-        public static bool OperatorMute;
+        public static bool OperatorMute = false;
         public static float OperatorPlaybackVolume = 1;
 
         // Audio Advanced Settings
