@@ -96,10 +96,6 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
         {
             modified |= HandleEnvelopeDrag(ref envelope, envelopeArea, cloneIfModified);
         }
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("Drag to adjust: A (left), D (mid-left), S (vertical), R (right)");
-        }
 
         // Move cursor below the envelope graph
         ImGui.SetCursorScreenPos(new Vector2(startPos.X, envelopeArea.Max.Y + 2));
@@ -210,6 +206,20 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
             if (isHovered && !anyHandleActive)
             {
                 hoveredTarget = handle.Target;
+                // Set cursor type based on handle
+                switch (handle.Target)
+                {
+                    case DragTarget.Attack:
+                    case DragTarget.Decay:
+                    case DragTarget.Release:
+                        ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeEW);
+                        break;
+                    case DragTarget.Sustain:
+                        ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeNS);
+                        break;
+                }
+                // Show tooltip for hovered handle
+                ImGui.SetTooltip($"{handle.Label}: drag to adjust");
             }
             if (isActiveHandle)
             {
@@ -227,10 +237,7 @@ public sealed class AdsrEnvelopeInputUi : InputValueUi<Vector4>
             diamond[3] = new Vector2(center.X - half, center.Y); // left
             drawList.AddConvexPolyFilled(ref diamond[0], 4, fillColor);
             drawList.AddPolyline(ref diamond[0], 4, outlineColor, ImDrawFlags.Closed, 1f);
-            if (isHovered)
-            {
-                ImGui.SetTooltip($"{handle.Label}: drag to adjust");
-            }
+
             // Handle dragging
             if (isActiveHandle)
             {

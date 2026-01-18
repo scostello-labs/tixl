@@ -227,6 +227,18 @@ internal static class AdsrEnvelopeUi
             if (isHovered && !anyHandleActive)
             {
                 hoveredTarget = handle.Target;
+                // Set cursor type based on handle
+                switch (handle.Target)
+                {
+                    case DragTarget.Attack:
+                    case DragTarget.Decay:
+                    case DragTarget.Release:
+                        ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeEW);
+                        break;
+                    case DragTarget.Sustain:
+                        ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeNS);
+                        break;
+                }
             }
             if (isActiveHandle)
             {
