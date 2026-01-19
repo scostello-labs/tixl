@@ -1,5 +1,5 @@
 {
-  "Id": "7c8f3a2e-9d4b-4e1f-8a5c-6b2d9f7e4c3a"/*TestToneGenerator*/,
+  "Id": "7c8f3a2e-9d4b-4e1f-8a5c-6b2d9f7e4c3a"/*AudioToneGenerator*/,
   "Inputs": [
     {
       "Id": "1a3f4b7c-12d3-4a5b-9c7d-8e1f2a3b4c5d"/*Mute*/,

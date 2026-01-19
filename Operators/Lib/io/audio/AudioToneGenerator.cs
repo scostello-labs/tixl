@@ -23,7 +23,7 @@ namespace Lib.io.audio
     /// Uses sample-accurate AdsrCalculator for envelope shaping in the audio thread.
     /// </summary>
     [Guid("7c8f3a2e-9d4b-4e1f-8a5c-6b2d9f7e4c3a")]
-    internal sealed class TestToneGenerator : Instance<TestToneGenerator>, IAudioExportSource
+    internal sealed class AudioToneGenerator : Instance<AudioToneGenerator>, IAudioExportSource
     {
         [Input(Guid = "3e9a7f2c-4d8b-4c1f-9e5a-2b7d6f8c4a5e")]
         public readonly InputSlot<bool> Trigger = new();
@@ -76,7 +76,7 @@ namespace Lib.io.audio
         private bool _isRegistered;
         private bool _previousTrigger;
 
-        public TestToneGenerator()
+        public AudioToneGenerator()
         {
             Result.UpdateAction += Update;
             IsPlaying.UpdateAction += Update;
@@ -204,7 +204,7 @@ namespace Lib.io.audio
             return _toneStream.RenderAudio(startTime, duration, buffer);
         }
 
-        ~TestToneGenerator()
+        ~AudioToneGenerator()
         {
             if (_isRegistered)
                 AudioExportSourceRegistry.Unregister(this);
