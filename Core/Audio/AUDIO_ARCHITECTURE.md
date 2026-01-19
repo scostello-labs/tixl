@@ -1,8 +1,8 @@
 # Audio System Architecture
 
-**Version:** 2.1  
-**Last Updated:** 2025-01-15  
-**Status:** Production Ready (Refactored)
+**Version:** 1.0  
+**Last Updated:** 2025-01-18
+**Status:** Production Ready
 
 ---
 
@@ -20,11 +20,10 @@
 
 ## Introduction
 
-The T3 audio system is a high-performance, low-latency audio engine built on ManagedBass, supporting stereo and 3D spatial audio playback within operator graphs.
+The TiXL audio system is a high-performance, low-latency audio engine built on ManagedBass, supporting stereo and 3D spatial audio playback within operator graphs.
 
 ### Key Features
 - **Dual-mode playback**: Stereo and 3D spatial audio operators
-- **Ultra-low latency**: ~20-60ms typical latency
 - **Professional audio**: 48kHz sample rate with hardware acceleration
 - **Native 3D audio**: BASS 3D engine with directional cones, Doppler effects
 - **Real-time analysis**: FFT spectrum, waveform, and level metering
@@ -96,23 +95,22 @@ The T3 audio system is a high-performance, low-latency audio engine built on Man
     ├────────────────────────────────┬────────────────────────────────┤
     │     StereoAudioPlayer          │       SpatialAudioPlayer       │
     │     (Uses AudioPlayerUtils)    │       (Uses AudioPlayerUtils)  │
-    │     ~125 lines                 │       ~210 lines               │
     └────────────────────────────────┴────────────────────────────────┘
 ```
 
 ### Class Hierarchy
 
 ```
-OperatorAudioStreamBase (abstract, ~290 lines)
-├── StereoOperatorAudioStream (~50 lines)
+OperatorAudioStreamBase (abstract)
+├── StereoOperatorAudioStream
 │   └── SetPanning(float)
-└── SpatialOperatorAudioStream (~125 lines)
+└── SpatialOperatorAudioStream
     ├── Update3DPosition(Vector3, float, float)
     ├── Set3DOrientation(Vector3)
     ├── Set3DCone(float, float, float)
     └── Set3DMode(Mode3D)
 
-AudioPlayerUtils (static utility, ~35 lines)
+AudioPlayerUtils (static utility)
 └── ComputeInstanceGuid(IEnumerable<Guid>)
 ```
 
@@ -270,30 +268,29 @@ Audio configuration is accessible through the Editor Settings window:
 
 ### Core Files
 
-| File | Purpose | Lines |
-|------|---------|-------|
-| `AudioEngine.cs` | Central API for operator and soundtrack playback | ~500 |
-| `OperatorAudioStreamBase.cs` | Common stream functionality | ~290 |
-| `StereoOperatorAudioStream.cs` | Stereo-specific stream | ~50 |
-| `SpatialOperatorAudioStream.cs` | 3D spatial stream | ~125 |
-| `AudioRendering.cs` | Export/recording functionality | ~230 |
-| `AudioMixerManager.cs` | BASS mixer setup and level metering | ~340 |
-| `AudioConfig.cs` | Centralized configuration | ~100 |
-| `AudioAnalysis.cs` | FFT processing and frequency bands | ~160 |
+| File                            | Purpose                                          |
+|---------------------------------|--------------------------------------------------|
+| `AudioEngine.cs`                | Central API for operator and soundtrack playback |
+| `OperatorAudioStreamBase.cs`    | Common stream functionality                      |
+| `StereoOperatorAudioStream.cs`  | Stereo-specific stream                           |
+| `SpatialOperatorAudioStream.cs` | 3D spatial stream                                |
+| `AudioRendering.cs`             | Export/recording functionality                   |
+| `AudioMixerManager.cs`          | BASS mixer setup and level metering              |
+| `AudioConfig.cs`                | Centralized configuration                        |
+| `AudioAnalysis.cs`              | FFT processing and frequency bands               |
 
 ### Operator Files
 
-| File | Purpose | Lines |
-|------|---------|-------|
-| `StereoAudioPlayer.cs` | Stereo operator | ~125 |
-| `SpatialAudioPlayer.cs` | Spatial operator | ~210 |
-| `AudioPlayerUtils.cs` | Shared utilities | ~35 |
+| File                    | Purpose          |
+|-------------------------|------------------|
+| `StereoAudioPlayer.cs`  | Stereo operator  |
+| `SpatialAudioPlayer.cs` | Spatial operator |
+| `AudioPlayerUtils.cs`   | Shared utilities |
 
-### Implementation Guides
-- **[STEREO_AUDIO_IMPLEMENTATION.md](STEREO_AUDIO_IMPLEMENTATION.md)** - StereoAudioPlayer documentation
-- **[SPATIAL_AUDIO_IMPLEMENTATION.md](SPATIAL_AUDIO_IMPLEMENTATION.md)** - SpatialAudioPlayer documentation
+### Guides
 - **[STALE_DETECTION.md](STALE_DETECTION.md)** - Stale detection system
-
+- **[TODO.md](TODO.md)** - Technical review and next steps
+- 
 ---
 
 ## Future Enhancement Opportunities
@@ -307,7 +304,7 @@ Audio configuration is accessible through the Editor Settings window:
 - Custom distance rolloff curves
 - Adjustable Doppler factor
 - HRTF for headphone spatialization
-- Geometry-based occlusion
+- Geometry-based occlusion (maybe)
 
 ### Performance Optimizations
 - Centralized `Apply3D()` batching
@@ -340,12 +337,18 @@ A brief checklist of recommended improvements from the latest technical review:
 
 See `Core/Audio/TODO.md` for full details and rationale.
 
-# TODO: Checklist
+# Gating Checklist
 
-✓ - Switching external input devices and AudioRection,
-✓ - Adding a soundtrack to a project,
-✓ - Rendering a project with soundtrack duration to mp4,
-✓ - PlayVideo with audio (and audio level),
-✓ - Toggling audio mute button,
-✓ - Changing audio level in Settings,
-Exporting a project to the player (This will need to release rebuild of the player and might be difficult to test. I can help here.)
+✓ - Switching external input devices and AudioReaction
+✓ - Adding a soundtrack to a project
+✓ - Rendering a project with soundtrack duration to mp4
+✓ - PlayVideo with audio (and audio level)
+✓ - Toggling audio mute button
+✓ - Changing audio level in Settings
+✓ - Exporting a project to the player
+
+# Immediate TODO:
+- Finish implementing SpatialAudioPlayer
+- Re-think the seek logic / probably should only seek on play
+- Add unit tests for AudioEngine methods
+- **[TODO.md](TODO.md)** - Implement remaining technical review items

@@ -2,7 +2,7 @@
 
 ### (a) Overview of Current Audio Engine Design
 
-The audio engine in `G:\Visual Studio\tixl\CurrentDevSpace\tixl\Core\Audio` is built around ManagedBass / BassMix and a mixer-centric architecture managed by `AudioMixerManager`:
+The audio engine in is built around ManagedBass / BassMix and a mixer-centric architecture managed by `AudioMixerManager`:
 
 - **Mixing Architecture** (`AudioMixerManager.cs`)
   - Initializes BASS with low-latency configuration (UpdatePeriod, buffer lengths, LATENCY flag).
