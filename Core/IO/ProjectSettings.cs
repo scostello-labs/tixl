@@ -43,7 +43,7 @@ public class ProjectSettings : Settings<ProjectSettings.ConfigData>
         public bool GlobalMute = false;
         public float GlobalPlaybackVolume = 1;
         public bool SoundtrackMute = false;
-        public float SoundtrackPlaybackVolume = 1;
+        public float SoundtrackPlaybackVolume = 0.5f;
         public bool OperatorMute = false;
         public float OperatorPlaybackVolume = 1;
 
@@ -85,7 +85,7 @@ public class ProjectSettings : Settings<ProjectSettings.ConfigData>
         public static bool GlobalMute = false;
         public static float GlobalPlaybackVolume = 1;
         public static bool SoundtrackMute = false;
-        public static float SoundtrackPlaybackVolume = 1;
+        public static float SoundtrackPlaybackVolume = 0.5f;
         public static bool OperatorMute = false;
         public static float OperatorPlaybackVolume = 1;
 
