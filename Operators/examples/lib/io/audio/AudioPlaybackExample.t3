@@ -26,6 +26,12 @@
       "Outputs": []
     },
     {
+      "Id": "178a62d3-f119-4310-ba61-e27c21d5e09d"/*StereoAudioPlayer*/,
+      "SymbolId": "65e95f77-4743-437f-ab31-f34b831d28d7",
+      "InputValues": [],
+      "Outputs": []
+    },
+    {
       "Id": "18de7e1f-4322-466b-93c5-e6d437c8444c"/*Trigger*/,
       "SymbolId": "0bec016a-5e1b-467a-8273-368d4d6b9935",
       "InputValues": [
@@ -151,7 +157,7 @@
       "Outputs": []
     },
     {
-      "Id": "36154844-89c0-4ff3-a006-dc18b206bb0b"/*TestToneGenerator*/,
+      "Id": "36154844-89c0-4ff3-a006-dc18b206bb0b"/*AudioToneGenerator*/,
       "SymbolId": "7c8f3a2e-9d4b-4e1f-8a5c-6b2d9f7e4c3a",
       "InputValues": [
         {
@@ -240,7 +246,7 @@
         {
           "Id": "11f9cdb5-84fc-4413-8ca7-77e12047f521"/*DefaultValue*/,
           "Type": "System.Int32",
-          "Value": 1
+          "Value": 2
         },
         {
           "Id": "2ff3d674-90d7-4c8f-8551-aad9992540db"/*Modulo*/,
@@ -671,6 +677,12 @@
         }
       ],
       "Outputs": []
+    },
+    {
+      "Id": "f482ad87-a53c-4bbd-b6d3-c30886bca68f"/*SpatialAudioPlayer*/,
+      "SymbolId": "8a3c9f2e-4b7d-4e1a-9c5f-7d2e8b1a6c3f",
+      "InputValues": [],
+      "Outputs": []
     }
   ],
   "Connections": [
@@ -993,7 +1005,7 @@
         "Bpm": 120.0,
         "DiscardAfterUse": true,
         "IsSoundtrack": true,
-        "FilePath": "/H445.BASS_Implementation/drumloop.wav"
+        "FilePath": "/t3/audio/h445-loop1.wav"
       }
     ]
   }
