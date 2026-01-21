@@ -8,6 +8,8 @@ using ImGuiNET;
 using T3.Core.Operator;
 using T3.Core.Operator.Slots;
 using T3.Core.Resource;
+using T3.Core.UserData;
+using T3.Core.Utils;
 using T3.Editor.Gui.InputUi.SimpleInputUis;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.UiModel;
@@ -67,13 +69,28 @@ internal sealed partial class AssetLibrary : Window
         _state.AllAssets.Clear();
         AssetTypeRegistry.ClearMatchingFileCounts();
         
-        var filePaths = ResourceManager.EnumeratePackagesUris([],
+        var filePaths = ResourceManager.EnumeratePackagesResources([],
                                                            isFolder: false,
                                                            _state.Composition.AvailableResourcePackages,
                                                            ResourceManager.PathMode.PackageUri);
 
         foreach (var aliasedPath in filePaths)
         {
+            // Not sure, if this works...
+            var found = false;
+            foreach (var filter in FileLocations.IgnoredFiles)
+            {
+                if(StringUtils.MatchesSearchFilter(aliasedPath,filter, true))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (found)
+                continue;
+            
+            
             if (!_state.AssetCache.TryGetValue(aliasedPath, out var asset))
             {
                 if (!ResourceManager.TryResolveUri(aliasedPath, _state.Composition, out var absolutePath, out var package))
@@ -124,14 +141,27 @@ internal sealed partial class AssetLibrary : Window
         _state.FilteringNeedsUpdate = false;
     }
 
-    private static void ParsePath(string path, out string package, out List<string> folders)
+    // TODO: this should replaced with assetAddress later
+    private static void ParsePath(string uri, out string package, out List<string> folders)
     {
-        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var colon = uri.IndexOf(':');
+        if (colon <= 1)
+        {
+            folders = [];
+            package = string.Empty;
+            return;
+        }
 
-        package = parts.Length > 0 ? parts[0] : string.Empty;
-        folders = parts.Length > 1
-                      ? parts[0..^1].ToList()
-                      : [];
+        package = uri[..colon];
+        var path = uri[(colon + 1)..];
+        
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        
+        folders = [package];
+        for (var index = 0; index < parts.Length -1; index++)
+        {
+            folders.Add(parts[index]);
+        }
     }
 
     private static void UpdateActiveSelection(Instance selectedInstance)

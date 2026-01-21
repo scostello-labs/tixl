@@ -129,14 +129,16 @@ internal sealed class AssetFolder
         var first = true;
         while (stack.Count > 0)
         {
+            sb.Append(stack.Pop());
             if (first)
             {
-                sb.Append(ResourceManager.PathSeparator);
+                sb.Append(ResourceManager.PackageSeparator);
                 first = false;
             }
-
-            sb.Append(stack.Pop());
-            sb.Append(ResourceManager.PathSeparator);
+            else
+            {
+                sb.Append(ResourceManager.PathSeparator);
+            }
         }
 
         return sb.ToString();

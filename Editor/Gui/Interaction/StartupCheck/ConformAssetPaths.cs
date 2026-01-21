@@ -3,6 +3,7 @@ using T3.Core.Model;
 using T3.Core.Operator;
 using T3.Core.Operator.Slots;
 using T3.Core.Resource;
+using T3.Core.UserData;
 using T3.Core.Utils;
 using T3.Editor.Gui.InputUi.SimpleInputUis;
 using T3.Editor.UiModel;
@@ -40,7 +41,7 @@ internal static class ConformAssetPaths
     internal static void ConformAllPaths()
     {
         BuildAssetIndex();
-        
+
         foreach (var package in SymbolPackage.AllPackages)
         {
             foreach (var symbol in package.Symbols.Values)
@@ -55,13 +56,13 @@ internal static class ConformAssetPaths
                     symbolUi ??= symbol.GetSymbolUi();
                     if (!symbolUi.InputUis.TryGetValue(inputDef.Id, out var inputUi))
                         continue;
-                    
+
                     if (inputDef.DefaultValue is not InputValue<string> stringValue)
                         continue;
-                    
+
                     ProcessStringInputUi(inputUi, stringValue, symbol);
                 }
-                
+
                 // Symbol children
                 foreach (var child in symbol.Children.Values)
                 {
@@ -69,7 +70,7 @@ internal static class ConformAssetPaths
                     {
                         if (input.IsDefault)
                             continue;
-                        
+
                         if (input.InputDefinition.ValueType != typeof(string))
                             continue;
 
@@ -84,15 +85,16 @@ internal static class ConformAssetPaths
 
                         if (!childSymbolUi.InputUis.TryGetValue(input.Id, out var inputUi))
                             continue;
-                        
-                        ProcessStringInputUi(inputUi, stringValue, symbol);
+
+                        ProcessStringInputUi(inputUi, stringValue, symbol, child);
                     }
                 }
             }
         }
     }
 
-    private static void ProcessStringInputUi(IInputUi inputUi, InputValue<string> stringValue, Symbol symbol)
+    private static void ProcessStringInputUi(IInputUi inputUi, InputValue<string> stringValue, Symbol symbol,
+                                             Symbol.Child symbolChild = null)
     {
         if (inputUi is not StringInputUi stringUi)
             return;
@@ -101,105 +103,40 @@ internal static class ConformAssetPaths
         {
             case StringInputUi.UsageType.FilePath:
             {
-                if (TryConvertResourcePathFuzzy(stringValue.Value, symbol, out string converted))
+                if (TryConvertResourcePathFuzzy(stringValue.Value, symbol, out var converted))
                 {
                     Log.Debug($"{symbol.SymbolPackage.Name}: {stringValue.Value} -> {converted}");
-                    stringValue.Value =converted;
+                    stringValue.Value = converted;
                 }
 
                 break;
             }
             case StringInputUi.UsageType.DirectoryPath:
-                if (TryConvertResourceFolderPath(stringValue.Value, symbol, out var convertedFolderPath, out var absolutePath))
+                if (TryConvertResourceFolderPath(stringValue.Value, symbol, out var convertedFolderPath))
                 {
                     {
                         Log.Debug($"{symbol}.{inputUi.InputDefinition.Name} Folder:  {symbol.SymbolPackage.Name}: {stringValue.Value} -> {convertedFolderPath}");
                     }
-                    
-                    stringValue.Value =convertedFolderPath;
+                    stringValue.Value = convertedFolderPath;
                 }
-                // else
-                // {
-                //     Log.Warning($"Can't convert folder path: {symbol.SymbolPackage.Name}: {symbol}.{inputUi.InputDefinition.Name}  '{stringValue.Value}'");
-                // }
 
-                if (!string.IsNullOrEmpty(absolutePath))
+                if (!ResourceManager.TryResolveUri(stringValue.Value, null, out var absolutePath, out _, isFolder: true))
                 {
-                    var exists = Directory.Exists(absolutePath);
-                    if (!exists)
+                    if (symbolChild == null)
                     {
-                        Log.Warning($"Folder not found: {symbol}.{inputUi.InputDefinition.Name}: '{absolutePath}'");
+                        Log.Warning($"Dir not found for default of: {symbol}.{inputUi.InputDefinition.Name}:  {stringValue.Value} => '{absolutePath}'");
+                    }
+                    else
+                    {
+                        Log.Warning($"Dir not found in: {symbolChild.Parent} / {symbol.Name}.{inputUi.InputDefinition.Name}: {stringValue.Value} => '{absolutePath}'");
                     }
                 }
-                
-                break;
+
+                return;
         }
     }
 
-    private static HashSet<string> IgnoredFiles => ["shadertoolsconfig.json"]; 
     
-    // private static bool TryConvertResourcePath2(string path, Symbol symbol, out string newPath)
-    // {
-    //     newPath = path;
-    //     if (string.IsNullOrWhiteSpace(path))
-    //         return false;
-    //
-    //     // 1. Standardize formatting immediately
-    //     var conformedPath = path.Replace("\\", "/");
-    //
-    //     // 2. Handle Absolute Paths (No change needed)
-    //     if (Path.IsPathRooted(conformedPath))
-    //     {
-    //         newPath = conformedPath;
-    //         return false;
-    //     }
-    //
-    //     var package = symbol.SymbolPackage;
-    //     var packageName = package.Name; 
-    //
-    //     // 3. Handle Old Aliased/Package paths: "/PackageName/path/..."
-    //     if (conformedPath.StartsWith('/'))
-    //     {
-    //         var trimmed = conformedPath.TrimStart('/');
-    //         var firstSlash = trimmed.IndexOf('/');
-    //     
-    //         if (firstSlash != -1)
-    //         {
-    //             var detectedPackage = trimmed[..firstSlash];
-    //             var subPath = trimmed[(firstSlash + 1)..];
-    //             // Convert to "PackageName:subpath"
-    //             newPath = $"{detectedPackage}:{subPath}";
-    //             return true;
-    //         }
-    //     }
-    //
-    //     // 4. Handle Legacy Local paths: "images/test.png"
-    //     // Since we are dropping local support, we MUST prefix them with the current package
-    //     // We also strip any legacy "Resources/" or "Assets/" prefix if it was manually typed
-    //     var legacyPrefix = "Resources/";
-    //     var assetPrefix = "Assets/";
-    //
-    //     var finalSubPath = conformedPath;
-    //     if (finalSubPath.StartsWith(legacyPrefix, StringComparison.OrdinalIgnoreCase))
-    //     {
-    //         var nextSlash = finalSubPath.IndexOf('/');
-    //         if (nextSlash != -1)
-    //         {
-    //
-    //             var subProjectItem = finalSubPath[..nextSlash];
-    //             
-    //             // how to handle?
-    //         }
-    //         
-    //         finalSubPath = finalSubPath[legacyPrefix.Length..];
-    //     }
-    //     else if (finalSubPath.StartsWith(assetPrefix, StringComparison.OrdinalIgnoreCase))
-    //         finalSubPath = finalSubPath[assetPrefix.Length..];
-    //
-    //     newPath = $"{packageName}:{finalSubPath}";
-    //     return !string.Equals(newPath, path, StringComparison.Ordinal);
-    // }
-    //
 
     /// <summary>
     /// Sadly, we can't use Path.IsPathRooted() because we the legacy filepaths also starts with "/"
@@ -211,28 +148,20 @@ internal static class ConformAssetPaths
         var colon = path.IndexOf(':');
         return colon == 1;
     }
-    
 
-    private static bool TryConvertResourceFolderPath(string path, Symbol symbol, out string newPath, out string absolutePath)
+    private static bool TryConvertResourceFolderPath(string path, Symbol symbol, out string newPath)
     {
-        absolutePath = string.Empty;
-        
         path = path.Replace('\\', '/');
         newPath = path;
-        
+
         if (string.IsNullOrWhiteSpace(path)) return false;
-        
+
         var colon = path.IndexOf(':');
         if (colon != -1)
         {
             if (colon <= 1)
                 return false;
 
-            var symbolPrefix = path[..colon];
-            var rest = path[(colon + 1)..];
-
-            var mismatch = symbolPrefix != symbol.SymbolPackage.Name; // TODO:
-            absolutePath = $"{symbol.SymbolPackage.ResourcesFolder}/{rest}";
             return false;
         }
 
@@ -240,36 +169,36 @@ internal static class ConformAssetPaths
         {
             path += '/';
         }
+
         var pathSpan = path.AsSpan();
 
         var firstSlash = pathSpan.IndexOf('/');
         if (firstSlash == -1)
         {
-            newPath= $"{symbol.SymbolPackage.Name}:{newPath}";
-            absolutePath = $"{symbol.SymbolPackage.ResourcesFolder}/{newPath}";
+            newPath = $"{symbol.SymbolPackage.Name}:{newPath}";
             return true;
         }
 
         var isRooted = firstSlash == 0;
         var nonRooted = isRooted ? pathSpan[1..] : pathSpan;
-        
+
         // Skip "Resources" prefix
         var resourcesPrefix = "Resources/";
         if (nonRooted.StartsWith(resourcesPrefix))
         {
             nonRooted = nonRooted[resourcesPrefix.Length..];
         }
-        
-        absolutePath = $"{symbol.SymbolPackage.ResourcesFolder}/{nonRooted}";
+
+        //absolutePath = $"{symbol.SymbolPackage.ResourcesFolder}/{nonRooted}";
         newPath = $"{symbol.SymbolPackage.Name}:{nonRooted}";
-        
+
         return true;
     }
-    
+
     private static bool TryConvertResourcePathFuzzy(string path, Symbol symbol, out string newPath)
     {
         newPath = path;
-        
+
         if (string.IsNullOrWhiteSpace(path)) return false;
 
         // 1. Ignore valid URIs and Absolute Paths
@@ -285,20 +214,19 @@ internal static class ConformAssetPaths
             newPath = healedAddress;
             return true;
         }
-        
 
         // 4. Fallback: If not found in index, force it into the current package
         var conformed = path.Replace("\\", "/").TrimStart('/');
         newPath = $"{symbol.SymbolPackage.Name}:{conformed}";
         Log.Warning($"Missing assets {symbol} : {legacyFileName}. Try {newPath}");
-    
+
         return !string.Equals(newPath, path, StringComparison.Ordinal);
     }
-    
+
     private static void BuildAssetIndex()
     {
         _filenameToAddressCache.Clear();
-    
+
         foreach (var package in SymbolPackage.AllPackages)
         {
             // Use the absolute path provided by the package
@@ -309,12 +237,12 @@ internal static class ConformAssetPaths
             foreach (var file in files)
             {
                 var fileName = Path.GetFileName(file);
-                if (IgnoredFiles.Contains(fileName))
+                if (FileLocations.IgnoredFiles.Contains(fileName))
                     continue;
-                
+
                 var relativePath = Path.GetRelativePath(root, file).Replace("\\", "/");
                 var address = $"{package.Name}:{relativePath}";
-            
+
                 // If filenames are unique, we just store it. 
                 // If not, we might need to store a list or prioritize.
                 if (!_filenameToAddressCache.TryAdd(fileName, address))
@@ -324,6 +252,6 @@ internal static class ConformAssetPaths
             }
         }
     }
-    
+
     private static readonly Dictionary<string, string> _filenameToAddressCache = new(StringComparer.OrdinalIgnoreCase);
 }

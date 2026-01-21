@@ -36,7 +36,7 @@ public static partial class ResourceManager
     }
 
     
-    public static IEnumerable<string> EnumeratePackagesUris(string[] fileExtensionFilters, 
+    public static IEnumerable<string> EnumeratePackagesResources(string[] fileExtensionFilters, 
                                                          bool isFolder, 
                                                          IEnumerable<IResourcePackage> packages,
                                                          PathMode pathMode)
@@ -211,19 +211,8 @@ public static partial class ResourceManager
 
     public const string DefaultShaderFilter = "*.hlsl";
     private static bool PathIsShader(ReadOnlySpan<char> path) => StringUtils.MatchesSearchFilter(path, DefaultShaderFilter, true);
+    
+    
+    
 }
 
-public static class ResourceExtensions
-{
-    public static IEnumerable<IResourcePackage> PackagesInCommon(this IReadOnlyCollection<Instance> instances)
-    {
-        if (instances.Count == 0)
-            return [];
-
-        if (instances.Count == 1)
-            return instances.First().AvailableResourcePackages;
-
-        return instances.Select(x => x.AvailableResourcePackages)
-                        .Aggregate<IEnumerable<IResourcePackage>>((a, b) => a.Intersect(b));
-    }
-}

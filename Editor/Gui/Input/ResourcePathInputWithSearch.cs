@@ -1,5 +1,4 @@
-﻿using System.Text.RegularExpressions;
-using ImGuiNET;
+﻿using ImGuiNET;
 using T3.Core.DataTypes.Vector;
 using T3.Core.Utils;
 using T3.Editor.Gui.Styling;
@@ -153,7 +152,7 @@ internal static partial class ResourceInputWithTypeAheadSearch
                      FilterItems(items, searchString, ref _lastTypeAheadResults);
                 
                 var index = 0;
-                var lastProjectGroup = string.Empty;
+                var lastProjectGroup = ReadOnlySpan<char>.Empty;
                 
                 if(_lastTypeAheadResults.Count == 0)
                 {
@@ -178,12 +177,9 @@ internal static partial class ResourceInputWithTypeAheadSearch
                     // We can't use IsItemHovered because we need to use Tooltip hack 
                     ImGui.PushStyleColor(ImGuiCol.Text, UiColors.Text.Rgba);
 
-                    var match = FindProjectAndPathRegex().Match(path);
-                    var project = match.Success ? match.Groups[1].Value : string.Empty;
-                    var pathInProject = match.Success ? match.Groups[2].Value : path;
-                    var filename = match.Success ? match.Groups[3].Value : path;
-                    
-                    if (project != lastProjectGroup)
+                    TryGetProjectPathAndFilenameFromUri(path, out var project, out var pathInProject, out var filename);
+
+                    if (!project.Equals(lastProjectGroup, StringComparison.Ordinal))
                     {
                         if (lastProjectGroup != string.Empty)
                             FormInputs.AddVerticalSpace(8);
@@ -206,7 +202,7 @@ internal static partial class ResourceInputWithTypeAheadSearch
 
                     ImGui.SetCursorPos(lastPos);
                     ImGui.PushStyleColor(ImGuiCol.Text, UiColors.TextMuted.Rgba);
-                    ImGui.TextUnformatted(pathInProject + "/");
+                    ImGui.TextUnformatted(pathInProject);
                     ImGui.PopStyleColor();
                     ImGui.SameLine();
                     ImGui.TextUnformatted(filename);
@@ -261,6 +257,35 @@ internal static partial class ResourceInputWithTypeAheadSearch
 
         return wasSelected;
     }
+
+    private static bool TryGetProjectPathAndFilenameFromUri(ReadOnlySpan<char> uri, 
+                                                            out ReadOnlySpan<char> project,
+                                                            out ReadOnlySpan<char> path,
+                                                            out ReadOnlySpan<char> filename
+                                                            )
+    {
+        filename =path=project = ReadOnlySpan<char>.Empty;
+
+        var colon = uri.IndexOf(':');
+        if (colon <= 1 || colon >= uri.Length -1)
+            return false;
+
+        project = uri[..colon];
+        var rest = uri[(colon + 1)..];
+
+        var lastSlash = rest.LastIndexOf('/');
+
+        if (lastSlash == -1)
+        {
+            filename = rest;
+            return true;
+        }
+
+        path = rest[..lastSlash];
+        filename = rest[(lastSlash + 1)..];
+        return true;
+    }
+    
 
     private static void FilterItems(IEnumerable<string> allItems, string filter, ref List<string> filteredItems)
     {
@@ -325,6 +350,4 @@ internal static partial class ResourceInputWithTypeAheadSearch
     private static int _selectedResultIndex;
     private static uint _activeInputId;
 
-    [GeneratedRegex(@"^\/(.+?)\/(.*?)\/([^\/]*)$")]
-    private static partial Regex FindProjectAndPathRegex();
 }

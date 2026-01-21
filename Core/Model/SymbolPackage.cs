@@ -82,12 +82,17 @@ public abstract partial class SymbolPackage : IResourcePackage
         Folder = mainDirectory ?? assembly.Directory;
         lock(_allPackages)
             _allPackages.Add(this);
-
+        
+        DoNotIncludedSharedPackages = assembly.Name == FileLocations.LibPackageName;
+        
         if (initializeResources)
         {
             // ReSharper disable once VirtualMemberCallInConstructor
             InitializeResources();
         }
+        
+        
+        
     }
 
     protected virtual void InitializeResources()
@@ -354,6 +359,9 @@ public abstract partial class SymbolPackage : IResourcePackage
 
     public virtual ResourceFileWatcher? FileWatcher => null;
     public string Name => AssemblyInformation.Name;
+    public bool IsSharingResources => AssemblyInformation.ShouldShareResources;
+    public readonly bool DoNotIncludedSharedPackages;
+
     public virtual bool IsReadOnly => true;
 
     public void AddResourceDependencyOn(FileResource resource)

@@ -161,6 +161,25 @@ public static class AssetTypeRegistry
                         Color = UiColors.ColorForCommands,
                         Icon = Icon.FileT3Font,
                     },
+                
+                new AssetType("Svg", [FileExtensionRegistry.GetUniqueId("svg")])
+                    {
+                        PrimaryOperators =
+                            [
+                                new Guid("e8d94dd7-eb54-42fe-a7b1-b43543dd457e"), // LoadSvg
+                            ],
+                        Color = UiColors.ColorForValues,
+                        Icon = Icon.FileDocument,
+                    },
+                new AssetType("Text", [FileExtensionRegistry.GetUniqueId("txt")])
+                    {
+                        PrimaryOperators =
+                            [
+                                new Guid("5f71d2f8-98c8-4502-8f40-2ea4a1e18cca"), // ReadFile
+                            ],
+                        Color = UiColors.ColorForString,
+                        Icon = Icon.FileDocument,
+                    },
             ];
     }
 

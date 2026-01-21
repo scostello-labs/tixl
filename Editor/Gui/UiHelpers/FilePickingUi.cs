@@ -41,7 +41,7 @@ internal static class FilePickingUi
             // || !selectedInstances.Except(StringInputUi._selectedInstances).Any();
             if (needsToGatherPackages)
             {
-                var packagesInCommon = selectedInstances.PackagesInCommon().ToArray();
+                var packagesInCommon = selectedInstances.GetLocalPackagesForInstances().ToArray();
                 SearchResourceConsumer = new TempResourceConsumer(packagesInCommon);
             }
         }
@@ -70,7 +70,7 @@ internal static class FilePickingUi
         var inputEditStateFlags = InputEditStateFlags.Nothing;
         if (filterAndSelectedPath != null && SearchResourceConsumer != null)
         {
-            var allItems = ResourceManager.EnumeratePackagesUris(fileFiltersInCommon,
+            var allItems = ResourceManager.EnumeratePackagesResources(fileFiltersInCommon,
                                                               isFolder,
                                                               SearchResourceConsumer.AvailableResourcePackages,
                                                               ResourceManager.PathMode.PackageUri);
@@ -168,6 +168,33 @@ internal static class FilePickingUi
         return fileFiltersInCommon;
     }
 
+    public static IEnumerable<IResourcePackage> GetAvailablePackagesForInstances(this IReadOnlyCollection<Instance> instances)
+    {
+        if (instances.Count == 0)
+            return [];
+
+        if (instances.Count == 1)
+            return instances.First().AvailableResourcePackages;
+
+        return instances.Select(x => x.AvailableResourcePackages)
+                        .Aggregate<IEnumerable<IResourcePackage>>((a, b) => a.Intersect(b));
+    }
+    
+    public static IEnumerable<IResourcePackage> GetLocalPackagesForInstances(this IReadOnlyCollection<Instance> instances)
+    {
+        if (instances.Count == 0)
+            return [];
+
+        if (instances.Count == 1)
+            return instances.First().LocalResourcePackages;
+
+        return instances.Select(x => x.LocalResourcePackages)
+                        .Aggregate<IEnumerable<IResourcePackage>>((a, b) => a.Intersect(b));
+    }
+
+    
+    
+    
     private static void OpenFileManager(FileOperations.FilePickerTypes type, IEnumerable<IResourcePackage> packagesInCommon, string[] fileFiltersInCommon,
                                         bool isFolder, bool async)
     {

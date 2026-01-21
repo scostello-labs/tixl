@@ -12,6 +12,7 @@ namespace T3.Core.Resource;
 public static partial class ResourceManager
 {
     public const char PathSeparator = '/';
+    public const char PackageSeparator = ':';
 
     public static bool TryResolveUri(string uri,
                                      IResourceConsumer consumer,
@@ -66,8 +67,6 @@ public static partial class ResourceManager
         var packages = consumer?.AvailableResourcePackages;
         if (packages == null)
         {
-
-
             // FIXME: this should be properly implemented
             //packages = uri.EndsWith(".hlsl") ? _shaderPackages : _sharedResourcePackages;
             packages = _shaderPackages; 
@@ -84,8 +83,9 @@ public static partial class ResourceManager
             if (package.Name.AsSpan().Equals(packageName, StringComparison.Ordinal))
             {
                 resourceContainer = package;
-                absolutePath = Path.Combine(package.ResourcesFolder, localPath.ToString());
-                return Exists(absolutePath, isFolder);
+                absolutePath = $"{package.ResourcesFolder}/{localPath}";// Path.Combine(package.ResourcesFolder, localPath.ToString());
+                var exists =Exists(absolutePath, isFolder);
+                return exists;
             }
         }
         

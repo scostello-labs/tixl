@@ -1,6 +1,6 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
-using T3.Core.Compilation;
 
 namespace T3.Core.UserData;
 
@@ -16,8 +16,9 @@ public static class FileLocations
     public const string ExportFolderName = "T3Exports";
     public const string KeyBindingSubFolder = "KeyBindings";
     private const string TestsSubFolder = "Tests";
-    
 
+    public const string LibPackageName = "Lib";
+    
     public static string TempFolder => Path.Combine(SettingsDirectory, "Tmp");
 
 #if RELEASE
@@ -36,6 +37,7 @@ public static string TestReferencesFolder => Path.Combine(".tixl", TestsSubFolde
     /// A subfolder next in the editor start folder.
     /// </summary>
     public static string ReadOnlySettingsPath => Path.Combine(StartFolder, ".tixl");
+    public static HashSet<string> IgnoredFiles => ["shadertoolsconfig.json"];
     
     public static readonly string SettingsDirectory =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), 
