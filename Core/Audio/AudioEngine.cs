@@ -72,10 +72,12 @@ public static class AudioEngine
     {
         EnsureBassInitialized();
 
+        ProcessSoundtrackClips(playback, frameDurationInSeconds);
+
+        // Process FFT data after filling the buffer from soundtrack
         if (playback.Settings is { Enabled: true, AudioSource: PlaybackSettings.AudioSources.ProjectSoundTrack })
             AudioAnalysis.ProcessUpdate(playback.Settings.AudioGainFactor, playback.Settings.AudioDecayFactor);
 
-        ProcessSoundtrackClips(playback, frameDurationInSeconds);
         CheckAndMuteStaleOperators(playback.FxTimeInBars);
 
         _obsoleteSoundtrackHandles.Clear();
@@ -142,7 +144,7 @@ public static class AudioEngine
                 AudioRendering.ExportAudioFrame(playback, frameDurationInSeconds, clipStream);
             else
             {
-                UpdateFftBufferFromSoundtrack(clipStream.StreamHandle, playback);
+                UpdateFftBufferFromSoundtrack(playback);
                 clipStream.UpdateSoundtrackTime(playback);
             }
         }
@@ -158,7 +160,7 @@ public static class AudioEngine
     public static bool IsSoundtrackMuted { get; private set; }
     public static bool IsGlobalMuted => ProjectSettings.Config.GlobalMute;
 
-    internal static void UpdateFftBufferFromSoundtrack(int soundStreamHandle, Playback playback)
+    internal static void UpdateFftBufferFromSoundtrack(Playback playback)
     {
         const int DataFlagNoRemove = 268435456;
         var dataFlags = (int)DataFlags.FFT2048;
@@ -169,7 +171,12 @@ public static class AudioEngine
         if (playback.Settings is not { AudioSource: PlaybackSettings.AudioSources.ProjectSoundTrack })
             return;
 
-        _ = BassMix.ChannelGetData(soundStreamHandle, AudioAnalysis.FftGainBuffer, dataFlags);
+        // Get FFT data from the SoundtrackMixer
+        var mixerHandle = AudioMixerManager.SoundtrackMixerHandle;
+        if (mixerHandle == 0)
+            return;
+
+        _ = BassMix.ChannelGetData(mixerHandle, AudioAnalysis.FftGainBuffer, dataFlags);
 
         if (!WaveFormProcessing.RequestedOnce)
             return;
@@ -178,7 +185,7 @@ public static class AudioEngine
         if (playback.IsRenderingToFile)
             lengthInBytes |= DataFlagNoRemove;
 
-        WaveFormProcessing.LastFetchResultCode = BassMix.ChannelGetData(soundStreamHandle,
+        WaveFormProcessing.LastFetchResultCode = BassMix.ChannelGetData(mixerHandle,
             WaveFormProcessing.InterleavenSampleBuffer, lengthInBytes);
     }
 

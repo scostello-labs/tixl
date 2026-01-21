@@ -78,7 +78,7 @@ public static class AudioRendering
     {
         try
         {
-            AudioEngine.UpdateFftBufferFromSoundtrack(clipStream.StreamHandle, playback);
+            AudioEngine.UpdateFftBufferFromSoundtrack(playback);
         }
         catch (Exception ex)
         {
@@ -226,8 +226,7 @@ public static class AudioRendering
 
     public static void GetLastMixDownBuffer(double frameDurationInSeconds)
     {
-        foreach (var (_, clipStream) in AudioEngine.SoundtrackClipStreams)
-            AudioEngine.UpdateFftBufferFromSoundtrack(clipStream.StreamHandle, Playback.Current);
+        AudioEngine.UpdateFftBufferFromSoundtrack(Playback.Current);
     }
 
     public static void EvaluateAllAudioMeteringOutputs(double localFxTime, float[]? audioBuffer = null)
