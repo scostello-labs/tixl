@@ -89,19 +89,14 @@ public static class AudioEngine
         if (_bassInitialized) return;
 
         AudioMixerManager.Initialize();
-        if (AudioMixerManager.OperatorMixerHandle != 0)
+        if (AudioMixerManager.OperatorMixerHandle == 0)
         {
-            _bassInitialized = true;
-            InitializeGlobalVolumeFromSettings();
+            Log.Error("[AudioEngine] Failed to initialize AudioMixerManager; audio disabled.");
+            return;
         }
-        else
-        {
-            Bass.Free();
-            Bass.Init();
-            AudioMixerManager.Initialize();
-            _bassInitialized = true;
-            InitializeGlobalVolumeFromSettings();
-        }
+
+        _bassInitialized = true;
+        InitializeGlobalVolumeFromSettings();
     }
 
     private static void ProcessSoundtrackClips(Playback playback, double frameDurationInSeconds)
@@ -666,6 +661,7 @@ public static class AudioEngine
         DisposeAllOperatorStreams(_spatialOperatorStates);
 
         AudioMixerManager.Shutdown();
+        _bassInitialized = false; // Reset flag to allow proper reinitialization
         AudioMixerManager.Initialize();
 
         AudioConfig.LogAudioInfo("[AudioEngine] Audio device changed: reinitialized.");
@@ -720,3 +716,4 @@ public static class AudioEngine
 
     #endregion
 }
+

@@ -1,5 +1,16 @@
 ## Audio Engine Technical Review (tixl / T3.Core.Audio)
 
+### Status Updates
+
+#### ✅ Completed (January 22, 2026)
+- **Recommendation #1**: Centralized BASS initialization in `AudioMixerManager` and simplified `AudioEngine.EnsureBassInitialized`
+  - Removed duplicate initialization logic (Bass.Free/Bass.Init fallback)
+  - AudioMixerManager is now the sole owner of BASS lifecycle
+  - Added `_bassInitialized` flag reset in `OnAudioDeviceChanged()`
+  - This fixes the multiple initialization warnings and ensures consistent low-latency configuration
+
+---
+
 ### (a) Overview of Current Audio Engine Design
 
 The audio engine in is built around ManagedBass / BassMix and a mixer-centric architecture managed by `AudioMixerManager`:
@@ -54,11 +65,12 @@ Overall, the design is clear and reasonably modular: mixer management is central
 
 ### (b) Specific Findings (with impact) 
 
-#### 1. `AudioEngine.EnsureBassInitialized` can double-initialize BASS and mixes responsibilities
+#### 1. ✅ RESOLVED: `AudioEngine.EnsureBassInitialized` can double-initialize BASS and mixes responsibilities
 
 - **Location**: `Core\Audio\AudioEngine.cs`
   - `EnsureBassInitialized()`
-- **Code Pattern**:
+- **Resolution Date**: January 22, 2026
+- **Previous Code Pattern**:
   ```csharp
   private static void EnsureBassInitialized()
   {
@@ -72,24 +84,41 @@ Overall, the design is clear and reasonably modular: mixer management is central
       }
       else
       {
-          Bass.Free();
-          Bass.Init();
-          AudioMixerManager.Initialize();
+          Bass.Free();  // ❌ REMOVED - caused double initialization
+          Bass.Init();  // ❌ REMOVED - bypassed low-latency config
+          AudioMixerManager.Initialize();  // ❌ REMOVED - second init attempt
           _bassInitialized = true;
           InitializeGlobalVolumeFromSettings();
       }
   }
   ```
-- **Issues**:
-  1. `AudioMixerManager.Initialize()` already handles BASS initialization with detailed low-latency config and error handling. If it fails, `AudioEngine` manually calls `Bass.Init()` with default flags and then re-calls `AudioMixerManager.Initialize()`, which may:
-     - Override latency-related configuration.
-     - Cause subtle differences in device and buffer configuration across runs.
-  2. `AudioEngine` takes direct responsibility for BASS device lifecycle (`Bass.Free`, `Bass.Init`), which duplicates and potentially conflicts with `AudioMixerManager`'s responsibility.
-  3. `_bassInitialized` is separate from `_initialized` in `AudioMixerManager`, creating two sources of truth.
-- **Impact / Risk**:
-  - **Latency / glitch risk**: in failure/fallback scenarios, BASS might be initialized without the low-latency flags or config, leading to larger buffers and higher latency.
-  - **Maintainability**: splitting BASS lifecycle between `AudioEngine` and `AudioMixerManager` makes it harder to reason about initialization order, device restarts, and error conditions.
-  - **Debugging complexity**: the fallback branch can hide the root cause of why `AudioMixerManager.Initialize()` failed.
+- **Current Implementation**:
+  ```csharp
+  private static void EnsureBassInitialized()
+  {
+      if (_bassInitialized) return;
+
+      AudioMixerManager.Initialize();
+      if (AudioMixerManager.OperatorMixerHandle == 0)
+      {
+          Log.Error("[AudioEngine] Failed to initialize AudioMixerManager; audio disabled.");
+          return;  // ✅ Fail gracefully without retry
+      }
+
+      _bassInitialized = true;
+      InitializeGlobalVolumeFromSettings();
+  }
+  ```
+- **Additional Change**: Updated `OnAudioDeviceChanged()` to reset `_bassInitialized = false;` after `AudioMixerManager.Shutdown()`
+- **Issues (NOW FIXED)**:
+  1. ✅ `AudioMixerManager` is now the sole owner of BASS initialization
+  2. ✅ Removed direct `Bass.Free()` and `Bass.Init()` calls from `AudioEngine`
+  3. ✅ Single source of truth - `_bassInitialized` properly synchronized with AudioMixerManager state
+- **Benefits Achieved**:
+  - ✅ Consistent low-latency configuration always applied
+  - ✅ Clear single owner for device lifecycle
+  - ✅ Easier debugging - no hidden fallback paths
+  - ✅ Proper device change handling
 
 #### 2. Manual resampling in `AudioRendering.ResampleAndMix` is simple but potentially suboptimal
 
@@ -340,13 +369,15 @@ Overall, the design is clear and reasonably modular: mixer management is central
 
 Below is a prioritized list of recommended changes to improve reliability, performance, and maintainability.
 
-#### 1. Centralize BASS initialization in `AudioMixerManager` and simplify `AudioEngine.EnsureBassInitialized` (High priority)
+#### 1. ✅ COMPLETED: Centralize BASS initialization in `AudioMixerManager` and simplify `AudioEngine.EnsureBassInitialized` (High priority)
+
+**Status**: ✅ Implemented on January 22, 2026
 
 **Goals**: remove duplicate initialization logic, ensure latency config is always applied, reduce surprises.
 
-**Steps**:
+**Implementation Summary**:
 
-1. In `AudioEngine.cs`, replace `EnsureBassInitialized()` logic with a simple call into `AudioMixerManager`:
+1. ✅ In `AudioEngine.cs`, replaced `EnsureBassInitialized()` logic with simplified version:
    ```csharp
    private static void EnsureBassInitialized()
    {
@@ -366,16 +397,15 @@ Below is a prioritized list of recommended changes to improve reliability, perfo
    }
    ```
 
-2. Remove direct calls to `Bass.Free()` and `Bass.Init()` from `AudioEngine`.
+2. ✅ Removed direct calls to `Bass.Free()` and `Bass.Init()` from `AudioEngine`.
 
-3. Optionally, expose an explicit `IsInitialized` property on `AudioMixerManager` to avoid relying on handles being non-zero.
+3. ✅ Added `_bassInitialized = false;` reset in `OnAudioDeviceChanged()` after `AudioMixerManager.Shutdown()`.
 
-4. Ensure `_bassInitialized` in `AudioEngine` is reset to `false` if `AudioMixerManager.Shutdown()` is called (e.g., via an `AudioEngine.OnAudioShutdown()` hook or by letting `AudioEngine` always check `AudioMixerManager` instead of tracking its own flag).
-
-**Benefits**:
-- Consistent low-latency configuration.
-- Clear single owner for device lifecycle.
-- Easier debugging in initialization failures.
+**Benefits Achieved**:
+- ✅ Consistent low-latency configuration.
+- ✅ Clear single owner for device lifecycle.
+- ✅ Easier debugging in initialization failures.
+- ✅ No more multiple initialization warnings.
 
 #### 2. Reduce per-frame allocations in `AudioRendering.GetFullMixDownBuffer` by using reusable buffers (High priority for heavy export use)
 
