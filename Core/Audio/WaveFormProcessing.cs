@@ -159,9 +159,12 @@ public static class WaveFormProcessing
     private static readonly float[] _midFilterBuffer = new float[AudioConfig.WaveformSampleCount];
     private static readonly float[] _tempBuffer = new float[AudioConfig.WaveformSampleCount]; // Reusable temp buffer
 
+    // Export buffer accumulation for proper waveform display during rendering
+    private static readonly float[] _exportAccumulationBuffer = new float[AudioConfig.WaveformSampleCount * 2];
+
     /// <summary>
     /// Populates the waveform buffers from an export mixdown buffer.
-    /// Takes the last WaveformSampleCount stereo samples from the provided buffer.
+    /// Accumulates samples across frames to provide a rolling window of audio data.
     /// Called during export to provide waveform data to AudioWaveform operator.
     /// </summary>
     /// <param name="mixBuffer">Interleaved stereo float buffer from export mixdown</param>
@@ -170,26 +173,33 @@ public static class WaveFormProcessing
         if (mixBuffer == null || mixBuffer.Length < 2)
             return;
 
-        // Copy the last WaveformSampleCount stereo samples from the mixBuffer
         int interleavedSampleCount = AudioConfig.WaveformSampleCount * 2;
-        int startIndex = Math.Max(0, mixBuffer.Length - interleavedSampleCount);
-        int samplesToCopy = Math.Min(interleavedSampleCount, mixBuffer.Length);
 
-        // If the mix buffer is smaller than our target, we need to handle it
-        if (mixBuffer.Length < interleavedSampleCount)
+        // Shift existing data to make room for new samples
+        int samplesToAdd = Math.Min(mixBuffer.Length, interleavedSampleCount);
+        int samplesToShift = interleavedSampleCount - samplesToAdd;
+
+        if (samplesToShift > 0)
         {
-            // Clear the buffer first if source is smaller
-            Array.Clear(InterleavenSampleBuffer, 0, InterleavenSampleBuffer.Length);
+            // Shift old data left
+            Array.Copy(_exportAccumulationBuffer, samplesToAdd, _exportAccumulationBuffer, 0, samplesToShift);
         }
 
-        // Copy the samples (starting from the beginning of our buffer)
-        int destIndex = 0;
-        for (int i = startIndex; i < mixBuffer.Length && destIndex < InterleavenSampleBuffer.Length; i++)
-        {
-            InterleavenSampleBuffer[destIndex++] = mixBuffer[i];
-        }
+        // Add new samples at the end
+        int sourceStartIndex = Math.Max(0, mixBuffer.Length - samplesToAdd);
+        Array.Copy(mixBuffer, sourceStartIndex, _exportAccumulationBuffer, samplesToShift, samplesToAdd);
 
-        // Mark that we have valid data
-        LastFetchResultCode = samplesToCopy;
+        // Copy to the interleaved sample buffer
+        Array.Copy(_exportAccumulationBuffer, 0, InterleavenSampleBuffer, 0, interleavedSampleCount);
+
+        LastFetchResultCode = interleavedSampleCount;
+    }
+
+    /// <summary>
+    /// Resets the export accumulation buffer. Should be called when starting a new export.
+    /// </summary>
+    public static void ResetExportBuffer()
+    {
+        Array.Clear(_exportAccumulationBuffer, 0, _exportAccumulationBuffer.Length);
     }
 }

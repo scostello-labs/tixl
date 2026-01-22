@@ -185,30 +185,29 @@ public static class AudioEngine
 
     internal static void UpdateFftBufferFromSoundtrack(Playback playback)
     {
-        const int DataFlagNoRemove = 268435456;
-        var dataFlags = (int)DataFlags.FFT2048;
-
-        if (playback.IsRenderingToFile)
-            dataFlags |= DataFlagNoRemove;
-
         if (playback.Settings is not { AudioSource: PlaybackSettings.AudioSources.ProjectSoundTrack })
             return;
 
-        // Get FFT data from the SoundtrackMixer
-        var mixerHandle = AudioMixerManager.SoundtrackMixerHandle;
+        // During export, the GlobalMixer is paused and empty, so FFT/waveform data
+        // is populated via WaveFormProcessing.PopulateFromExportBuffer() in AudioRendering.GetFullMixDownBuffer()
+        if (playback.IsRenderingToFile)
+            return;
+
+        // Get FFT data from the GlobalMixer to include both soundtrack AND operator audio
+        // This ensures all audio metering (AudioWaveform, AudioFrequencies, AudioReaction, etc.)
+        // monitors the complete audio output including operator-generated sounds
+        var mixerHandle = AudioMixerManager.GlobalMixerHandle;
         if (mixerHandle == 0)
             return;
 
-        _ = BassMix.ChannelGetData(mixerHandle, AudioAnalysis.FftGainBuffer, dataFlags);
+        const int dataFlags = (int)DataFlags.FFT2048;
+        _ = Bass.ChannelGetData(mixerHandle, AudioAnalysis.FftGainBuffer, dataFlags);
 
         if (!WaveFormProcessing.RequestedOnce)
             return;
 
         int lengthInBytes = AudioConfig.WaveformSampleCount << 2 << 1;
-        if (playback.IsRenderingToFile)
-            lengthInBytes |= DataFlagNoRemove;
-
-        WaveFormProcessing.LastFetchResultCode = BassMix.ChannelGetData(mixerHandle,
+        WaveFormProcessing.LastFetchResultCode = Bass.ChannelGetData(mixerHandle,
             WaveFormProcessing.InterleavenSampleBuffer, lengthInBytes);
     }
 

@@ -41,6 +41,9 @@ public static class AudioRendering
         _exportState.SaveState();
         AudioExportSourceRegistry.Clear();
 
+        // Reset export buffers for clean state
+        WaveFormProcessing.ResetExportBuffer();
+
         Bass.ChannelPause(AudioMixerManager.GlobalMixerHandle);
         AudioConfig.LogAudioRenderDebug("[AudioRendering] GlobalMixer PAUSED for export");
 
@@ -124,9 +127,10 @@ public static class AudioRendering
         LogMixStats(mixBuffer, floatCount, currentTime);
         UpdateOperatorMetering();
         
-        // Populate waveform buffers for AudioWaveform operator during export
-        // In external audio mode, only operator audio is available
+        // Populate waveform and FFT buffers for audio analysis operators during export
+        // This ensures AudioWaveform, PlaybackFFT, AudioReaction, etc. work correctly during rendering
         WaveFormProcessing.PopulateFromExportBuffer(mixBuffer);
+        AudioAnalysis.ComputeFftFromBuffer(mixBuffer);
 
         return mixBuffer;
     }

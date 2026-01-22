@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using ManagedBass;
+using T3.Core.Logging;
 using T3.Core.Utils;
 
 namespace T3.Core.Audio;
@@ -192,4 +193,46 @@ public static class AudioAnalysis
 
     internal const DataFlags BassFlagForFftBufferSize = DataFlags.FFT2048;
     internal const int FftBufferSize = 1024; // For Bass DataFlags.FFT2024
+
+    /// <summary>
+    /// Computes FFT from a PCM buffer during export.
+    /// Creates a temporary stream, populates it with the buffer data, and extracts FFT.
+    /// </summary>
+    /// <param name="pcmBuffer">Interleaved stereo float buffer</param>
+    public static void ComputeFftFromBuffer(float[] pcmBuffer)
+    {
+        if (pcmBuffer == null || pcmBuffer.Length < 4)
+        {
+            Array.Clear(FftGainBuffer, 0, FftGainBuffer.Length);
+            return;
+        }
+
+        // Create a temporary push stream
+        int tempStream = Bass.CreateStream(
+            AudioConfig.MixerFrequency,
+            2, // stereo
+            BassFlags.Float | BassFlags.Decode,
+            StreamProcedureType.Push);
+
+        if (tempStream == 0)
+        {
+            Log.Warning($"[AudioAnalysis] Failed to create temp stream for FFT: {Bass.LastError}");
+            return;
+        }
+
+        try
+        {
+            // Push the PCM data into the stream
+            int bytesToPush = pcmBuffer.Length * sizeof(float);
+            Bass.StreamPutData(tempStream, pcmBuffer, bytesToPush);
+
+            // Get FFT data from the stream
+            Bass.ChannelGetData(tempStream, FftGainBuffer, (int)DataFlags.FFT2048);
+        }
+        finally
+        {
+            // Clean up the temporary stream
+            Bass.StreamFree(tempStream);
+        }
+    }
 }
