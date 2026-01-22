@@ -36,6 +36,7 @@ public static class AudioEngine
 
     private static double _lastPlaybackSpeed = 1;
     private static bool _bassInitialized;
+    private static bool _bassInitFailed;
 
     /// <summary>
     /// Common state for operator audio streams.
@@ -86,12 +87,13 @@ public static class AudioEngine
 
     private static void EnsureBassInitialized()
     {
-        if (_bassInitialized) return;
+        if (_bassInitialized || _bassInitFailed) return;
 
         AudioMixerManager.Initialize();
         if (AudioMixerManager.OperatorMixerHandle == 0)
         {
             Log.Error("[AudioEngine] Failed to initialize AudioMixerManager; audio disabled.");
+            _bassInitFailed = true;
             return;
         }
 
@@ -370,14 +372,14 @@ public static class AudioEngine
 
     private static bool EnsureMixerInitialized()
     {
-        if (AudioMixerManager.OperatorMixerHandle != 0) return true;
+        if (AudioMixerManager.IsInitialized) return true;
 
         AudioConfig.LogAudioDebug("[AudioEngine] Mixer not initialized, initializing...");
         AudioMixerManager.Initialize();
 
         if (AudioMixerManager.OperatorMixerHandle == 0)
         {
-            Log.Warning("[AudioEngine] AudioMixerManager failed to initialize");
+            // Don't log every time - Initialize() already logs the failure once
             return false;
         }
         return true;
@@ -662,6 +664,7 @@ public static class AudioEngine
 
         AudioMixerManager.Shutdown();
         _bassInitialized = false; // Reset flag to allow proper reinitialization
+        _bassInitFailed = false;  // Reset failure flag to allow retry
         AudioMixerManager.Initialize();
 
         AudioConfig.LogAudioInfo("[AudioEngine] Audio device changed: reinitialized.");

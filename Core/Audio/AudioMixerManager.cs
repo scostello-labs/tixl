@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using ManagedBass;
 using ManagedBass.Mix;
+using ManagedBass.Wasapi;
 using T3.Core.Logging;
 
 namespace T3.Core.Audio;
@@ -29,14 +30,17 @@ public static class AudioMixerManager
     private static int _soundtrackMixerHandle;
     private static int _offlineMixerHandle;
     private static bool _initialized;
+    private static bool _initializationFailed;
     private static int _flacPluginHandle;
     private static readonly object _offlineMixerLock = new();
+    private static readonly object _initLock = new();
 
     private static float _globalMixerVolume = 1.0f;
 
     public static int GlobalMixerHandle => _globalMixerHandle;
     public static int OperatorMixerHandle => _operatorMixerHandle;
     public static int SoundtrackMixerHandle => _soundtrackMixerHandle;
+    public static bool IsInitialized => _initialized;
     
     /// <summary>
     /// Offline mixer for analysis tasks (waveform image generation, FFT analysis, etc.)
@@ -46,17 +50,39 @@ public static class AudioMixerManager
     
     public static void Initialize()
     {
-        if (_initialized)
+        lock (_initLock)
         {
-            AudioConfig.LogAudioDebug("[AudioMixer] Already initialized, skipping.");
-            return;
-        }
+            if (_initialized)
+            {
+                AudioConfig.LogAudioDebug("[AudioMixer] Already initialized, skipping.");
+                return;
+            }
 
-        AudioConfig.LogAudioDebug("[AudioMixer] Starting initialization...");
+            if (_initializationFailed)
+            {
+                // Don't spam logs with repeated init attempts after a failure
+                return;
+            }
 
-        // Check if BASS is already initialized
+            AudioConfig.LogAudioDebug("[AudioMixer] Starting initialization...");
+
+        // Check if BASS is already initialized by checking the default output device
+        // Note: Bass.CurrentDevice returns -1 when not initialized, so we check device 1 (default output)
         DeviceInfo deviceInfo;
-        var bassIsInitialized = Bass.GetDeviceInfo(Bass.CurrentDevice, out deviceInfo) && deviceInfo.IsInitialized;
+        bool bassIsInitialized = false;
+        try
+        {
+            // Device 1 is typically the default output device
+            if (Bass.GetDeviceInfo(1, out deviceInfo))
+            {
+                bassIsInitialized = deviceInfo.IsInitialized;
+            }
+        }
+        catch
+        {
+            // GetDeviceInfo can fail if BASS DLL is not loaded yet
+            bassIsInitialized = false;
+        }
         
         if (bassIsInitialized)
         {
@@ -72,6 +98,10 @@ public static class AudioMixerManager
         {
             AudioConfig.LogAudioDebug("[AudioMixer] BASS not initialized, configuring for low latency...");
             
+            // Query the default output device's sample rate from WASAPI before BASS init
+            // WASAPI loopback devices represent the output and have the correct MixFrequency
+            int deviceSampleRate = GetDefaultOutputSampleRate();
+            
             // Configure BASS for low latency BEFORE initialization
             Bass.Configure(Configuration.UpdatePeriod, AudioConfig.UpdatePeriodMs);
             Bass.Configure(Configuration.UpdateThreads, AudioConfig.UpdateThreads);
@@ -80,42 +110,117 @@ public static class AudioMixerManager
             
             AudioConfig.LogAudioDebug($"[AudioMixer] Config - UpdatePeriod: {AudioConfig.UpdatePeriodMs}ms, UpdateThreads: {AudioConfig.UpdateThreads}, PlaybackBuffer: {AudioConfig.PlaybackBufferLengthMs}ms, DeviceBuffer: {AudioConfig.DeviceBufferLengthMs}ms");
             
-            // Try to initialize with latency flag first
-            // Use frequency=0 to let Bass use the device's default sample rate
+            // Try to initialize BASS with the device's actual sample rate first,
+            // then fall back to common sample rates if that fails
             var initFlags = DeviceInitFlags.Latency | DeviceInitFlags.Stereo;
             
-            AudioConfig.LogAudioDebug("[AudioMixer] Attempting BASS.Init with Latency flag at device's default sample rate...");
-            if (!Bass.Init(-1, 0, initFlags, IntPtr.Zero))
+            // Build frequency list: device rate first (if known), then common fallbacks
+            var frequenciesToTry = new List<int>();
+            if (deviceSampleRate > 0)
             {
-                var error1 = Bass.LastError;
-                Log.Warning($"{error1} [AudioMixer] Init with Latency flag failed: trying without...");
+                frequenciesToTry.Add(deviceSampleRate);
+            }
+            // Add common fallbacks that aren't already in the list
+            if (deviceSampleRate != 48000) frequenciesToTry.Add(48000);
+            if (deviceSampleRate != 44100) frequenciesToTry.Add(44100);
+            
+            bool initialized = false;
+            int usedFrequency = 0;
+            bool usedDeviceDefault = false;
+            string initMethod = "LATENCY";
+            
+            foreach (var freq in frequenciesToTry)
+            {
+                bool isDeviceRate = (freq == deviceSampleRate && deviceSampleRate > 0);
+                var freqDesc = isDeviceRate ? $"{freq}Hz (device)" : $"{freq}Hz (fallback)";
+                AudioConfig.LogAudioDebug($"[AudioMixer] Attempting BASS.Init with Latency+Stereo at {freqDesc}...");
                 
-                // Fallback without latency flag
-                if (!Bass.Init(-1, 0, DeviceInitFlags.Stereo, IntPtr.Zero))
+                if (Bass.Init(-1, freq, initFlags, IntPtr.Zero))
                 {
-                    var error2 = Bass.LastError;
-                    Log.Warning($"{error2} [AudioMixer] Init with Stereo flag failed: trying basic init...");
-                    
-                    // Last resort - basic init
-                    if (!Bass.Init(-1, 0, DeviceInitFlags.Default, IntPtr.Zero))
-                    {
-                        var error3 = Bass.LastError;
-                        Log.Error($"[AudioMixer] Failed to initialize BASS with all methods: {error3}");
-                        return;
-                    }
-                    else
-                    {
-                        Log.Warning("[AudioMixer] BASS initialized with DEFAULT flags (no latency optimization)");
-                    }
+                    AudioConfig.LogAudioDebug($"[AudioMixer] BASS initialized with LATENCY flag at {freqDesc}");
+                    initialized = true;
+                    usedFrequency = freq;
+                    usedDeviceDefault = isDeviceRate;
+                    initMethod = "LATENCY";
+                    break;
                 }
-                else
+                
+                var error1 = Bass.LastError;
+                // If already initialized, that's fine - continue with existing init
+                if (error1 == Errors.Already)
                 {
-                    Log.Warning("[AudioMixer] BASS initialized with STEREO flag (no latency optimization)");
+                    AudioConfig.LogAudioDebug("[AudioMixer] BASS already initialized");
+                    initialized = true;
+                    usedDeviceDefault = true; // Assume existing init used device default
+                    initMethod = "EXISTING";
+                    break;
+                }
+                
+                AudioConfig.LogAudioDebug($"{error1} [AudioMixer] Init at {freqDesc} failed, trying next...");
+            }
+            
+            // If all frequencies failed with Latency flag, try without it
+            if (!initialized)
+            {
+                foreach (var freq in frequenciesToTry)
+                {
+                    bool isDeviceRate = (freq == deviceSampleRate && deviceSampleRate > 0);
+                    var freqDesc = isDeviceRate ? $"{freq}Hz (device)" : $"{freq}Hz (fallback)";
+                    
+                    if (Bass.Init(-1, freq, DeviceInitFlags.Stereo, IntPtr.Zero))
+                    {
+                        Log.Warning($"[AudioMixer] BASS initialized with STEREO flag at {freqDesc} (no latency optimization)");
+                        initialized = true;
+                        usedFrequency = freq;
+                        usedDeviceDefault = isDeviceRate;
+                        initMethod = "STEREO";
+                        break;
+                    }
+                    
+                    if (Bass.LastError == Errors.Already)
+                    {
+                        initialized = true;
+                        usedDeviceDefault = true;
+                        initMethod = "EXISTING";
+                        break;
+                    }
                 }
             }
-            else
+            
+            // Last resort - basic init
+            if (!initialized)
             {
-                AudioConfig.LogAudioDebug("[AudioMixer] BASS initialized with LATENCY flag (optimized)");
+                foreach (var freq in frequenciesToTry)
+                {
+                    bool isDeviceRate = (freq == deviceSampleRate && deviceSampleRate > 0);
+                    var freqDesc = isDeviceRate ? $"{freq}Hz (device)" : $"{freq}Hz (fallback)";
+                    
+                    if (Bass.Init(-1, freq, DeviceInitFlags.Default, IntPtr.Zero))
+                    {
+                        Log.Warning($"[AudioMixer] BASS initialized with DEFAULT flags at {freqDesc}");
+                        initialized = true;
+                        usedFrequency = freq;
+                        usedDeviceDefault = isDeviceRate;
+                        initMethod = "DEFAULT";
+                        break;
+                    }
+                    
+                    if (Bass.LastError == Errors.Already)
+                    {
+                        initialized = true;
+                        usedDeviceDefault = true;
+                        initMethod = "EXISTING";
+                        break;
+                    }
+                }
+            }
+            
+            if (!initialized)
+            {
+                var lastError = Bass.LastError;
+                Log.Error($"[AudioMixer] Failed to initialize BASS with all methods: {lastError}");
+                _initializationFailed = true;
+                return;
             }
             
             // Get actual device info after init
@@ -123,7 +228,8 @@ public static class AudioMixerManager
             
             // Set the mixer frequency to the device's actual sample rate
             AudioConfig.MixerFrequency = info.SampleRate;
-            AudioConfig.LogAudioInfo($"[AudioMixer] BASS Info - Device: {Bass.CurrentDevice}, SampleRate: {info.SampleRate}Hz, MinBuffer: {info.MinBufferLength}ms, Latency: {info.Latency}ms");
+            var freqSource = usedDeviceDefault ? "device default" : $"fallback ({usedFrequency}Hz requested)";
+            Log.Debug($"[AudioMixer] BASS initialized - SampleRate: {info.SampleRate}Hz ({freqSource}), Device: {Bass.CurrentDevice}, Method: {initMethod}, Latency: {info.Latency}ms");
         }
 
         // Load BASS FLAC plugin for native FLAC support (better than Media Foundation)
@@ -143,6 +249,7 @@ public static class AudioMixerManager
         if (_globalMixerHandle == 0)
         {
             Log.Error($"[AudioMixer] Failed to create global mixer: {Bass.LastError}");
+            _initializationFailed = true;
             return;
         }
         AudioConfig.LogAudioDebug($"[AudioMixer] Global mixer created: Handle={_globalMixerHandle}");
@@ -153,6 +260,7 @@ public static class AudioMixerManager
         if (_operatorMixerHandle == 0)
         {
             Log.Error($"[AudioMixer] Failed to create operator mixer: {Bass.LastError}");
+            _initializationFailed = true;
             return;
         }
         AudioConfig.LogAudioDebug($"[AudioMixer] Operator mixer created: Handle={_operatorMixerHandle}");
@@ -163,6 +271,7 @@ public static class AudioMixerManager
         if (_soundtrackMixerHandle == 0)
         {
             Log.Error($"[AudioMixer] Failed to create soundtrack mixer: {Bass.LastError}");
+            _initializationFailed = true;
             return;
         }
         AudioConfig.LogAudioDebug($"[AudioMixer] Soundtrack mixer created: Handle={_soundtrackMixerHandle}");
@@ -218,30 +327,41 @@ public static class AudioMixerManager
 
         _initialized = true;
         AudioConfig.LogAudioInfo("[AudioMixer] ✓ Audio mixer system initialized successfully with low-latency settings.");
+        } // end lock
     }
 
     public static void Shutdown()
     {
-        if (!_initialized)
-            return;
-
-        AudioConfig.LogAudioDebug("[AudioMixer] Shutting down...");
-        
-        Bass.StreamFree(_operatorMixerHandle);
-        Bass.StreamFree(_soundtrackMixerHandle);
-        Bass.StreamFree(_offlineMixerHandle);
-        Bass.StreamFree(_globalMixerHandle);
-        
-        // Unload FLAC plugin
-        if (_flacPluginHandle != 0)
+        lock (_initLock)
         {
-            Bass.PluginFree(_flacPluginHandle);
-        }
-        
-        Bass.Free();
+            if (!_initialized && !_initializationFailed)
+                return;
 
-        _initialized = false;
-        AudioConfig.LogAudioDebug("[AudioMixer] Audio mixer system shut down.");
+            AudioConfig.LogAudioDebug("[AudioMixer] Shutting down...");
+            
+            Bass.StreamFree(_operatorMixerHandle);
+            Bass.StreamFree(_soundtrackMixerHandle);
+            Bass.StreamFree(_offlineMixerHandle);
+            Bass.StreamFree(_globalMixerHandle);
+            
+            _operatorMixerHandle = 0;
+            _soundtrackMixerHandle = 0;
+            _offlineMixerHandle = 0;
+            _globalMixerHandle = 0;
+            
+            // Unload FLAC plugin
+            if (_flacPluginHandle != 0)
+            {
+                Bass.PluginFree(_flacPluginHandle);
+                _flacPluginHandle = 0;
+            }
+            
+            Bass.Free();
+
+            _initialized = false;
+            _initializationFailed = false; // Reset so initialization can be retried after device change
+            AudioConfig.LogAudioDebug("[AudioMixer] Audio mixer system shut down.");
+        }
     }
 
     public static void SetOperatorMixerVolume(float volume)
@@ -422,5 +542,53 @@ public static class AudioMixerManager
         var left = (level & 0xFFFF) / 32768f;
         var right = ((level >> 16) & 0xFFFF) / 32768f;
         return Math.Max(left, right);
+    }
+
+    /// <summary>
+    /// Queries WASAPI to get the default output device's configured sample rate.
+    /// This works before BASS is initialized.
+    /// </summary>
+    /// <returns>The device sample rate in Hz, or 0 if it couldn't be determined.</returns>
+    private static int GetDefaultOutputSampleRate()
+    {
+        try
+        {
+            // Enumerate WASAPI devices to find the default output's loopback
+            // Loopback devices represent the output and have the correct MixFrequency
+            var deviceCount = BassWasapi.DeviceCount;
+            
+            for (var i = 0; i < deviceCount; i++)
+            {
+                var info = BassWasapi.GetDeviceInfo(i);
+                
+                // Look for enabled loopback device (represents system output)
+                if (info.IsEnabled && info.IsLoopback && !info.IsInput)
+                {
+                    var sampleRate = info.MixFrequency;
+                    Log.Debug($"[AudioMixer] Found default output device: '{info.Name}' at {sampleRate}Hz");
+                    return sampleRate;
+                }
+            }
+            
+            // Fallback: try to find any enabled loopback device
+            for (var i = 0; i < deviceCount; i++)
+            {
+                var info = BassWasapi.GetDeviceInfo(i);
+                if (info.IsEnabled && info.IsLoopback)
+                {
+                    var sampleRate = info.MixFrequency;
+                    Log.Debug($"[AudioMixer] Found loopback device: '{info.Name}' at {sampleRate}Hz");
+                    return sampleRate;
+                }
+            }
+            
+            Log.Debug("[AudioMixer] Could not find default output device sample rate from WASAPI");
+        }
+        catch (Exception ex)
+        {
+            Log.Debug($"[AudioMixer] Failed to query WASAPI device sample rate: {ex.Message}");
+        }
+        
+        return 0; // Couldn't determine
     }
 }

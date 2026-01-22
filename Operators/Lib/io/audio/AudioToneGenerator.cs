@@ -166,12 +166,17 @@ namespace Lib.io.audio
         {
             if (_toneStream != null) return;
 
-            if (AudioMixerManager.OperatorMixerHandle == 0)
+            if (!AudioMixerManager.IsInitialized)
             {
                 AudioMixerManager.Initialize();
                 if (AudioMixerManager.OperatorMixerHandle == 0)
                 {
-                    Log.Warning("[TestToneGenerator] Mixer not available");
+                    // Only log once, not every frame
+                    if (!_mixerWarningLogged)
+                    {
+                        Log.Warning("[TestToneGenerator] Mixer not available");
+                        _mixerWarningLogged = true;
+                    }
                     return;
                 }
             }
@@ -180,6 +185,8 @@ namespace Lib.io.audio
             if (_toneStream != null)
                 AudioConfig.LogAudioDebug($"[TestToneGenerator] Created procedural tone stream");
         }
+        
+        private bool _mixerWarningLogged;
 
         ~AudioToneGenerator()
         {

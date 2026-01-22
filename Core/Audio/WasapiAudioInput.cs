@@ -86,6 +86,10 @@ public static class WasapiAudioInput
     /// </summary>
     private static void StartInputCapture(WasapiInputDevice device)
     {
+        // Ensure BASS is initialized before WASAPI
+        // WASAPI requires a valid BASS device to work properly
+        AudioMixerManager.Initialize();
+        
         var inputDeviceIndex = BassWasapi.DefaultInputDevice;
 
         if (device == null)
@@ -142,6 +146,9 @@ public static class WasapiAudioInput
     {
         _inputDevices = [];
 
+        // Ensure BASS is initialized before enumerating WASAPI devices
+        AudioMixerManager.Initialize();
+        
         // Keep in local variable to avoid double evaluation
         var deviceCount = BassWasapi.DeviceCount;
 
