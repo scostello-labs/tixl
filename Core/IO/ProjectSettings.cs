@@ -46,18 +46,6 @@ public class ProjectSettings : Settings<ProjectSettings.ConfigData>
         public float SoundtrackPlaybackVolume = 0.5f;
         public bool OperatorMute = false;
         public float OperatorPlaybackVolume = 1;
-
-        // Audio Advanced Settings
-        // Note: AudioMixerFrequency is now automatically determined from the device's sample rate
-        public int AudioUpdatePeriodMs = 10;
-        public int AudioUpdateThreads = 2;
-        public int AudioPlaybackBufferLengthMs = 100;
-        public int AudioDeviceBufferLengthMs = 20;
-        public int AudioFftBufferSize = 1024;
-        public int AudioFrequencyBandCount = 32;
-        public int AudioWaveformSampleCount = 1024;
-        public float AudioLowPassCutoffFrequency = 250f;
-        public float AudioHighPassCutoffFrequency = 2000f;
     }
 
     public static class Defaults
@@ -88,18 +76,6 @@ public class ProjectSettings : Settings<ProjectSettings.ConfigData>
         public static float SoundtrackPlaybackVolume = 0.5f;
         public static bool OperatorMute = false;
         public static float OperatorPlaybackVolume = 1;
-
-        // Audio Advanced Settings
-        // Note: AudioMixerFrequency is now automatically determined from the device's sample rate
-        public static int AudioUpdatePeriodMs = 10;
-        public static int AudioUpdateThreads = 2;
-        public static int AudioPlaybackBufferLengthMs = 100;
-        public static int AudioDeviceBufferLengthMs = 20;
-        public static int AudioFftBufferSize = 1024;
-        public static int AudioFrequencyBandCount = 32;
-        public static int AudioWaveformSampleCount = 1024;
-        public static float AudioLowPassCutoffFrequency = 250f;
-        public static float AudioHighPassCutoffFrequency = 2000f;
     }
 }
 
