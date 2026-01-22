@@ -23,7 +23,7 @@ namespace Lib.io.audio
     /// Uses sample-accurate AdsrCalculator for envelope shaping in the audio thread.
     /// </summary>
     [Guid("7c8f3a2e-9d4b-4e1f-8a5c-6b2d9f7e4c3a")]
-    internal sealed class AudioToneGenerator : Instance<AudioToneGenerator>, IAudioExportSource
+    internal sealed class AudioToneGenerator : Instance<AudioToneGenerator>
     {
         [Input(Guid = "3e9a7f2c-4d8b-4c1f-9e5a-2b7d6f8c4a5e")]
         public readonly InputSlot<bool> Trigger = new();
@@ -73,7 +73,6 @@ namespace Lib.io.audio
 
         private Guid _operatorId;
         private ProceduralToneStream? _toneStream;
-        private bool _isRegistered;
         private bool _previousTrigger;
 
         public AudioToneGenerator()
@@ -154,18 +153,7 @@ namespace Lib.io.audio
                 AudioConfig.LogAudioDebug($"[TestToneGenerator] ~ Release triggered");
             }
 
-            // Register for export if playing
             bool isActive = _toneStream.Adsr.IsActive;
-            if (isActive && !_isRegistered)
-            {
-                AudioExportSourceRegistry.Register(this);
-                _isRegistered = true;
-            }
-            else if (!isActive && _isRegistered)
-            {
-                AudioExportSourceRegistry.Unregister(this);
-                _isRegistered = false;
-            }
 
             IsPlaying.Value = isActive;
             GetLevel.Value = _toneStream.GetLevel();
@@ -193,21 +181,8 @@ namespace Lib.io.audio
                 AudioConfig.LogAudioDebug($"[TestToneGenerator] Created procedural tone stream");
         }
 
-        public int RenderAudio(double startTime, double duration, float[] buffer)
-        {
-            if (_toneStream == null || !_toneStream.Adsr.IsActive)
-            {
-                Array.Clear(buffer, 0, buffer.Length);
-                return buffer.Length;
-            }
-
-            return _toneStream.RenderAudio(startTime, duration, buffer);
-        }
-
         ~AudioToneGenerator()
         {
-            if (_isRegistered)
-                AudioExportSourceRegistry.Unregister(this);
 
             _toneStream?.Dispose();
         }
@@ -228,7 +203,6 @@ namespace Lib.io.audio
         /// </summary>
         private sealed class ProceduralToneStream
         {
-            private const int SampleRate = 48000;
             private const int Channels = 2;
 
             // Thread-safe audio parameters
@@ -240,6 +214,9 @@ namespace Lib.io.audio
 
             // Shared ADSR calculator (used by audio thread)
             public readonly AdsrCalculator Adsr = new();
+            
+            // Sample rate from AudioConfig (set at creation)
+            private readonly int _sampleRate;
 
             public float Frequency
             {
@@ -268,7 +245,8 @@ namespace Lib.io.audio
             {
                 _mixerHandle = mixerHandle;
                 _streamProc = StreamCallback;
-                Adsr.SetSampleRate(SampleRate);
+                _sampleRate = AudioConfig.MixerFrequency;
+                Adsr.SetSampleRate(_sampleRate);
             }
 
             public static ProceduralToneStream? Create(int mixerHandle)
@@ -277,7 +255,7 @@ namespace Lib.io.audio
                 instance._gcHandle = GCHandle.Alloc(instance);
 
                 var streamHandle = Bass.CreateStream(
-                    SampleRate,
+                    AudioConfig.MixerFrequency,
                     Channels,
                     BassFlags.Float | BassFlags.Decode,
                     instance._streamProc,
@@ -316,7 +294,7 @@ namespace Lib.io.audio
                 int waveType = _waveformType;
                 float pan = _currentPanning;
                 float baseVol = _isMuted ? 0f : _currentVolume;
-                double phaseIncrement = 2.0 * Math.PI * freq / SampleRate;
+                double phaseIncrement = 2.0 * Math.PI * freq / _sampleRate;
 
                 // Generate samples with sample-accurate envelope
                 for (int i = 0; i < sampleCount; i++)
@@ -429,7 +407,7 @@ namespace Lib.io.audio
 
                 _spectrumBuffer.Clear();
                 float freq = _frequency;
-                int freqBin = (int)(freq / (SampleRate / 2f) * 512);
+                int freqBin = (int)(freq / (_sampleRate / 2f) * 512);
                 freqBin = Math.Clamp(freqBin, 0, 511);
 
                 for (int i = 0; i < 512; i++)
@@ -441,32 +419,6 @@ namespace Lib.io.audio
                 return _spectrumBuffer;
             }
 
-            public int RenderAudio(double startTime, double duration, float[] buffer)
-            {
-                int sampleCount = buffer.Length / Channels;
-                float freq = _frequency;
-                int waveType = _waveformType;
-                double phaseIncrement = 2.0 * Math.PI * freq / SampleRate;
-
-                for (int i = 0; i < sampleCount; i++)
-                {
-                    float envelopeGain = Adsr.Value; // Use current value for export
-                    float sample = GenerateSample(_phase, waveType) * _currentVolume * envelopeGain;
-                    _phase += phaseIncrement;
-
-                    if (_phase >= 2.0 * Math.PI)
-                        _phase -= 2.0 * Math.PI;
-
-                    float pan = _currentPanning;
-                    float leftGain = pan <= 0 ? 1f : 1f - pan;
-                    float rightGain = pan >= 0 ? 1f : 1f + pan;
-
-                    buffer[i * 2] = sample * leftGain;
-                    buffer[i * 2 + 1] = sample * rightGain;
-                }
-
-                return buffer.Length;
-            }
 
             private static void EnsureBuffer(List<float> buffer, int size)
             {

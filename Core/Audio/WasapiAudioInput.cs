@@ -172,7 +172,8 @@ public static class WasapiAudioInput
         TimeSinceLastUpdate = time - LastUpdateTime;
         LastUpdateTime = time;
 
-        if (WaveFormProcessing.RequestedOnce)
+        // Skip waveform buffer updates during export - AudioRendering handles this
+        if (WaveFormProcessing.RequestedOnce && !Playback.Current.IsRenderingToFile)
         {
             var sizeInBytes = AudioConfig.WaveformSampleCount << 2 << 1;
             WaveFormProcessing.LastFetchResultCode = BassWasapi.GetData(WaveFormProcessing.InterleavenSampleBuffer,  

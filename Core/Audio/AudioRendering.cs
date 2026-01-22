@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using ManagedBass;
 using ManagedBass.Mix;
 using T3.Core.Animation;
+using T3.Core.IO;
 using T3.Core.Logging;
 using T3.Core.Operator;
 
@@ -19,6 +20,7 @@ public static class AudioRendering
     private static readonly ExportState _exportState = new();
     private static double _exportStartTime;
     private static int _frameCount;
+    private static bool _warnedAboutExternalAudio;
 
     public static void PrepareRecording(Playback playback, double fps)
     {
@@ -27,6 +29,14 @@ public static class AudioRendering
         _isRecording = true;
         _frameCount = 0;
         _exportStartTime = playback.TimeInSecs;
+        _warnedAboutExternalAudio = false;
+
+        // Check if we're in external audio mode and warn the user
+        if (playback.Settings?.AudioSource == Operator.PlaybackSettings.AudioSources.ExternalDevice)
+        {
+            Log.Warning("[AudioRendering] External audio source detected - external audio cannot be monitored during export. Only operator audio will be included in the export.");
+            _warnedAboutExternalAudio = true;
+        }
 
         _exportState.SaveState();
         AudioExportSourceRegistry.Clear();
@@ -96,17 +106,27 @@ public static class AudioRendering
         float[] mixBuffer = new float[floatCount];
         double currentTime = Playback.Current.TimeInSecs;
 
-        // Mix soundtrack streams
-        foreach (var (handle, clipStream) in AudioEngine.SoundtrackClipStreams)
+        // Check audio source mode - skip soundtrack mixing in external audio mode
+        bool isExternalAudioMode = Playback.Current.Settings?.AudioSource == PlaybackSettings.AudioSources.ExternalDevice;
+
+        // Mix soundtrack streams only in soundtrack mode
+        if (!isExternalAudioMode)
         {
-            MixSoundtrackClip(handle, clipStream, mixBuffer, currentTime, frameDurationInSeconds);
+            foreach (var (handle, clipStream) in AudioEngine.SoundtrackClipStreams)
+            {
+                MixSoundtrackClip(handle, clipStream, mixBuffer, currentTime, frameDurationInSeconds);
+            }
         }
 
-        // Mix operator audio
+        // Mix operator audio (always included)
         MixOperatorAudio(mixBuffer, floatCount);
 
         LogMixStats(mixBuffer, floatCount, currentTime);
         UpdateOperatorMetering();
+        
+        // Populate waveform buffers for AudioWaveform operator during export
+        // In external audio mode, only operator audio is available
+        WaveFormProcessing.PopulateFromExportBuffer(mixBuffer);
 
         return mixBuffer;
     }
@@ -133,8 +153,14 @@ public static class AudioRendering
         int bytesRead = Bass.ChannelGetData(clipStream.StreamHandle, sourceBuffer, sourceFloatCount * sizeof(float));
         if (bytesRead > 0)
         {
+            // Apply the same volume calculation as normal playback:
+            // clip.Volume * SoundtrackPlaybackVolume * GlobalPlaybackVolume
+            float effectiveVolume = handle.Clip.Volume 
+                                    * ProjectSettings.Config.SoundtrackPlaybackVolume
+                                    * ProjectSettings.Config.GlobalPlaybackVolume;
+            
             ResampleAndMix(sourceBuffer, bytesRead / sizeof(float), nativeFreq, streamInfo.Channels,
-                mixBuffer, mixBuffer.Length, AudioConfig.MixerFrequency, 2, handle.Clip.Volume);
+                mixBuffer, mixBuffer.Length, AudioConfig.MixerFrequency, 2, effectiveVolume);
         }
     }
 

@@ -2,6 +2,7 @@
 
 using System;
 using T3.Core.Animation;
+using T3.Core.Operator;
 
 namespace T3.Core.Audio;
 
@@ -51,6 +52,19 @@ public static class WaveFormProcessing
         //
         if (LastFetchResultCode <= 0)
             return;
+
+        // Check if we're exporting with external audio - can't monitor external audio during export
+        if (Playback.Current.IsRenderingToFile && 
+            Playback.Current.Settings?.AudioSource == Operator.PlaybackSettings.AudioSources.ExternalDevice)
+        {
+            // Clear buffers - external audio cannot be monitored during export
+            Array.Clear(WaveformLeftBuffer, 0, WaveformLeftBuffer.Length);
+            Array.Clear(WaveformRightBuffer, 0, WaveformRightBuffer.Length);
+            Array.Clear(WaveformLowBuffer, 0, WaveformLowBuffer.Length);
+            Array.Clear(WaveformMidBuffer, 0, WaveformMidBuffer.Length);
+            Array.Clear(WaveformHighBuffer, 0, WaveformHighBuffer.Length);
+            return;
+        }
 
         var idx = 0;
         for (var it = 0; it < InterleavenSampleBuffer.Length;)
@@ -144,4 +158,38 @@ public static class WaveFormProcessing
 
     private static readonly float[] _midFilterBuffer = new float[AudioConfig.WaveformSampleCount];
     private static readonly float[] _tempBuffer = new float[AudioConfig.WaveformSampleCount]; // Reusable temp buffer
+
+    /// <summary>
+    /// Populates the waveform buffers from an export mixdown buffer.
+    /// Takes the last WaveformSampleCount stereo samples from the provided buffer.
+    /// Called during export to provide waveform data to AudioWaveform operator.
+    /// </summary>
+    /// <param name="mixBuffer">Interleaved stereo float buffer from export mixdown</param>
+    public static void PopulateFromExportBuffer(float[] mixBuffer)
+    {
+        if (mixBuffer == null || mixBuffer.Length < 2)
+            return;
+
+        // Copy the last WaveformSampleCount stereo samples from the mixBuffer
+        int interleavedSampleCount = AudioConfig.WaveformSampleCount * 2;
+        int startIndex = Math.Max(0, mixBuffer.Length - interleavedSampleCount);
+        int samplesToCopy = Math.Min(interleavedSampleCount, mixBuffer.Length);
+
+        // If the mix buffer is smaller than our target, we need to handle it
+        if (mixBuffer.Length < interleavedSampleCount)
+        {
+            // Clear the buffer first if source is smaller
+            Array.Clear(InterleavenSampleBuffer, 0, InterleavenSampleBuffer.Length);
+        }
+
+        // Copy the samples (starting from the beginning of our buffer)
+        int destIndex = 0;
+        for (int i = startIndex; i < mixBuffer.Length && destIndex < InterleavenSampleBuffer.Length; i++)
+        {
+            InterleavenSampleBuffer[destIndex++] = mixBuffer[i];
+        }
+
+        // Mark that we have valid data
+        LastFetchResultCode = samplesToCopy;
+    }
 }

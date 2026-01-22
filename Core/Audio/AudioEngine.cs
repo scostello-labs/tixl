@@ -106,6 +106,29 @@ public static class AudioEngine
 
     private static void ProcessSoundtrackClips(Playback playback, double frameDurationInSeconds)
     {
+        // In external audio mode during export, skip soundtrack processing entirely
+        // Only operator audio is exported in external mode
+        bool isExternalAudioMode = playback.Settings?.AudioSource == PlaybackSettings.AudioSources.ExternalDevice;
+        if (playback.IsRenderingToFile && isExternalAudioMode)
+        {
+            // Still need to mark clips as obsolete if they should be discarded
+            foreach (var (handle, clipStream) in SoundtrackClipStreams)
+            {
+                clipStream.IsInUse = _updatedSoundtrackClipTimes.ContainsKey(clipStream.ResourceHandle);
+                if (!clipStream.IsInUse && clipStream.ResourceHandle.Clip.DiscardAfterUse)
+                {
+                    _obsoleteSoundtrackHandles.Add(handle);
+                }
+            }
+            
+            foreach (var handle in _obsoleteSoundtrackHandles)
+            {
+                SoundtrackClipStreams[handle].DisableSoundtrackStream();
+                SoundtrackClipStreams.Remove(handle);
+            }
+            return;
+        }
+
         foreach (var (handle, time) in _updatedSoundtrackClipTimes)
         {
             if (SoundtrackClipStreams.TryGetValue(handle, out var clip))
