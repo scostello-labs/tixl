@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using ManagedBass;
 using ManagedBass.Wasapi;
@@ -210,8 +209,9 @@ public static class WasapiAudioInput
         if (playbackSettings == null) 
             return length;
 
-        AudioAnalysis.ProcessUpdate(playbackSettings?.AudioGainFactor?? 1,
-                                    playbackSettings?.AudioDecayFactor?? 0.9f);
+        // playbackSettings is non-null here due to the null-check above
+        AudioAnalysis.ProcessUpdate(playbackSettings.AudioGainFactor,
+                                    playbackSettings.AudioDecayFactor);
 
         if (playbackSettings.EnableAudioBeatLocking)
         {
@@ -232,7 +232,25 @@ public static class WasapiAudioInput
     private static List<WasapiInputDevice> _inputDevices;
     internal static double TimeSinceLastUpdate;
     internal static double LastUpdateTime;
-    internal static long SampleRate = 48000;
+    internal static int SampleRate;
+
+    // Attempt to set accurate default sample rate from the audio system.
+    static WasapiAudioInput()
+    {
+        try
+        {
+            // Ensure AudioMixerManager has a chance to query the device sample rate.
+            AudioMixerManager.Initialize();
+
+            var deviceRate = AudioConfig.MixerFrequency; // AudioMixerManager sets this during Initialize
+            SampleRate = deviceRate > 0 ? deviceRate : 48000;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug($"WasapiAudioInput: Failed to initialize sample rate from AudioMixerManager: {ex.Message}");
+            SampleRate = 48000;
+        }
+    }
 
     public static string ActiveInputDeviceName { get; private set; }
     private static float _lastAudioLevel;
