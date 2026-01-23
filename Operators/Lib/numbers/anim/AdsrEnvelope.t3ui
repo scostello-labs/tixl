@@ -10,7 +10,8 @@
       },
       "Min": 0.0,
       "Max": 1.0,
-      "ClampMin": true
+      "ClampMin": true,
+      "UseVec4Control": "AdsrEnvelope"
     },
     {
       "InputId": "b3c4d5e6-f7a8-4b9c-0d1e-2f3a4b5c6d7e"/*Min*/,

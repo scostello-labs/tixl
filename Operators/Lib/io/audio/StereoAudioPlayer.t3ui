@@ -17,7 +17,8 @@
       },
       "Min": 0.0,
       "Max": 1.0,
-      "ClampMin": true
+      "ClampMin": true,
+      "UseVec4Control": "AdsrEnvelope"
     },
     {
       "InputId": "505139a0-71ce-4297-8440-5bf84488902e"/*AudioFile*/,
