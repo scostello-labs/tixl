@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using ManagedBass;
 using T3.Core.Audio;
 using T3.Core.Logging;
@@ -36,6 +37,19 @@ namespace Lib.io.audio
         [Input(Guid = "a5de0d72-5924-4f3a-a02f-d5de7c03f07f")]
         public readonly InputSlot<float> Seek = new();
 
+        [Input(Guid = "905d9e01-b1fb-47c0-801c-fc920ed36884", MappedType = typeof(AdsrCalculator.TriggerMode))]
+        public readonly InputSlot<int> TriggerMode = new();
+
+        [Input(Guid = "f7a8b9c0-d1e2-4f3a-5b6c-7d8e9f0a1b2c")]
+        public readonly InputSlot<float> Duration = new();
+
+        [Input(Guid = "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e")]
+        public readonly InputSlot<bool> UseEnvelope = new();
+
+        // ADSR Envelope as Vector4: X=Attack, Y=Decay, Z=Sustain, W=Release
+        [Input(Guid = "3dbcbbe6-a8b4-4b83-a2c0-e22b24b91b42", MappedType = typeof(AdsrCalculator.AdsrMapping))]
+        public readonly InputSlot<Vector4> Envelope = new();
+
         [Output(Guid = "2433f838-a8ba-4f3a-809e-2d41c404bb84")]
         public readonly Slot<Command> Result = new();
 
@@ -54,8 +68,13 @@ namespace Lib.io.audio
         [Output(Guid = "7f8e9d2a-4b5c-3e89-8f12-6a5b9c8d0e2f")]
         public readonly Slot<List<float>> GetSpectrum = new();
 
+        [Output(Guid = "c46c2799-ed04-4ec5-9175-dfcfc488525a")]
+        public readonly Slot<float> EnvelopeValue = new();
+
         private Guid _operatorId;
         private bool _wasPausedLastFrame;
+        private bool _previousPlayTrigger;
+        private readonly AdsrCalculator _calculator = new();
 
         public StereoAudioPlayer()
         {
@@ -65,6 +84,7 @@ namespace Lib.io.audio
             GetLevel.UpdateAction += Update;
             GetWaveform.UpdateAction += Update;
             GetSpectrum.UpdateAction += Update;
+            EnvelopeValue.UpdateAction += Update;
         }
 
         private void Update(EvaluationContext context)
@@ -85,6 +105,47 @@ namespace Lib.io.audio
             var panning = Panning.GetValue(context);
             var speed = Speed.GetValue(context);
             var seek = Seek.GetValue(context);
+            var triggerMode = (AdsrCalculator.TriggerMode)TriggerMode.GetValue(context);
+            var duration = Duration.GetValue(context);
+            var useEnvelope = UseEnvelope.GetValue(context);
+            var envelope = Envelope.GetValue(context);
+
+            // Apply defaults
+            if (duration <= 0) duration = float.MaxValue;
+
+            // Extract ADSR from Vector4: X=Attack, Y=Decay, Z=Sustain, W=Release
+            var attack = envelope.X > 0 ? envelope.X : 0.01f;
+            var decay = envelope.Y > 0 ? envelope.Y : 0.1f;
+            var sustain = envelope.Z >= 0 ? Math.Clamp(envelope.Z, 0f, 1f) : 0.7f;
+            var release = envelope.W > 0 ? envelope.W : 0.3f;
+
+            // Update ADSR calculator parameters
+            _calculator.SetParameters(attack, decay, sustain, release);
+            _calculator.SetMode(triggerMode);
+            _calculator.SetDuration(duration);
+
+            // Detect play trigger edges for ADSR
+            var risingEdge = shouldPlay && !_previousPlayTrigger;
+            var fallingEdge = !shouldPlay && _previousPlayTrigger;
+            _previousPlayTrigger = shouldPlay;
+
+            if (useEnvelope)
+            {
+                if (risingEdge)
+                {
+                    _calculator.TriggerAttack();
+                }
+                else if (fallingEdge && triggerMode == AdsrCalculator.TriggerMode.Gate)
+                {
+                    _calculator.TriggerRelease();
+                }
+
+                // Update envelope (frame-based for UI display)
+                _calculator.Update(shouldPlay, context.LocalFxTime, attack, decay, sustain, release, triggerMode, duration);
+            }
+
+            // Apply envelope to volume only if UseEnvelope is enabled
+            var envelopeModulatedVolume = useEnvelope ? volume * _calculator.Value : volume;
 
             // Handle pause/resume transitions
             if (shouldPause != _wasPausedLastFrame)
@@ -101,7 +162,7 @@ namespace Lib.io.audio
                 filePath: filePath,
                 shouldPlay: shouldPlay,
                 shouldStop: shouldStop,
-                volume: volume,
+                volume: envelopeModulatedVolume,
                 mute: mute,
                 panning: panning,
                 speed: speed,
@@ -112,6 +173,7 @@ namespace Lib.io.audio
             GetLevel.Value = AudioEngine.GetOperatorLevel(_operatorId);
             GetWaveform.Value = AudioEngine.GetOperatorWaveform(_operatorId);
             GetSpectrum.Value = AudioEngine.GetOperatorSpectrum(_operatorId);
+            EnvelopeValue.Value = useEnvelope ? _calculator.Value : 1f;
         }
 
         public int RenderAudio(double startTime, double duration, float[] buffer)
