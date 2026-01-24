@@ -61,19 +61,19 @@ internal static class ConformAssetPaths
             var targetFile = Path.Combine(targetPath, relative);
 
             Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
-        
+
             // Use true to overwrite if a file with the same name exists in the target
-            file.MoveTo(targetFile, true); 
+            file.MoveTo(targetFile, true);
         }
     }
-    
+
     private static void UpdateCsprojFile(string packageFolder)
     {
         var projectFiles = Directory.GetFiles(packageFolder, "*.csproj");
         foreach (var projFile in projectFiles)
         {
             var content = File.ReadAllText(projFile);
-        
+
             // This targets both the Include and Link attributes in your ItemGroup
             var updatedContent = content
                                 .Replace("Include=\"Resources/", "Include=\"Assets/")
@@ -87,7 +87,7 @@ internal static class ConformAssetPaths
             }
         }
     }
-    
+
     /// <summary>
     /// Validates and updates the asset-paths of all loaded symbols 
     /// </summary>
@@ -182,11 +182,11 @@ internal static class ConformAssetPaths
                 {
                     stringUi.FileFilter = migratedFilter;
                     symbol.GetSymbolUi().FlagAsModified();
-                }                
-                
+                }
+
                 if (TryConvertResourcePathFuzzy(stringValue.Value, symbol, out var converted))
                 {
-                    Log.Debug($"{symbol.SymbolPackage.Name}: {stringValue.Value} -> {converted}");
+                    Log.Debug($"Migrated asset reference for {symbol}.{inputUi.InputDefinition.Name}: {stringValue.Value} -> {converted}");
                     stringValue.Value = converted;
                 }
 
@@ -258,13 +258,12 @@ internal static class ConformAssetPaths
         {
             nonRooted = nonRooted[resourcesPrefix.Length..];
         }
-        
+
         // Skip package name
         if (nonRooted.StartsWith(symbol.SymbolPackage.Name + "/"))
         {
             nonRooted = nonRooted[(symbol.SymbolPackage.Name.Length + 1)..];
         }
-        
 
         //absolutePath = $"{symbol.SymbolPackage.ResourcesFolder}/{nonRooted}";
         newPath = $"{symbol.SymbolPackage.Name}:{nonRooted}";
@@ -278,20 +277,27 @@ internal static class ConformAssetPaths
         if (string.IsNullOrWhiteSpace(path) || IsAbsoluteFilePath(path))
             return false;
 
-        
         var separatorCount = path.Count(c => c == AssetRegistry.PackageSeparator);
-    
+
         // If it's a valid address already, leave it be.
         if (separatorCount == 1 && AssetRegistry.TryGetAsset(path, out _))
             return false;
 
+        // Ignore URLs
+        if (path.Contains("://"))
+            return false;
+
+        // Ignore wildcards...
+        if (path.IndexOfAny(['{', '}', '*']) != -1)
+            return false;
+
         string fileName;
-        if (separatorCount > 1)
+        if (separatorCount > 0)
         {
             // Fix double-alias: take everything after the last colon
             var lastAddressIndex = path.LastIndexOf(AssetRegistry.PackageSeparator);
-            fileName = path[(lastAddressIndex + 1)..]; 
-        
+            fileName = path[(lastAddressIndex + 1)..];
+
             // If the remainder is a path, get just the filename for healing
             if (fileName.Contains('/'))
                 fileName = Path.GetFileName(fileName);
@@ -307,7 +313,7 @@ internal static class ConformAssetPaths
             return true;
         }
 
-        // 2. Fallback: Strip legacy prefixes
+        // Strip legacy prefixes
         var conformed = path.Replace("\\", "/").TrimStart('/');
         const string legacyPrefix = "Resources/";
         if (conformed.StartsWith(legacyPrefix, StringComparison.OrdinalIgnoreCase))
@@ -315,14 +321,20 @@ internal static class ConformAssetPaths
             conformed = conformed[legacyPrefix.Length..];
         }
 
+        if (separatorCount == 1)
+        {
+            var separator = conformed.IndexOf(AssetRegistry.PackageSeparator);
+            conformed = conformed[(separator + 1)..];
+        }
+
         newPath = $"{symbol.SymbolPackage.Name}:{conformed}";
         return !string.Equals(newPath, path, StringComparison.Ordinal);
     }
-    
+
     private static bool TryMigrateFilterString(string legacyFilter, out string migratedFilter)
     {
         migratedFilter = legacyFilter;
-        
+
         // If it doesn't contain the Windows separator, it might already be migrated
         if (string.IsNullOrWhiteSpace(legacyFilter) || !legacyFilter.Contains('|'))
             return false;
@@ -348,5 +360,4 @@ internal static class ConformAssetPaths
             return false;
         }
     }
-    
 }
