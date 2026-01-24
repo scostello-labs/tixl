@@ -3,7 +3,7 @@
   "Inputs": [
     {
       "Id": "2418e72c-b15f-42a8-9689-a53fe59aa9ad"/*Folder*/,
-      "DefaultValue": "Examples:t3/images/sequences/agingFacesFemale/"
+      "DefaultValue": "Examples:images/sequences/agingFacesMale"
     }
   ],
   "Children": [

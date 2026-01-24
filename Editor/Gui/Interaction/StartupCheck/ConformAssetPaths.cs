@@ -3,10 +3,8 @@ using System.Text;
 using T3.Core.Model;
 using T3.Core.Operator;
 using T3.Core.Operator.Slots;
-using T3.Core.Resource;
 using T3.Core.Resource.Assets;
 using T3.Core.UserData;
-using T3.Core.Utils;
 using T3.Editor.Gui.InputUi.SimpleInputUis;
 using T3.Editor.UiModel;
 using T3.Editor.UiModel.InputsAndTypes;
@@ -18,13 +16,14 @@ internal static class ConformAssetPaths
     /// <summary>
     /// Should be called before loading assets
     /// </summary>
-    public static void RenameResourcesToAssets(SymbolPackage package)
+    /// <returns>True if something was moved</returns>
+    public static bool RenameResourcesToAssets(SymbolPackage package)
     {
         var oldPath = Path.Combine(package.Folder, FileLocations.LegacyResourcesSubfolder);
         var newPath = Path.Combine(package.Folder, FileLocations.AssetsSubfolder);
 
         if (!Directory.Exists(oldPath))
-            return;
+            return false;
 
         try
         {
@@ -47,6 +46,8 @@ internal static class ConformAssetPaths
         {
             Log.Error($"Migration failed for {package.Name}: {e.Message}");
         }
+
+        return true;
     }
 
     private static void MoveFilesRecursively(string sourcePath, string targetPath)
@@ -192,16 +193,12 @@ internal static class ConformAssetPaths
                     stringValue.Value = convertedFolderPath;
                 }
 
-                if (!AssetRegistry.TryResolveAddress(stringValue.Value, null, out var absolutePath, out _, isFolder: true))
+                if (!AssetRegistry.TryResolveAddress(stringValue.Value, null, out var absolutePath, out _, isFolder: true)
+                    && !string.IsNullOrEmpty(stringValue.Value))
                 {
-                    if (symbolChild == null)
-                    {
-                        Log.Warning($"Dir not found for default of: {symbol}.{inputUi.InputDefinition.Name}:  {stringValue.Value} => '{absolutePath}'");
-                    }
-                    else
-                    {
-                        Log.Warning($"Dir not found in: {symbolChild.Parent} / {symbol.Name}.{inputUi.InputDefinition.Name}: {stringValue.Value} => '{absolutePath}'");
-                    }
+                    Log.Warning(symbolChild == null
+                                    ? $"Can't find default asset folder for: {symbol}.{inputUi.InputDefinition.Name}:  {stringValue.Value} => '{absolutePath}'"
+                                    : $"Can't find asset folder: {symbolChild.Parent?.Name} / {symbolChild.Symbol.Name}.{inputUi.InputDefinition.Name}: {stringValue.Value} => '{absolutePath}'");
                 }
 
                 return;
@@ -229,9 +226,6 @@ internal static class ConformAssetPaths
         var colon = path.IndexOf(':');
         if (colon != -1)
         {
-            if (colon <= 1)
-                return false;
-
             return false;
         }
 
@@ -278,48 +272,44 @@ internal static class ConformAssetPaths
         if (string.IsNullOrWhiteSpace(path) || IsAbsoluteFilePath(path))
             return false;
 
-        // Check if already valid
-        if (path.Contains(':') && AssetRegistry.TryGetAsset(path, out _))
+        
+        var separatorCount = path.Count(c => c == AssetRegistry.PackageSeparator);
+    
+        // If it's a valid address already, leave it be.
+        if (separatorCount == 1 && AssetRegistry.TryGetAsset(path, out _))
             return false;
 
-        //var fileName = ;
-
-        var fileName = string.Empty;
-        var invalidFormat = path.Count(c => c == AssetRegistry.PackageSeparator) > 1;
-        if (invalidFormat)
+        string fileName;
+        if (separatorCount > 1)
         {
-            var lastAddressIndex = path.LastIndexOfAny([':','/']);
-            if(lastAddressIndex < path.Length-1)
-                fileName = path[(lastAddressIndex+1)..];
+            // Fix double-alias: take everything after the last colon
+            var lastAddressIndex = path.LastIndexOf(AssetRegistry.PackageSeparator);
+            fileName = path[(lastAddressIndex + 1)..]; 
+        
+            // If the remainder is a path, get just the filename for healing
+            if (fileName.Contains('/'))
+                fileName = Path.GetFileName(fileName);
         }
         else
         {
-            fileName= Path.GetFileName(path);
+            fileName = Path.GetFileName(path);
         }
-        
 
-        // 1. Use the pre-built global index from the registry
         if (AssetRegistry.TryHealPath(fileName, out var healedAddress))
         {
             newPath = healedAddress;
             return true;
         }
 
-        // 2. Fallback: Force into current package
+        // 2. Fallback: Strip legacy prefixes
         var conformed = path.Replace("\\", "/").TrimStart('/');
-        
-        // Strip the legacy "Resources/" prefix if it exists in the string
         const string legacyPrefix = "Resources/";
         if (conformed.StartsWith(legacyPrefix, StringComparison.OrdinalIgnoreCase))
         {
             conformed = conformed[legacyPrefix.Length..];
-            newPath = $"{symbol.SymbolPackage.Name}:{conformed}";
-            return true;
         }
 
-        return false;
+        newPath = $"{symbol.SymbolPackage.Name}:{conformed}";
+        return !string.Equals(newPath, path, StringComparison.Ordinal);
     }
-
-
-    private static readonly Dictionary<string, string> _filenameToAddressCache = new(StringComparer.OrdinalIgnoreCase);
 }

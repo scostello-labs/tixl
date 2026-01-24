@@ -128,7 +128,7 @@ public static class AssetRegistry
         return false;
     }
 
-    internal static void RegisterAssetsFromPackage(SymbolPackage package)
+    public static void RegisterAssetsFromPackage(SymbolPackage package)
     {
         var root = package.ResourcesFolder;
         if (!Directory.Exists(root)) return;
@@ -160,7 +160,7 @@ public static class AssetRegistry
             RegisterEntry(new FileInfo(dirInfo.FullName), root, packageAlias, packageId, true);
         }
 
-        Log.Debug($"{packageAlias}: Registered {_assetsByAddress.Count(a => a.Value.PackageId == packageId)} assets (including directories).");
+        //Log.Debug($"{packageAlias}: Registered {_assetsByAddress.Count(a => a.Value.PackageId == packageId)} assets (including directories).");
     }
 
     public static Asset RegisterEntry(FileSystemInfo info, string root, string packageAlias, Guid packageId, bool isDirectory)

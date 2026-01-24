@@ -641,11 +641,6 @@
           "Value": 16.5
         },
         {
-          "Id": "ca8724d8-a362-4af4-bdf8-a80a1b0ef72e"/*FolderWithImages*/,
-          "Type": "System.String",
-          "Value": "Examples:user/wake/proj-bigeater/images/00-cats/"
-        },
-        {
           "Id": "cabb74b7-72c3-4916-8096-5890fc8e7023"/*BackgroundColor*/,
           "Type": "System.Numerics.Vector4",
           "Value": {
@@ -8067,12 +8062,6 @@
       "SourceSlotId": "e011dd8c-1b9c-458f-8960-e6c38e83ca74",
       "TargetParentOrChildId": "e92710ec-6af9-437a-a608-5dab26865da6",
       "TargetSlotId": "98314ae6-b2a9-433b-90e9-931b059ae62e"
-    },
-    {
-      "SourceParentOrChildId": "27260080-c43e-4c24-8d2c-f99668839cb6",
-      "SourceSlotId": "a8127182-4b8d-4be2-8c50-9ce475d2699d",
-      "TargetParentOrChildId": "ea8210ac-934a-4c1a-a939-65c3be0b7e2a",
-      "TargetSlotId": "d4b5c642-9cb9-4f41-8739-edbb9c6c4857"
     },
     {
       "SourceParentOrChildId": "557c9499-bcfd-4485-96bd-2899422ab618",

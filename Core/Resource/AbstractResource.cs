@@ -255,6 +255,9 @@ public sealed class Resource<T> : IDisposable, IResource
         var absolute = _fileResource?.AbsolutePath !=null ?
                            $"'{_fileResource?.AbsolutePath}'"
                            :string.Empty;
+
+        if (string.IsNullOrEmpty(absolute))
+            return newValue;
             
         var reason = failureReason ?? "Failed";
         var errorLog = $"{reason} '{_userPath}' {absolute} for {typeof(T).Name}";

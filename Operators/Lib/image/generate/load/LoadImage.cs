@@ -23,7 +23,10 @@ internal sealed class LoadImage : Instance<LoadImage>, IDescriptiveFilename, ISt
         if (Texture.Value == null)
         {
             _lastErrorMessage = "Failed to load texture: " + Path.Value;
-            Log.Warning(_lastErrorMessage, this);
+            
+            if(!string.IsNullOrEmpty(Path.Value))
+                Log.Warning(_lastErrorMessage, this);
+            
             return;
         }
 

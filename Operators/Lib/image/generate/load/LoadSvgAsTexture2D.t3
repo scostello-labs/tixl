@@ -7,7 +7,7 @@
     },
     {
       "Id": "f4860e75-eff7-4e6e-a144-016ff5bb054e"/*Path*/,
-      "DefaultValue": "/t3/images/svg/t3logo.svg"
+      "DefaultValue": "Examples:test-footage/svg/t3logo.svg"
     }
   ],
   "Children": [],

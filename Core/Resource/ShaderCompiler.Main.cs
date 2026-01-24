@@ -49,7 +49,7 @@ public abstract partial class ShaderCompiler
                 if (!forceRecompile && TryLoadCached(hash, out compiledBlob, out reason))
                 {
                     success = true;
-                    reason = "loaded from cache";
+                    //reason = "loaded from cache";
                 }
                 else
                 {
