@@ -34,13 +34,7 @@
     {
       "Id": "018b4e2a-13c7-480b-b9bb-807a4b56addb"/*FadingSlideShow*/,
       "SymbolId": "cb89ed1d-03ea-4880-bfa0-1dd723e4bdab",
-      "InputValues": [
-        {
-          "Id": "ca8724d8-a362-4af4-bdf8-a80a1b0ef72e"/*FolderWithImages*/,
-          "Type": "System.String",
-          "Value": "Examples:user/pixtur/VJ/agingFacesFemale/"
-        }
-      ],
+      "InputValues": [],
       "Outputs": []
     },
     {
@@ -1104,11 +1098,6 @@
           "Id": "c3765d6d-4f45-4425-a86c-1cdd13eff296"/*Scale*/,
           "Type": "System.Single",
           "Value": 1.73
-        },
-        {
-          "Id": "ca8724d8-a362-4af4-bdf8-a80a1b0ef72e"/*FolderWithImages*/,
-          "Type": "System.String",
-          "Value": "Examples:user/pixtur/VJ/agingFacesMale2/"
         }
       ],
       "Outputs": []
@@ -1422,11 +1411,6 @@
           "Id": "c3765d6d-4f45-4425-a86c-1cdd13eff296"/*Scale*/,
           "Type": "System.Single",
           "Value": 2.05
-        },
-        {
-          "Id": "ca8724d8-a362-4af4-bdf8-a80a1b0ef72e"/*FolderWithImages*/,
-          "Type": "System.String",
-          "Value": "Examples:user/pixtur/VJ/agingFacesFemale/"
         }
       ],
       "Outputs": []
@@ -1702,13 +1686,7 @@
     {
       "Id": "4c514c8b-fe08-495a-9552-309dbd01b4d1"/*FadingSlideShow*/,
       "SymbolId": "cb89ed1d-03ea-4880-bfa0-1dd723e4bdab",
-      "InputValues": [
-        {
-          "Id": "ca8724d8-a362-4af4-bdf8-a80a1b0ef72e"/*FolderWithImages*/,
-          "Type": "System.String",
-          "Value": "Examples:user/pixtur/VJ/agingFacesMale2/"
-        }
-      ],
+      "InputValues": [],
       "Outputs": []
     },
     {
@@ -5265,13 +5243,7 @@
     {
       "Id": "df682745-dcd6-4d2b-9825-6dbd2de712fe"/*FadingSlideShow*/,
       "SymbolId": "cb89ed1d-03ea-4880-bfa0-1dd723e4bdab",
-      "InputValues": [
-        {
-          "Id": "ca8724d8-a362-4af4-bdf8-a80a1b0ef72e"/*FolderWithImages*/,
-          "Type": "System.String",
-          "Value": "Examples:user/pixtur/VJ/agingFacesMale2/"
-        }
-      ],
+      "InputValues": [],
       "Outputs": []
     },
     {
@@ -5453,7 +5425,7 @@
         {
           "Id": "0e255347-08bc-4363-9ffa-ab863a1cea8e"/*Path*/,
           "Type": "System.String",
-          "Value": "C:\\Users\\pixtur\\Desktop\\algoraveOhm-setRecording_2023-12-06_1920x1080_60fps.mp4"
+          "Value": "C:/Users/pixtur/Desktop/algoraveOhm-setRecording_2023-12-06_1920x1080_60fps.mp4"
         },
         {
           "Id": "21b5671b-862f-4cea-a355-fa019996c936"/*Loop*/,
