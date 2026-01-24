@@ -5,6 +5,7 @@ using T3.Core.Compilation;
 using T3.Core.IO;
 using T3.Core.Model;
 using T3.Core.Resource;
+using T3.Core.Resource.Assets;
 using T3.Core.UserData;
 using T3.Editor.External;
 using T3.Editor.Gui.Interaction.StartupCheck;
@@ -61,9 +62,14 @@ internal static partial class ProjectSetup
 
         // Phase 1: Initial Startup Migration
         // This happens only once here and not in subsequent UpdateSymbolPackages calls
+        
         foreach (var package in ActivePackages)
         {
-            ConformAssetPaths.RenameResourcesToAssets(package);
+            if (ConformAssetPaths.RenameResourcesToAssets(package))
+            {
+                Log.Debug($"Rescanning {package.Name} assets after migration...");
+                AssetRegistry.RegisterAssetsFromPackage(package);
+            }
         }
         
         // Register UI types

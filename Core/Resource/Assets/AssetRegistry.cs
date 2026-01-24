@@ -128,7 +128,7 @@ public static class AssetRegistry
         return false;
     }
 
-    internal static void RegisterAssetsFromPackage(SymbolPackage package)
+    public static void RegisterAssetsFromPackage(SymbolPackage package)
     {
         var root = package.ResourcesFolder;
         if (!Directory.Exists(root)) return;

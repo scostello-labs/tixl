@@ -63,6 +63,7 @@
 - [ ] Handle File asset Drag and Drop between folders
 - [ ] Collect AssetReferences on package load
 - [ ] List all uses for an Asset
+- [ ] Highlight current project in Asset browser (Bold?)
 - [ ] Replace [...] button with "open asset lib" window action
 - [ ] Automatically open "Examples" instead of "Lib" on Asset Library
 - 
