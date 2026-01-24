@@ -281,9 +281,7 @@ internal static class ConformAssetPaths
         // Check if already valid
         if (path.Contains(':') && AssetRegistry.TryGetAsset(path, out _))
             return false;
-
-        //var fileName = ;
-
+        
         var fileName = string.Empty;
         var invalidFormat = path.Count(c => c == AssetRegistry.PackageSeparator) > 1;
         if (invalidFormat)
