@@ -7,44 +7,37 @@ using System.IO;
 namespace T3.Core.Resource.Assets;
 
 /// <summary>
-/// Defines a potential file resource in a SymbolProject 
+/// Defines a potential file resource in a SymbolProject.
 /// </summary>
 public sealed class Asset
 {
     public required string Address;
     public required Guid PackageId;
     public FileSystemInfo? FileSystemInfo;
-    
+
     public AssetType AssetType = AssetType.Unknown;
     public int ExtensionId;
-    
+
     public bool IsDirectory;
 
     // Added to support folder structure in UI without re-parsing
     public IReadOnlyList<string> PathParts { get; internal init; } = [];
-    
-    public long FileSize 
+
+    public long FileSize
     {
-        get 
+        get
         {
             if (FileSystemInfo is not FileInfo fi) return 0;
-            fi.Refresh(); 
+            fi.Refresh();
             return fi.Exists ? fi.Length : 0;
         }
     }
-    
-    public static readonly Asset Unknown = new Asset
-                                               {
-                                                   Address = string.Empty,
-                                                   PackageId = default
-                                               };
 
     public override string ToString()
     {
-        return Address + (IsDirectory? " (Dir)" : AssetType);
+        return Address + (IsDirectory ? " (Dir)" : AssetType);
     }
 }
-
 
 /// <summary>
 /// A reference of a symbol child or input to an Package

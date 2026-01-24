@@ -6,6 +6,8 @@ using SharpDX.Direct3D11;
 using SharpDX.DXGI;
 using T3.Core.DataTypes;
 using T3.Core.Logging;
+using T3.Core.Resource.Assets;
+using T3.Core.UserData;
 using ComputeShader = T3.Core.DataTypes.ComputeShader;
 using Texture2D = T3.Core.DataTypes.Texture2D;
 
@@ -219,7 +221,8 @@ public sealed class TextureBgraReadAccess : IDisposable
         if (_convertComputeShaderResource != null)
             return;
 
-        const string sourcePath = @"img\ConvertFormat-cs.hlsl";
+        const string sourceAddress = FileLocations.LibPackageName + ":shaders/img/ConvertFormat-cs.hlsl";
+        AssetRegistry.TryResolveUri(sourceAddress, null,out var sourcePath, out _);
         const string entryPoint = "main";
         //const string debugName = "resolve-convert-texture-format";
 

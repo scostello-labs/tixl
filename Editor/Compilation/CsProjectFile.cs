@@ -355,7 +355,7 @@ internal sealed class CsProjectFile
         var dependenciesDirectory = Path.Combine(destinationDirectory, ProjectXml.DependenciesFolder);
         System.IO.Directory.CreateDirectory(dependenciesDirectory);
 
-        var resourcesDirectory = Path.Combine(destinationDirectory, FileLocations.ResourcesSubfolder);
+        var resourcesDirectory = Path.Combine(destinationDirectory, FileLocations.AssetsSubfolder);
         System.IO.Directory.CreateDirectory(resourcesDirectory);
 
         string placeholderDependencyPath = Path.Combine(dependenciesDirectory, "PlaceNativeDllDependenciesHere.txt");

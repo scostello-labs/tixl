@@ -104,7 +104,7 @@ public abstract partial class SymbolPackage : IResourcePackage
 
     protected virtual void InitializeResources()
     {
-        ResourcesFolder = Path.Combine(Folder, FileLocations.ResourcesSubfolder);
+        ResourcesFolder = Path.Combine(Folder, FileLocations.AssetsSubfolder);
 
         // Avoid creating resource folder in protected program folder
         if (!IsReadOnly)

@@ -23,7 +23,8 @@ public static class SharedResources
     //     ResourceManager.AddSharedResourceFolder(ResourcePackage, true);
     // }
     
-    public static readonly string Directory = Path.Combine(FileLocations.StartFolder, FileLocations.ResourcesSubfolder);
+    
+    public static readonly string Directory = Path.Combine(FileLocations.StartFolder, FileLocations.EditorResourcesSubfolder);
     public static readonly string EditorSubFolder = "Editor";
     //public static readonly IResourcePackage ResourcePackage = new SharedResourceObject();
     

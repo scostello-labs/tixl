@@ -51,7 +51,8 @@ public static string TestReferencesFolder => Path.Combine(".tixl", TestsSubFolde
     
     public static readonly string DefaultProjectFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), AppSubFolder);
     public const string LegacyResourcesSubfolder = "Resources";
-    public const string ResourcesSubfolder = "Resources";
+    public const string AssetsSubfolder = "Assets";
+    public const string EditorResourcesSubfolder = "Resources";
     public const string DependenciesFolder = "dependencies";
     public const string SymbolsSubfolder = "Symbols";
     public const string SymbolUiSubFolder = "SymbolUis";

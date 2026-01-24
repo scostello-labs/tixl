@@ -133,9 +133,9 @@ public static class AssetRegistry
         var root = package.ResourcesFolder;
         if (!Directory.Exists(root)) return;
 
+        var di = new DirectoryInfo(root);
         var packageId = package.Id;
         var packageAlias = package.Name;
-        var di = new DirectoryInfo(root);
 
         RegisterEntry(di, root, packageAlias, packageId, isDirectory: true);
 
@@ -145,7 +145,10 @@ public static class AssetRegistry
             if (FileLocations.IgnoredFiles.Contains(fileInfo.Name))
                 continue;
 
-            RegisterEntry(fileInfo, root, packageAlias, packageId, false);
+            var asset =RegisterEntry(fileInfo, root, packageAlias, packageId, false);
+            
+            // Populate the healer index to avoid double-scanning
+            _healerIndex.TryAdd(fileInfo.Name, asset.Address);
         }
 
         // Register all directories
@@ -160,7 +163,7 @@ public static class AssetRegistry
         Log.Debug($"{packageAlias}: Registered {_assetsByAddress.Count(a => a.Value.PackageId == packageId)} assets (including directories).");
     }
 
-    public static void RegisterEntry(FileSystemInfo info, string root, string packageAlias, Guid packageId, bool isDirectory)
+    public static Asset RegisterEntry(FileSystemInfo info, string root, string packageAlias, Guid packageId, bool isDirectory)
     {
         info.Refresh();
         
@@ -195,6 +198,7 @@ public static class AssetRegistry
                         };
 
         _assetsByAddress[address] = asset;
+        return asset;
     }
 
     internal static void UnregisterPackage(Guid packageId)
@@ -317,6 +321,9 @@ public static class AssetRegistry
         }
     }
 
+    public static bool TryHealPath(string filename, [NotNullWhen(true)] out string? healedAddress) 
+        => _healerIndex.TryGetValue(filename, out healedAddress);
+    
     public const char PathSeparator = '/';
     public const char PackageSeparator = ':';
 
@@ -324,4 +331,5 @@ public static class AssetRegistry
 
     private static readonly ConcurrentDictionary<string, Asset> _assetsByAddress = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, List<AssetReference>> _usagesByAddress = new();
+    private static readonly ConcurrentDictionary<string, string> _healerIndex = new(StringComparer.OrdinalIgnoreCase);
 }

@@ -150,7 +150,7 @@ internal static partial class PlayerExporter
             {
                 return Path.Combine(exportDir, "Operators",
                                     _packageRootNamespace,
-                                    FileLocations.ResourcesSubfolder,
+                                    FileLocations.AssetsSubfolder,
                                     _relativePathInResourcesFolder);
             }
 

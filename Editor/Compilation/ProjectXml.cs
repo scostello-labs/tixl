@@ -351,8 +351,8 @@ internal static partial class ProjectXml
             new ContentInclude.Group(Condition: null, Content: new ContentInclude(include: CreateIncludePath(args: [".", DependenciesFolder, IncludeAllStr]))),
             new ContentInclude.Group(Condition: _releaseConfigCondition, Content:
                 [
-                    new ContentInclude(include: CreateIncludePath(args: [FileLocations.ResourcesSubfolder, IncludeAllStr]),
-                                       linkDirectory: FileLocations.ResourcesSubfolder,
+                    new ContentInclude(include: CreateIncludePath(args: [FileLocations.AssetsSubfolder, IncludeAllStr]),
+                                       linkDirectory: FileLocations.AssetsSubfolder,
                                        exclude: _excludeFoldersFromOutput),
                     new ContentInclude(include: string.Format(format: FileIncludeFmt, arg0: SymbolPackage.SymbolExtension),
                                        linkDirectory: FileLocations.SymbolsSubfolder,

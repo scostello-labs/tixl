@@ -7,6 +7,7 @@ using T3.Core.Model;
 using T3.Core.Resource;
 using T3.Core.UserData;
 using T3.Editor.External;
+using T3.Editor.Gui.Interaction.StartupCheck;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.UiModel;
 
@@ -58,6 +59,13 @@ internal static partial class ProjectSetup
         // Load projects
         LoadProjects(csProjFiles, forceRecompile, failedProjects: out _);
 
+        // Phase 1: Initial Startup Migration
+        // This happens only once here and not in subsequent UpdateSymbolPackages calls
+        foreach (var package in ActivePackages)
+        {
+            ConformAssetPaths.RenameResourcesToAssets(package);
+        }
+        
         // Register UI types
         UiRegistration.RegisterUiTypes();
 
