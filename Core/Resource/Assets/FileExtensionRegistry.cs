@@ -85,7 +85,7 @@ public static class FileExtensionRegistry
             }
         }
     }
-
+    
     // Returns normalized extension without leading dot, keeps composite (e.g. "tar.gz"), or null to skip.
     private static string? ExtractExtensionFromPattern(string pattern)
     {
@@ -106,6 +106,33 @@ public static class FileExtensionRegistry
         // Anything with wildcards beyond the leading "*." is unsupported → skip
         return null;
     }
+    
+    /// <summary>
+    /// A helper method that generates a list of filter ids from an
+    /// extension set string (e.g. "mp4, mov, m4v")
+    /// </summary>
+    /// <param name="filter"></param>
+    /// <returns></returns>
+    public static HashSet<int> GetExtensionIdsFromExtensionSetString(string? filter)
+    {
+        var ids = new HashSet<int>();
+        if (string.IsNullOrWhiteSpace(filter)) return ids;
+
+        // Now just a simple comma-separated list
+        var extensions = filter.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var ext in extensions)
+        {
+            
+            var cleanExt = ext.Trim();
+            if (string.IsNullOrEmpty(cleanExt))
+                continue;
+            
+            ids.Add(GetUniqueId(cleanExt));
+        }
+        return ids;
+    }    
+    
     
     
     private static readonly Dictionary<string,int> _map = new(StringComparer.OrdinalIgnoreCase);

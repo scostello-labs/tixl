@@ -15,6 +15,7 @@ internal static class ShaderLinter
 {
     public static void AddPackage(IResourcePackage package, IEnumerable<IResourcePackage>? additionalPackages, bool replaceExisting = false)
     {
+        // package.ResourcesFolder now points to ".../Assets"
         var filePath = Path.Combine(package.ResourcesFolder, FileName);
         var jsonObject = new HlslToolsJson(filePath);
         var resourceFolderList = jsonObject.IncludeDirectories;
@@ -23,6 +24,7 @@ internal static class ShaderLinter
         resourceFolderList.Add(package.ResourcesFolder);
         if (package.Name != null)
         {
+            // Maps "/ProjectName" to ".../ProjectName/Assets"
             virtualIncludeDirectories.Add('/' + package.Name, package.ResourcesFolder);
         }
 

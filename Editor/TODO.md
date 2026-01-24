@@ -66,7 +66,6 @@
 - [ ] Highlight current project in Asset browser (Bold?)
 - [ ] Replace [...] button with "open asset lib" window action
 - [ ] Automatically open "Examples" instead of "Lib" on Asset Library
-- 
 
 optional:
 - [ ] ~~Add some kind of cache which projects have been "fixed"~~ 

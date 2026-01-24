@@ -19,7 +19,7 @@ namespace T3.Editor.Gui.Input;
 ///
 /// It should work for now, but it's likely to break with future versions of ImGui.
 /// </remarks>
-internal static partial class ResourceInputWithTypeAheadSearch
+internal static class ResourceInputWithTypeAheadSearch
 {
     //public readonly record struct Args(string Label, IEnumerable<string> Items, bool Warning);
 

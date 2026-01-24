@@ -46,46 +46,56 @@ internal static class FilePickingUi
                 SearchResourceConsumer = new TempResourceConsumer(packagesInCommon);
             }
         }
-
+        
         var isFolder = type == FileOperations.FilePickerTypes.Folder;
-        var exists = AssetRegistry.TryResolveAddress(filterAndSelectedPath, SearchResourceConsumer, out _, out _, isFolder);
+        var requiredExtensionIds = FileExtensionRegistry.GetExtensionIdsFromExtensionSetString(fileFilter);
 
+
+
+        
+        var exists = AssetRegistry.TryResolveAddress(filterAndSelectedPath, SearchResourceConsumer, out _, out _, isFolder);
+        
+        //return ResourceInputWithTypeAheadSearch.Draw("##filePathSearch", allItems, !exists, ref filterAndSelectedPath, out _);
+        //
+        // var isFolder = type == FileOperations.FilePickerTypes.Folder;
+        // var exists = AssetRegistry.TryResolveAddress(filterAndSelectedPath, SearchResourceConsumer, out _, out _, isFolder);
+        //
         var warning = type switch
                           {
                               FileOperations.FilePickerTypes.File when !exists   => "File doesn't exist:\n",
                               FileOperations.FilePickerTypes.Folder when !exists => "Directory doesn't exist:\n",
                               _                                                  => string.Empty
                           };
-
+        
         if (warning != string.Empty)
             ImGui.PushStyleColor(ImGuiCol.Text, UiColors.StatusAnimated.Rgba);
-
+        
         var fileManagerOpen = _fileManagerOpen;
         if (fileManagerOpen)
         {
             ImGui.BeginDisabled();
         }
-
+        
         var fileFiltersInCommon = ExtendFileFilterWithSelectedOps(fileFilter, selectedInstances);
-
+        
         var inputEditStateFlags = InputEditStateFlags.Nothing;
         if (filterAndSelectedPath != null && SearchResourceConsumer != null)
         {
-            var allItems = ResourceManager.EnumeratePackagesResources(fileFiltersInCommon,
-                                                              isFolder,
-                                                              SearchResourceConsumer.AvailableResourcePackages,
-                                                              ResourceManager.PathMode.PackageUri);
-
+            var allItems = AssetRegistry.AllAssets
+                                        .Where(a => a.IsDirectory == isFolder && 
+                                                    (requiredExtensionIds.Count == 0 || requiredExtensionIds.Contains(a.ExtensionId)))
+                                        .Select(a => a.Address);
+        
             var changed = ResourceInputWithTypeAheadSearch.Draw("##filePathSearch", allItems, !exists, ref filterAndSelectedPath, out _);
-
+        
             var result = new InputResult(changed, filterAndSelectedPath);
             filterAndSelectedPath = result.Value;
             inputEditStateFlags = result.Modified ? InputEditStateFlags.Modified : InputEditStateFlags.Nothing;
         }
-
+        
         if (warning != string.Empty)
             ImGui.PopStyleColor();
-
+        
         if (ImGui.IsItemHovered() && filterAndSelectedPath != null && filterAndSelectedPath.Length > 0 &&
             ImGui.CalcTextSize(filterAndSelectedPath).X > ImGui.GetItemRectSize().X)
         {
@@ -93,10 +103,10 @@ internal static class FilePickingUi
             ImGui.TextUnformatted(warning + filterAndSelectedPath);
             ImGui.EndTooltip();
         }
-
+        
         ImGui.SameLine();
         //var modifiedByPicker = FileOperations.DrawFileSelector(type, ref value, filter);
-
+        
         if (ImGui.Button("...##fileSelector"))
         {
             if (SearchResourceConsumer != null)
@@ -108,35 +118,35 @@ internal static class FilePickingUi
                 Log.Warning("Can open file manager with undefined resource consumer");
             }
         }
-
+        
         if (fileManagerOpen)
         {
             ImGui.EndDisabled();
         }
-
+        
         // refresh value because 
-
+        
         string? fileManValue;
         lock (_fileManagerResultLock)
         {
             fileManValue = _latestFileManagerResult;
             _latestFileManagerResult = null;
         }
-
+        
         var valueIsUpdated = !string.IsNullOrEmpty(fileManValue) && fileManValue != filterAndSelectedPath;
-
+        
         if (valueIsUpdated)
         {
             filterAndSelectedPath = fileManValue;
             inputEditStateFlags |= InputEditStateFlags.Modified;
         }
-
+        
         if (_hasClosedFileManager)
         {
             _hasClosedFileManager = false;
             inputEditStateFlags |= InputEditStateFlags.Finished;
         }
-
+        
         return inputEditStateFlags;
     }
 

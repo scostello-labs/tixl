@@ -178,6 +178,12 @@ internal static class ConformAssetPaths
         {
             case StringInputUi.UsageType.FilePath:
             {
+                if (TryMigrateFilterString(stringUi.FileFilter, out var migratedFilter))
+                {
+                    stringUi.FileFilter = migratedFilter;
+                    symbol.GetSymbolUi().FlagAsModified();
+                }                
+                
                 if (TryConvertResourcePathFuzzy(stringValue.Value, symbol, out var converted))
                 {
                     Log.Debug($"{symbol.SymbolPackage.Name}: {stringValue.Value} -> {converted}");
@@ -312,4 +318,35 @@ internal static class ConformAssetPaths
         newPath = $"{symbol.SymbolPackage.Name}:{conformed}";
         return !string.Equals(newPath, path, StringComparison.Ordinal);
     }
+    
+    private static bool TryMigrateFilterString(string legacyFilter, out string migratedFilter)
+    {
+        migratedFilter = legacyFilter;
+        
+        // If it doesn't contain the Windows separator, it might already be migrated
+        if (string.IsNullOrWhiteSpace(legacyFilter) || !legacyFilter.Contains('|'))
+            return false;
+
+        try
+        {
+            // Extract the extension pattern part (e.g., "*.mp4;*.mov")
+            var parts = legacyFilter.Split('|');
+            var patterns = parts.Length > 1 ? parts[1] : parts[0];
+
+            // Clean up into a simple list: "mp4, mov"
+            var extensions = patterns.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                     .Select(ext => ext.Trim().TrimStart('*', '.'))
+                                     .Where(ext => !string.Equals(ext, "*", StringComparison.Ordinal)) // Ignore wildcards
+                                     .Distinct();
+
+            migratedFilter = string.Join(", ", extensions);
+            return !string.Equals(legacyFilter, migratedFilter, StringComparison.Ordinal);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Failed to migrate filter string '{legacyFilter}': {e.Message}");
+            return false;
+        }
+    }
+    
 }
