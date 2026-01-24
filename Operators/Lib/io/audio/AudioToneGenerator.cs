@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
+#nullable enable
 using ManagedBass;
 using ManagedBass.Mix;
 using T3.Core.Audio;
-using T3.Core.Logging;
-using T3.Core.Operator;
-using T3.Core.Operator.Attributes;
-using T3.Core.Operator.Slots;
-using System.Numerics;
+// ReSharper disable UnusedMember.Local
+// ReSharper disable MemberCanBePrivate.Global
 
 namespace Lib.io.audio
 {
@@ -67,7 +62,9 @@ namespace Lib.io.audio
         {
             Result.UpdateAction += Update;
             IsPlaying.UpdateAction += Update;
-            GetLevel.UpdateAction += Update;
+            
+            // Do not update on GetLevel - it overrides stale state when result is not evaluating
+            //GetLevel.UpdateAction += Update;
         }
 
         private void Update(EvaluationContext context)
@@ -214,6 +211,7 @@ namespace Lib.io.audio
             }
 
             private int _streamHandle;
+            // ReSharper disable once NotAccessedField.Local
             private readonly int _mixerHandle;
             private double _phase;
 
@@ -299,7 +297,7 @@ namespace Lib.io.audio
 
             // Instance-level noise state to avoid static issues with multiple instances
             private readonly Random _noiseRng = new();
-            private double _pink_b0, _pink_b1, _pink_b2;
+            private double _pinkB0, _pinkB1, _pinkB2;
 
             private float GenerateSample(double phase, int waveType)
             {
@@ -321,10 +319,10 @@ namespace Lib.io.audio
                     case 5: // PinkNoise
                         {
                             double white = _noiseRng.NextDouble() * 2.0 - 1.0;
-                            _pink_b0 = 0.99765 * _pink_b0 + white * 0.0990460;
-                            _pink_b1 = 0.96300 * _pink_b1 + white * 0.2965164;
-                            _pink_b2 = 0.57000 * _pink_b2 + white * 1.0526913;
-                            double pink = _pink_b0 + _pink_b1 + _pink_b2 + white * 0.1848;
+                            _pinkB0 = 0.99765 * _pinkB0 + white * 0.0990460;
+                            _pinkB1 = 0.96300 * _pinkB1 + white * 0.2965164;
+                            _pinkB2 = 0.57000 * _pinkB2 + white * 1.0526913;
+                            double pink = _pinkB0 + _pinkB1 + _pinkB2 + white * 0.1848;
                             return (float)(pink * 0.15);
                         }
                     default:

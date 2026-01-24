@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Numerics;
-using ManagedBass;
 using T3.Core.Audio;
-using T3.Core.Logging;
+// ReSharper disable MemberCanBePrivate.Global
 
 namespace Lib.io.audio
 {
@@ -67,7 +63,9 @@ namespace Lib.io.audio
         {
             Result.UpdateAction += Update;
             IsPlaying.UpdateAction += Update;
-            GetLevel.UpdateAction += Update;
+            
+            // Do not update on GetLevel - it overrides stale state when result is not evaluating
+            //GetLevel.UpdateAction += Update;
         }
 
         private void Update(EvaluationContext context)
