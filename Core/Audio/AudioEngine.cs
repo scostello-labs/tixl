@@ -175,6 +175,14 @@ public static class AudioEngine
             SoundtrackClipStreams[handle].DisableSoundtrackStream();
             SoundtrackClipStreams.Remove(handle);
         }
+        
+        // Always update FFT buffer from mixer when in soundtrack mode, even if no soundtrack is loaded.
+        // This ensures audio metering operators (AudioWaveform, PlaybackFFT, AudioReaction, etc.)
+        // continue to work with operator-generated audio when no soundtrack is loaded.
+        if (!handledMainSoundtrack && !playback.IsRenderingToFile)
+        {
+            UpdateFftBufferFromSoundtrack(playback);
+        }
     }
 
     public static void SetSoundtrackMute(bool configSoundtrackMute) => IsSoundtrackMuted = configSoundtrackMute;
