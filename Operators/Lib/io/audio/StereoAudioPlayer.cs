@@ -45,8 +45,7 @@ namespace Lib.io.audio
 
         [Input(Guid = "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e")]
         public readonly InputSlot<bool> UseEnvelope = new();
-
-        // ADSR Envelope as Vector4: X=Attack, Y=Decay, Z=Sustain, W=Release
+        
         [Input(Guid = "3dbcbbe6-a8b4-4b83-a2c0-e22b24b91b42")]
         public readonly InputSlot<Vector4> Envelope = new();
 
@@ -56,20 +55,8 @@ namespace Lib.io.audio
         [Output(Guid = "960aa0a3-89b4-4eff-8b52-36ff6965cf8f")]
         public readonly Slot<bool> IsPlaying = new();
 
-        [Output(Guid = "3f8a9c2e-5d7b-4e1f-a6c8-9d2e1f3b5a7c")]
-        public readonly Slot<bool> IsPaused = new();
-
         [Output(Guid = "b09d215a-bcf0-479a-a649-56f9c698ecb1")]
         public readonly Slot<float> GetLevel = new();
-
-        [Output(Guid = "8f4e2d1a-3b7c-4d89-9e12-7a5b8c9d0e1f")]
-        public readonly Slot<List<float>> GetWaveform = new();
-
-        [Output(Guid = "7f8e9d2a-4b5c-3e89-8f12-6a5b9c8d0e2f")]
-        public readonly Slot<List<float>> GetSpectrum = new();
-
-        [Output(Guid = "c46c2799-ed04-4ec5-9175-dfcfc488525a")]
-        public readonly Slot<float> EnvelopeValue = new();
 
         private Guid _operatorId;
         private bool _wasPausedLastFrame;
@@ -80,11 +67,7 @@ namespace Lib.io.audio
         {
             Result.UpdateAction += Update;
             IsPlaying.UpdateAction += Update;
-            IsPaused.UpdateAction += Update;
             GetLevel.UpdateAction += Update;
-            GetWaveform.UpdateAction += Update;
-            GetSpectrum.UpdateAction += Update;
-            EnvelopeValue.UpdateAction += Update;
         }
 
         private void Update(EvaluationContext context)
@@ -169,26 +152,7 @@ namespace Lib.io.audio
                 seek: seek);
 
             IsPlaying.Value = AudioEngine.IsOperatorStreamPlaying(_operatorId);
-            IsPaused.Value = AudioEngine.IsOperatorPaused(_operatorId);
             GetLevel.Value = AudioEngine.GetOperatorLevel(_operatorId);
-            GetWaveform.Value = AudioEngine.GetOperatorWaveform(_operatorId);
-            GetSpectrum.Value = AudioEngine.GetOperatorSpectrum(_operatorId);
-            EnvelopeValue.Value = useEnvelope ? _calculator.Value : 1f;
-        }
-
-        public int RenderAudio(double startTime, double duration, float[] buffer)
-        {
-            if (AudioEngine.TryGetStereoOperatorStream(_operatorId, out var stream) && stream != null)
-                return stream.RenderAudio(startTime, duration, buffer, AudioConfig.MixerFrequency, 2);
-
-            Array.Clear(buffer, 0, buffer.Length);
-            return buffer.Length;
-        }
-
-        public void RestoreVolumeAfterExport()
-        {
-            if (AudioEngine.TryGetStereoOperatorStream(_operatorId, out var stream) && stream != null)
-                Bass.ChannelSetAttribute(stream.StreamHandle, ChannelAttribute.Volume, Volume.Value);
         }
 
         ~StereoAudioPlayer()
