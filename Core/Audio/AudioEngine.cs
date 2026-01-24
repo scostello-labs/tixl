@@ -1,14 +1,11 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Numerics;
 using ManagedBass;
-using ManagedBass.Mix;
 using T3.Core.Animation;
 using T3.Core.IO;
 using T3.Core.Logging;
 using T3.Core.Operator;
-using T3.Core.Resource;
 using T3.Core.Resource.Assets;
 
 namespace T3.Core.Audio;
@@ -378,16 +375,6 @@ public static class AudioEngine
     /// <param name="operatorId">The unique identifier of the operator.</param>
     /// <returns>The current audio level, or 0 if the stream is not found.</returns>
     public static float GetOperatorLevel(Guid operatorId) => GetOperatorLevelInternal(_stereoOperatorStates, operatorId);
-    
-    /// <summary>Gets the waveform data for the specified stereo operator.</summary>
-    /// <param name="operatorId">The unique identifier of the operator.</param>
-    /// <returns>A list of waveform sample values, or an empty list if the stream is not found.</returns>
-    public static List<float> GetOperatorWaveform(Guid operatorId) => GetOperatorWaveformInternal(_stereoOperatorStates, operatorId);
-    
-    /// <summary>Gets the frequency spectrum data for the specified stereo operator.</summary>
-    /// <param name="operatorId">The unique identifier of the operator.</param>
-    /// <returns>A list of spectrum values, or an empty list if the stream is not found.</returns>
-    public static List<float> GetOperatorSpectrum(Guid operatorId) => GetOperatorSpectrumInternal(_stereoOperatorStates, operatorId);
 
     /// <summary>
     /// Attempts to retrieve the stereo audio stream for the specified operator.
@@ -497,16 +484,6 @@ public static class AudioEngine
     /// <param name="operatorId">The unique identifier of the operator.</param>
     /// <returns>The current audio level, or 0 if the stream is not found.</returns>
     public static float GetSpatialOperatorLevel(Guid operatorId) => GetOperatorLevelInternal(_spatialOperatorStates, operatorId);
-    
-    /// <summary>Gets the waveform data for the specified spatial operator.</summary>
-    /// <param name="operatorId">The unique identifier of the operator.</param>
-    /// <returns>A list of waveform sample values, or an empty list if the stream is not found.</returns>
-    public static List<float> GetSpatialOperatorWaveform(Guid operatorId) => GetOperatorWaveformInternal(_spatialOperatorStates, operatorId);
-    
-    /// <summary>Gets the frequency spectrum data for the specified spatial operator.</summary>
-    /// <param name="operatorId">The unique identifier of the operator.</param>
-    /// <returns>A list of spectrum values, or an empty list if the stream is not found.</returns>
-    public static List<float> GetSpatialOperatorSpectrum(Guid operatorId) => GetOperatorSpectrumInternal(_spatialOperatorStates, operatorId);
 
     /// <summary>
     /// Attempts to retrieve the spatial audio stream for the specified operator.
@@ -556,20 +533,22 @@ public static class AudioEngine
         return state;
     }
 
-    private static string? ResolveFilePath(string filePath)
+    private static string ResolveFilePath(string filePath)
     {
-        if (string.IsNullOrEmpty(filePath)) return filePath;
-        if (System.IO.File.Exists(filePath)) return filePath;
+        if (string.IsNullOrEmpty(filePath) || System.IO.File.Exists(filePath)) 
+            return filePath;
 
-        if (AssetRegistry.TryResolveAddress(filePath, null, out var absolutePath, out var resourceContainer))
-        {
-            AudioConfig.LogAudioDebug($"[AudioEngine] Resolved: {filePath} → {absolutePath}");
-            return absolutePath;
-        } else
+        if (!AssetRegistry.TryResolveAddress(filePath, null, out var absolutePath, out _))
         {
             Log.Error($"[AudioEngine] Could not resolve file path: {filePath}");
         }
-            return filePath;
+        else
+        {
+            AudioConfig.LogAudioDebug($"[AudioEngine] Resolved: {filePath} → {absolutePath}");
+            return absolutePath;
+        }
+
+        return filePath;
     }
 
     private static bool HandleFileChange<T>(OperatorAudioState<T> state, string? resolvedPath, Guid operatorId,
@@ -593,15 +572,14 @@ public static class AudioEngine
         }
 
         // During export, mark new streams as stale
-        if (state.Stream != null && Playback.Current.IsRenderingToFile)
-        {
-            state.IsStale = true;
-            state.Stream.SetStaleMuted(true);
-            AudioConfig.LogAudioDebug($"[AudioEngine] New stream during export - marking stale: {resolvedPath}");
-            return false;
-        }
+        if (state.Stream == null || !Playback.Current.IsRenderingToFile) 
+            return true;
+        
+        state.IsStale = true;
+        state.Stream.SetStaleMuted(true);
+        AudioConfig.LogAudioDebug($"[AudioEngine] New stream during export - marking stale: {resolvedPath}");
+        return false;
 
-        return true;
     }
 
     private static bool HandlePlaybackTriggers<T>(OperatorAudioState<T> state, bool shouldPlay, bool shouldStop, Guid operatorId)
@@ -690,21 +668,6 @@ public static class AudioEngine
             : 0f;
     }
 
-    private static List<float> GetOperatorWaveformInternal<T>(Dictionary<Guid, OperatorAudioState<T>> states, Guid operatorId)
-        where T : OperatorAudioStreamBase
-    {
-        return states.TryGetValue(operatorId, out var state) && state.Stream != null
-            ? state.Stream.GetWaveform()
-            : new List<float>();
-    }
-
-    private static List<float> GetOperatorSpectrumInternal<T>(Dictionary<Guid, OperatorAudioState<T>> states, Guid operatorId)
-        where T : OperatorAudioStreamBase
-    {
-        return states.TryGetValue(operatorId, out var state) && state.Stream != null
-            ? state.Stream.GetSpectrum()
-            : new List<float>();
-    }
 
     /// <summary>
     /// Unregisters an operator from audio playback and disposes its associated streams.
@@ -798,7 +761,7 @@ public static class AudioEngine
         if (AudioMixerManager.GlobalMixerHandle != 0)
         {
             if (Bass.ChannelIsActive(AudioMixerManager.GlobalMixerHandle) != PlaybackState.Playing)
-                Bass.ChannelPlay(AudioMixerManager.GlobalMixerHandle, false);
+                Bass.ChannelPlay(AudioMixerManager.GlobalMixerHandle);
             Bass.ChannelUpdate(AudioMixerManager.GlobalMixerHandle, 0);
         }
 

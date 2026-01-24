@@ -104,25 +104,25 @@ public sealed class SpatialOperatorAudioStream : OperatorAudioStreamBase
         Bass.Apply3D();
     }
 
-    public override void Play()
+    internal override void Play()
     {
         base.Play();
         Bass.Apply3D();
     }
 
-    public override void Resume()
+    internal override void Resume()
     {
         base.Resume();
         Bass.Apply3D();
     }
 
-    public override void RestartAfterExport()
+    internal override void RestartAfterExport()
     {
         base.RestartAfterExport();
         Bass.Apply3D();
     }
 
-    public override void PrepareForExport()
+    internal override void PrepareForExport()
     {
         base.PrepareForExport();
         Bass.Apply3D();

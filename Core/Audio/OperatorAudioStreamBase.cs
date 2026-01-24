@@ -1,10 +1,14 @@
 #nullable enable
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using ManagedBass;
 using ManagedBass.Mix;
 using T3.Core.Logging;
+// ReSharper disable UnusedAutoPropertyAccessor.Global
+// ReSharper disable UnusedAutoPropertyAccessor.Local
+// ReSharper disable UnusedParameter.Local
+// ReSharper disable InconsistentNaming
 
 namespace T3.Core.Audio;
 
@@ -14,37 +18,87 @@ namespace T3.Core.Audio;
 /// </summary>
 public abstract class OperatorAudioStreamBase
 {
-    public double Duration { get; protected set; }
-    public int StreamHandle { get; protected set; }
-    public int MixerStreamHandle { get; protected set; }
-    public bool IsPaused { get; set; }
-    public bool IsPlaying { get; set; }
+    /// <summary>
+    /// Gets the duration of the audio stream in seconds.
+    /// </summary>
+    internal double Duration { get; init; }
+    
+    /// <summary>
+    /// Gets the BASS stream handle for this audio stream.
+    /// </summary>
+    public int StreamHandle { get; protected init; }
+    
+    /// <summary>
+    /// Gets the BASS mixer stream handle that this stream is connected to.
+    /// </summary>
+    internal int MixerStreamHandle { get; init; }
+    
+    /// <summary>
+    /// Gets or sets whether the stream is currently paused.
+    /// </summary>
+    internal bool IsPaused { get; set; }
+    
+    /// <summary>
+    /// Gets or sets whether the stream is currently playing.
+    /// </summary>
+    internal bool IsPlaying { get; set; }
+    
+    /// <summary>
+    /// Gets the file path of the loaded audio file.
+    /// </summary>
     public string FilePath { get; protected set; } = string.Empty;
 
+    /// <summary>
+    /// Gets or sets the default playback frequency of the stream.
+    /// </summary>
     protected float DefaultPlaybackFrequency { get; set; }
-    protected float CurrentVolume = 1.0f;
-    protected float CurrentSpeed = 1.0f;
+    
+    /// <summary>
+    /// The current volume level (0.0 to 1.0).
+    /// </summary>
+    private float CurrentVolume = 1.0f;
+    
+    /// <summary>
+    /// The current playback speed multiplier.
+    /// </summary>
+    private float CurrentSpeed = 1.0f;
+    
+    /// <summary>
+    /// Cached number of channels in the audio stream.
+    /// </summary>
     protected int CachedChannels;
+    
+    /// <summary>
+    /// Cached sample frequency of the audio stream.
+    /// </summary>
     protected int CachedFrequency;
+    
+    /// <summary>
+    /// Indicates whether the stream is muted due to being stale (not actively used).
+    /// </summary>
     protected bool IsStaleMuted;
-    protected bool IsUserMuted;
-
-    protected readonly List<float> WaveformBuffer = new();
-    protected readonly List<float> SpectrumBuffer = new();
-    protected const int WaveformSamples = 512;
-    protected const int WaveformWindowSamples = 1024;
-    protected const int SpectrumBands = 512;
-
-    // Export metering
-    protected float? ExportLevel;
-    protected List<float>? ExportWaveform;
-    protected List<float>? ExportSpectrum;
-
-    protected OperatorAudioStreamBase() { }
+    
+    /// <summary>
+    /// Indicates whether the stream is muted by user request.
+    /// </summary>
+    private bool IsUserMuted;
 
     /// <summary>
-    /// Loads a stream from file and adds it to the mixer.
+    /// The audio level during export, if available.
     /// </summary>
+    private float? ExportLevel;
+
+    /// <summary>
+    /// Attempts to load an audio stream from a file and add it to the mixer.
+    /// </summary>
+    /// <param name="filePath">The path to the audio file to load.</param>
+    /// <param name="mixerHandle">The BASS mixer handle to add the stream to.</param>
+    /// <param name="additionalFlags">Additional BASS flags to apply when creating the stream.</param>
+    /// <param name="streamHandle">When successful, contains the created stream handle.</param>
+    /// <param name="defaultFreq">When successful, contains the default frequency of the stream.</param>
+    /// <param name="info">When successful, contains the channel information.</param>
+    /// <param name="duration">When successful, contains the duration of the stream in seconds.</param>
+    /// <returns><c>true</c> if the stream was successfully loaded and added to the mixer; otherwise, <c>false</c>.</returns>
     protected static bool TryLoadStreamCore(
         string filePath, 
         int mixerHandle, 
@@ -103,7 +157,10 @@ public abstract class OperatorAudioStreamBase
         return true;
     }
 
-    public virtual void Play()
+    /// <summary>
+    /// Starts playback of the audio stream.
+    /// </summary>
+    internal virtual void Play()
     {
         IsStaleMuted = false;
         BassMix.ChannelFlags(StreamHandle, 0, BassFlags.MixerChanPause);
@@ -112,14 +169,20 @@ public abstract class OperatorAudioStreamBase
         Bass.ChannelUpdate(MixerStreamHandle, 0);
     }
 
-    public void Pause()
+    /// <summary>
+    /// Pauses playback of the audio stream.
+    /// </summary>
+    internal void Pause()
     {
         if (!IsPlaying || IsPaused) return;
         BassMix.ChannelFlags(StreamHandle, BassFlags.MixerChanPause, BassFlags.MixerChanPause);
         IsPaused = true;
     }
 
-    public virtual void Resume()
+    /// <summary>
+    /// Resumes playback of a paused audio stream.
+    /// </summary>
+    internal virtual void Resume()
     {
         if (!IsPaused) return;
         BassMix.ChannelFlags(StreamHandle, 0, BassFlags.MixerChanPause);
@@ -127,7 +190,10 @@ public abstract class OperatorAudioStreamBase
         Bass.ChannelUpdate(MixerStreamHandle, 0);
     }
 
-    public void Stop()
+    /// <summary>
+    /// Stops playback and resets the stream position to the beginning.
+    /// </summary>
+    internal void Stop()
     {
         IsPlaying = false;
         IsPaused = false;
@@ -137,7 +203,12 @@ public abstract class OperatorAudioStreamBase
         BassMix.ChannelSetPosition(StreamHandle, position, PositionFlags.Bytes | PositionFlags.MixerReset);
     }
 
-    public void SetStaleMuted(bool muted, string reason = "")
+    /// <summary>
+    /// Sets the stale-muted state of the stream. Stale streams are muted to prevent audio artifacts.
+    /// </summary>
+    /// <param name="muted">Whether the stream should be muted due to being stale.</param>
+    /// <param name="reason">Optional reason for the mute state change (for debugging).</param>
+    internal void SetStaleMuted(bool muted, string reason = "")
     {
         if (IsStaleMuted == muted) return;
         IsStaleMuted = muted;
@@ -152,7 +223,12 @@ public abstract class OperatorAudioStreamBase
         }
     }
 
-    public void SetVolume(float volume, bool mute)
+    /// <summary>
+    /// Sets the volume and mute state of the stream.
+    /// </summary>
+    /// <param name="volume">The volume level (0.0 to 1.0).</param>
+    /// <param name="mute">Whether the stream should be muted.</param>
+    internal void SetVolume(float volume, bool mute)
     {
         CurrentVolume = volume;
         IsUserMuted = mute;
@@ -163,7 +239,11 @@ public abstract class OperatorAudioStreamBase
         Bass.ChannelSetAttribute(StreamHandle, ChannelAttribute.Volume, finalVolume);
     }
 
-    public void SetSpeed(float speed)
+    /// <summary>
+    /// Sets the playback speed of the stream.
+    /// </summary>
+    /// <param name="speed">The playback speed multiplier (clamped between 0.1 and 4.0).</param>
+    internal void SetSpeed(float speed)
     {
         if (Math.Abs(speed - CurrentSpeed) < 0.001f) return;
 
@@ -174,13 +254,20 @@ public abstract class OperatorAudioStreamBase
         CurrentSpeed = clampedSpeed;
     }
 
-    public void Seek(float timeInSeconds)
+    /// <summary>
+    /// Seeks to a specific position in the audio stream.
+    /// </summary>
+    /// <param name="timeInSeconds">The position to seek to, in seconds.</param>
+    internal void Seek(float timeInSeconds)
     {
         var position = Bass.ChannelSeconds2Bytes(StreamHandle, timeInSeconds);
         BassMix.ChannelSetPosition(StreamHandle, position, PositionFlags.Bytes | PositionFlags.MixerReset);
     }
 
-    public virtual void RestartAfterExport()
+    /// <summary>
+    /// Restarts the stream after an export operation, resetting position and restoring playback state.
+    /// </summary>
+    internal virtual void RestartAfterExport()
     {
         IsStaleMuted = false;
 
@@ -196,36 +283,30 @@ public abstract class OperatorAudioStreamBase
         Bass.ChannelUpdate(MixerStreamHandle, 0);
     }
 
-    public void UpdateFromBuffer(float[] buffer)
+    /// <summary>
+    /// Updates the export level metering from an audio buffer.
+    /// </summary>
+    /// <param name="buffer">The audio buffer containing sample data.</param>
+    internal void UpdateFromBuffer(float[] buffer)
     {
-        float peak = 0f;
-        for (int i = 0; i < buffer.Length; i++)
-            peak = Math.Max(peak, Math.Abs(buffer[i]));
+        float peak = buffer.Select(Math.Abs).Prepend(0f).Max();
+
         ExportLevel = Math.Min(peak, 1f);
-
-        ExportWaveform = new List<float>(WaveformSamples);
-        int step = Math.Max(1, buffer.Length / WaveformSamples);
-        for (int i = 0; i < WaveformSamples; i++)
-        {
-            int start = i * step;
-            int end = Math.Min(start + step, buffer.Length);
-            float sum = 0f;
-            for (int j = start; j < end; j++)
-                sum += Math.Abs(buffer[j]);
-            ExportWaveform.Add((end > start) ? sum / (end - start) : 0f);
-        }
-
-        ExportSpectrum = new List<float>(new float[SpectrumBands]);
     }
 
-    public void ClearExportMetering()
+    /// <summary>
+    /// Clears the export metering level.
+    /// </summary>
+    internal void ClearExportMetering()
     {
         ExportLevel = null;
-        ExportWaveform = null;
-        ExportSpectrum = null;
     }
 
-    public float GetLevel()
+    /// <summary>
+    /// Gets the current audio level of the stream for metering purposes.
+    /// </summary>
+    /// <returns>The peak audio level (0.0 to 1.0).</returns>
+    internal float GetLevel()
     {
         if (ExportLevel.HasValue) return ExportLevel.Value;
         if (!IsPlaying || (IsPaused && !IsStaleMuted)) return 0f;
@@ -238,87 +319,39 @@ public abstract class OperatorAudioStreamBase
         return Math.Min(Math.Max(left, right), 1f);
     }
 
-    public List<float> GetWaveform()
-    {
-        if (ExportWaveform != null) return ExportWaveform;
-        if (!IsPlaying || (IsPaused && !IsStaleMuted)) return EnsureBuffer(WaveformBuffer, WaveformSamples);
-
-        UpdateWaveformFromPcm();
-        return WaveformBuffer;
-    }
-
-    public List<float> GetSpectrum()
-    {
-        if (ExportSpectrum != null) return ExportSpectrum;
-        if (!IsPlaying || (IsPaused && !IsStaleMuted)) return EnsureBuffer(SpectrumBuffer, SpectrumBands);
-
-        UpdateSpectrum();
-        return SpectrumBuffer;
-    }
-
-    protected static List<float> EnsureBuffer(List<float> buffer, int size)
-    {
-        if (buffer.Count == 0)
-            for (int i = 0; i < size; i++) buffer.Add(0f);
-        return buffer;
-    }
-
-    protected void UpdateWaveformFromPcm()
-    {
-        if (CachedChannels <= 0) return;
-
-        int sampleCount = WaveformWindowSamples * CachedChannels;
-        var buffer = new short[sampleCount];
-        int bytesReceived = BassMix.ChannelGetData(StreamHandle, buffer, sampleCount * sizeof(short));
-
-        if (bytesReceived <= 0) return;
-
-        int frames = (bytesReceived / sizeof(short)) / CachedChannels;
-        if (frames <= 0) return;
-
-        WaveformBuffer.Clear();
-        float step = frames / (float)WaveformSamples;
-
-        for (int i = 0; i < WaveformSamples; i++)
-        {
-            int frameIndex = Math.Min((int)(i * step), frames - 1);
-            int frameBase = frameIndex * CachedChannels;
-            float sum = 0f;
-
-            for (int ch = 0; ch < CachedChannels; ch++)
-                sum += Math.Abs(buffer[frameBase + ch] / 32768f);
-
-            WaveformBuffer.Add(sum / CachedChannels);
-        }
-    }
-
-    protected void UpdateSpectrum()
-    {
-        float[] spectrum = new float[SpectrumBands];
-        int bytes = BassMix.ChannelGetData(StreamHandle, spectrum, (int)DataFlags.FFT512);
-        if (bytes <= 0) return;
-
-        SpectrumBuffer.Clear();
-        for (int i = 0; i < SpectrumBands; i++)
-        {
-            var db = 20f * Math.Log10(Math.Max(spectrum[i], 1e-5f));
-            SpectrumBuffer.Add((float)Math.Clamp((db + 60f) / 60f, 0f, 1f));
-        }
-    }
-
+    /// <summary>
+    /// Renders audio data from this stream into an output buffer with resampling support.
+    /// </summary>
+    /// <param name="startTime">The start time in seconds.</param>
+    /// <param name="duration">The duration to render in seconds.</param>
+    /// <param name="outputBuffer">The buffer to write the rendered audio data to.</param>
+    /// <param name="targetSampleRate">The target sample rate for the output.</param>
+    /// <param name="targetChannels">The target number of channels for the output.</param>
+    /// <returns>The number of samples written to the output buffer.</returns>
     public int RenderAudio(double startTime, double duration, float[] outputBuffer, int targetSampleRate, int targetChannels)
     {
         int nativeSampleRate = CachedFrequency > 0 ? CachedFrequency : 44100;
         int nativeChannels = GetNativeChannelCount();
         OperatorAudioUtils.FillAndResample(
-            (s, d, buf) => RenderNativeAudio(s, d, buf),
+            RenderNativeAudio,
             startTime, duration, outputBuffer,
             nativeSampleRate, nativeChannels, targetSampleRate, targetChannels);
         return outputBuffer.Length;
     }
 
+    /// <summary>
+    /// Gets the native channel count of the audio stream.
+    /// </summary>
+    /// <returns>The number of channels in the native audio stream.</returns>
     protected virtual int GetNativeChannelCount() => CachedChannels > 0 ? CachedChannels : 2;
 
+    /// <summary>
+    /// Renders audio data in the native format of the stream.
+    /// </summary>
+    /// <param name="startTime">The start time in seconds.</param>
+    /// <param name="duration">The duration to render in seconds.</param>
+    /// <param name="buffer">The buffer to write the audio data to.</param>
+    /// <returns>The number of samples read.</returns>
     private int RenderNativeAudio(double startTime, double duration, float[] buffer)
     {
         int bytesToRead = buffer.Length * sizeof(float);
@@ -326,6 +359,10 @@ public abstract class OperatorAudioStreamBase
         return bytesRead > 0 ? bytesRead / sizeof(float) : 0;
     }
 
+    /// <summary>
+    /// Gets the current playback position of the stream.
+    /// </summary>
+    /// <returns>The current position in seconds.</returns>
     public double GetCurrentPosition()
     {
         long positionBytes = BassMix.ChannelGetPosition(StreamHandle);
@@ -333,14 +370,20 @@ public abstract class OperatorAudioStreamBase
         return Bass.ChannelBytes2Seconds(StreamHandle, positionBytes);
     }
 
-    public void Dispose()
+    /// <summary>
+    /// Disposes of the audio stream, releasing all BASS resources.
+    /// </summary>
+    internal void Dispose()
     {
         Bass.ChannelStop(StreamHandle);
         BassMix.MixerRemoveChannel(StreamHandle);
         Bass.StreamFree(StreamHandle);
     }
 
-    public virtual void PrepareForExport()
+    /// <summary>
+    /// Prepares the stream for export by pausing playback, muting, and resetting position.
+    /// </summary>
+    internal virtual void PrepareForExport()
     {
         IsPlaying = false;
         IsPaused = false;
