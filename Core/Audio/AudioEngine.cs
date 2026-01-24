@@ -55,11 +55,20 @@ public static class AudioEngine
 
     #region Soundtrack Management
 
+    /// <summary>
+    /// Registers a soundtrack clip to be used at the specified time during the current frame.
+    /// </summary>
+    /// <param name="handle">The audio clip resource handle.</param>
+    /// <param name="time">The playback time in seconds.</param>
     public static void UseSoundtrackClip(AudioClipResourceHandle handle, double time)
     {
         _updatedSoundtrackClipTimes[handle] = time;
     }
 
+    /// <summary>
+    /// Reloads a soundtrack clip by freeing the existing stream and re-registering it.
+    /// </summary>
+    /// <param name="handle">The audio clip resource handle to reload.</param>
     public static void ReloadSoundtrackClip(AudioClipResourceHandle handle)
     {
         if (SoundtrackClipStreams.TryGetValue(handle, out var stream))
@@ -70,6 +79,12 @@ public static class AudioEngine
         UseSoundtrackClip(handle, 0);
     }
 
+    /// <summary>
+    /// Completes the audio processing for the current frame, handling soundtrack clips,
+    /// FFT analysis, and stale operator detection.
+    /// </summary>
+    /// <param name="playback">The current playback state.</param>
+    /// <param name="frameDurationInSeconds">The duration of the current frame in seconds.</param>
     public static void CompleteFrame(Playback playback, double frameDurationInSeconds)
     {
         EnsureBassInitialized();
@@ -185,8 +200,20 @@ public static class AudioEngine
         }
     }
 
+    /// <summary>
+    /// Sets the mute state for the soundtrack audio.
+    /// </summary>
+    /// <param name="configSoundtrackMute">True to mute the soundtrack, false to unmute.</param>
     public static void SetSoundtrackMute(bool configSoundtrackMute) => IsSoundtrackMuted = configSoundtrackMute;
+    
+    /// <summary>
+    /// Gets a value indicating whether the soundtrack is currently muted.
+    /// </summary>
     public static bool IsSoundtrackMuted { get; private set; }
+    
+    /// <summary>
+    /// Gets a value indicating whether global audio is currently muted.
+    /// </summary>
     public static bool IsGlobalMuted => ProjectSettings.Config.GlobalMute;
 
     internal static void UpdateFftBufferFromSoundtrack(Playback playback)
@@ -217,6 +244,11 @@ public static class AudioEngine
             WaveFormProcessing.InterleavenSampleBuffer, lengthInBytes);
     }
 
+    /// <summary>
+    /// Gets the number of audio channels for a soundtrack clip.
+    /// </summary>
+    /// <param name="handle">The audio clip resource handle.</param>
+    /// <returns>The number of channels, or 2 (stereo) if the clip is not found.</returns>
     public static int GetClipChannelCount(AudioClipResourceHandle? handle)
     {
         if (handle == null || !SoundtrackClipStreams.TryGetValue(handle, out var clipStream))
@@ -225,6 +257,11 @@ public static class AudioEngine
         return info.Channels;
     }
 
+    /// <summary>
+    /// Gets the sample rate for a soundtrack clip.
+    /// </summary>
+    /// <param name="clip">The audio clip resource handle.</param>
+    /// <returns>The sample rate in Hz, or 48000 if the clip is not found.</returns>
     public static int GetClipSampleRate(AudioClipResourceHandle? clip)
     {
         if (clip == null || !SoundtrackClipStreams.TryGetValue(clip, out var stream))
@@ -237,6 +274,12 @@ public static class AudioEngine
 
     #region 3D Listener
 
+    /// <summary>
+    /// Sets the 3D listener position and orientation for spatial audio.
+    /// </summary>
+    /// <param name="position">The world position of the listener.</param>
+    /// <param name="forward">The forward direction vector of the listener.</param>
+    /// <param name="up">The up direction vector of the listener.</param>
     public static void Set3DListenerPosition(Vector3 position, Vector3 forward, Vector3 up)
     {
         _listenerPosition = position;
@@ -250,14 +293,40 @@ public static class AudioEngine
         }
     }
 
+    /// <summary>
+    /// Gets the current 3D listener position.
+    /// </summary>
+    /// <returns>The world position of the listener.</returns>
     public static Vector3 Get3DListenerPosition() => _listenerPosition;
+    
+    /// <summary>
+    /// Gets the current 3D listener forward direction.
+    /// </summary>
+    /// <returns>The forward direction vector of the listener.</returns>
     public static Vector3 Get3DListenerForward() => _listenerForward;
+    
+    /// <summary>
+    /// Gets the current 3D listener up direction.
+    /// </summary>
+    /// <returns>The up direction vector of the listener.</returns>
     public static Vector3 Get3DListenerUp() => _listenerUp;
 
     #endregion
 
     #region Stereo Operator Playback
 
+    /// <summary>
+    /// Updates the playback state of a stereo audio stream for an operator.
+    /// </summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <param name="filePath">The file path of the audio file to play.</param>
+    /// <param name="shouldPlay">True to trigger playback on rising edge.</param>
+    /// <param name="shouldStop">True to trigger stop on rising edge.</param>
+    /// <param name="volume">The volume level (0.0 to 1.0).</param>
+    /// <param name="mute">True to mute the stream.</param>
+    /// <param name="panning">The stereo panning value (-1.0 left to 1.0 right).</param>
+    /// <param name="speed">The playback speed multiplier (default 1.0).</param>
+    /// <param name="seek">The normalized seek position (0.0 to 1.0).</param>
     public static void UpdateStereoOperatorPlayback(
         Guid operatorId, string filePath, bool shouldPlay, bool shouldStop,
         float volume, bool mute, float panning, float speed = 1.0f, float seek = 0f)
@@ -287,14 +356,45 @@ public static class AudioEngine
         }
     }
 
+    /// <summary>Pauses the audio stream for the specified stereo operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
     public static void PauseOperator(Guid operatorId) => PauseOperatorInternal(_stereoOperatorStates, operatorId);
+    
+    /// <summary>Resumes the audio stream for the specified stereo operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
     public static void ResumeOperator(Guid operatorId) => ResumeOperatorInternal(_stereoOperatorStates, operatorId);
+    
+    /// <summary>Checks if the audio stream is currently playing for the specified stereo operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>True if the stream is playing and not paused; otherwise, false.</returns>
     public static bool IsOperatorStreamPlaying(Guid operatorId) => IsOperatorPlaying(_stereoOperatorStates, operatorId);
+    
+    /// <summary>Checks if the audio stream is currently paused for the specified stereo operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>True if the stream is paused; otherwise, false.</returns>
     public static bool IsOperatorPaused(Guid operatorId) => IsOperatorPausedInternal(_stereoOperatorStates, operatorId);
+    
+    /// <summary>Gets the current audio level for the specified stereo operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>The current audio level, or 0 if the stream is not found.</returns>
     public static float GetOperatorLevel(Guid operatorId) => GetOperatorLevelInternal(_stereoOperatorStates, operatorId);
+    
+    /// <summary>Gets the waveform data for the specified stereo operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>A list of waveform sample values, or an empty list if the stream is not found.</returns>
     public static List<float> GetOperatorWaveform(Guid operatorId) => GetOperatorWaveformInternal(_stereoOperatorStates, operatorId);
+    
+    /// <summary>Gets the frequency spectrum data for the specified stereo operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>A list of spectrum values, or an empty list if the stream is not found.</returns>
     public static List<float> GetOperatorSpectrum(Guid operatorId) => GetOperatorSpectrumInternal(_stereoOperatorStates, operatorId);
 
+    /// <summary>
+    /// Attempts to retrieve the stereo audio stream for the specified operator.
+    /// </summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <param name="stream">When this method returns, contains the stream if found; otherwise, null.</param>
+    /// <returns>True if the stream was found; otherwise, false.</returns>
     public static bool TryGetStereoOperatorStream(Guid operatorId, out StereoOperatorAudioStream? stream)
     {
         stream = null;
@@ -310,6 +410,25 @@ public static class AudioEngine
 
     #region Spatial Operator Playback
 
+    /// <summary>
+    /// Updates the playback state of a spatial (3D) audio stream for an operator.
+    /// </summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <param name="filePath">The file path of the audio file to play.</param>
+    /// <param name="shouldPlay">True to trigger playback on rising edge.</param>
+    /// <param name="shouldStop">True to trigger stop on rising edge.</param>
+    /// <param name="volume">The volume level (0.0 to 1.0).</param>
+    /// <param name="mute">True to mute the stream.</param>
+    /// <param name="position">The 3D world position of the audio source.</param>
+    /// <param name="minDistance">The distance at which the volume starts to attenuate.</param>
+    /// <param name="maxDistance">The distance at which the volume reaches minimum.</param>
+    /// <param name="speed">The playback speed multiplier (default 1.0).</param>
+    /// <param name="seek">The normalized seek position (0.0 to 1.0).</param>
+    /// <param name="orientation">The orientation vector of the sound source for directional audio.</param>
+    /// <param name="innerConeAngle">The inner cone angle in degrees for directional audio.</param>
+    /// <param name="outerConeAngle">The outer cone angle in degrees for directional audio.</param>
+    /// <param name="outerConeVolume">The volume level outside the outer cone.</param>
+    /// <param name="mode3D">The 3D processing mode.</param>
     public static void UpdateSpatialOperatorPlayback(
         Guid operatorId, string filePath, bool shouldPlay, bool shouldStop,
         float volume, bool mute, Vector3 position, float minDistance, float maxDistance,
@@ -356,14 +475,45 @@ public static class AudioEngine
         }
     }
 
+    /// <summary>Pauses the audio stream for the specified spatial operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
     public static void PauseSpatialOperator(Guid operatorId) => PauseOperatorInternal(_spatialOperatorStates, operatorId);
+    
+    /// <summary>Resumes the audio stream for the specified spatial operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
     public static void ResumeSpatialOperator(Guid operatorId) => ResumeOperatorInternal(_spatialOperatorStates, operatorId);
+    
+    /// <summary>Checks if the audio stream is currently playing for the specified spatial operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>True if the stream is playing and not paused; otherwise, false.</returns>
     public static bool IsSpatialOperatorStreamPlaying(Guid operatorId) => IsOperatorPlaying(_spatialOperatorStates, operatorId);
+    
+    /// <summary>Checks if the audio stream is currently paused for the specified spatial operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>True if the stream is paused; otherwise, false.</returns>
     public static bool IsSpatialOperatorPaused(Guid operatorId) => IsOperatorPausedInternal(_spatialOperatorStates, operatorId);
+    
+    /// <summary>Gets the current audio level for the specified spatial operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>The current audio level, or 0 if the stream is not found.</returns>
     public static float GetSpatialOperatorLevel(Guid operatorId) => GetOperatorLevelInternal(_spatialOperatorStates, operatorId);
+    
+    /// <summary>Gets the waveform data for the specified spatial operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>A list of waveform sample values, or an empty list if the stream is not found.</returns>
     public static List<float> GetSpatialOperatorWaveform(Guid operatorId) => GetOperatorWaveformInternal(_spatialOperatorStates, operatorId);
+    
+    /// <summary>Gets the frequency spectrum data for the specified spatial operator.</summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>A list of spectrum values, or an empty list if the stream is not found.</returns>
     public static List<float> GetSpatialOperatorSpectrum(Guid operatorId) => GetOperatorSpectrumInternal(_spatialOperatorStates, operatorId);
 
+    /// <summary>
+    /// Attempts to retrieve the spatial audio stream for the specified operator.
+    /// </summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <param name="stream">When this method returns, contains the stream if found; otherwise, null.</param>
+    /// <returns>True if the stream was found; otherwise, false.</returns>
     public static bool TryGetSpatialOperatorStream(Guid operatorId, out SpatialOperatorAudioStream? stream)
     {
         stream = null;
@@ -556,6 +706,10 @@ public static class AudioEngine
             : new List<float>();
     }
 
+    /// <summary>
+    /// Unregisters an operator from audio playback and disposes its associated streams.
+    /// </summary>
+    /// <param name="operatorId">The unique identifier of the operator to unregister.</param>
     public static void UnregisterOperator(Guid operatorId)
     {
         if (_stereoOperatorStates.TryGetValue(operatorId, out var stereoState))
@@ -605,6 +759,9 @@ public static class AudioEngine
         }
     }
 
+    /// <summary>
+    /// Resets all operator audio streams in preparation for audio export.
+    /// </summary>
     internal static void ResetAllOperatorStreamsForExport()
     {
         ResetOperatorStreamsForExport(_stereoOperatorStates);
@@ -623,6 +780,9 @@ public static class AudioEngine
         }
     }
 
+    /// <summary>
+    /// Updates the stale states for all operator streams during export.
+    /// </summary>
     internal static void UpdateStaleStatesForExport()
     {
         UpdateStaleStates(_stereoOperatorStates);
@@ -630,6 +790,9 @@ public static class AudioEngine
         _operatorsUpdatedThisFrame.Clear();
     }
 
+    /// <summary>
+    /// Restores all operator audio streams after export has completed.
+    /// </summary>
     internal static void RestoreOperatorAudioStreams()
     {
         if (AudioMixerManager.GlobalMixerHandle != 0)
@@ -666,6 +829,9 @@ public static class AudioEngine
 
     #region Device & Volume Management
 
+    /// <summary>
+    /// Handles audio device changes by reinitializing all audio streams.
+    /// </summary>
     public static void OnAudioDeviceChanged()
     {
         DisposeAllOperatorStreams(_stereoOperatorStates);
@@ -687,23 +853,38 @@ public static class AudioEngine
         states.Clear();
     }
 
+    /// <summary>
+    /// Sets the global audio volume level.
+    /// </summary>
+    /// <param name="volume">The volume level (0.0 to 1.0).</param>
     public static void SetGlobalVolume(float volume)
     {
         ProjectSettings.Config.GlobalPlaybackVolume = volume;
         AudioMixerManager.SetGlobalVolume(volume);
     }
 
+    /// <summary>
+    /// Initializes the global volume from the stored project settings.
+    /// </summary>
     public static void InitializeGlobalVolumeFromSettings()
     {
         AudioMixerManager.SetGlobalVolume(ProjectSettings.Config.GlobalPlaybackVolume);
     }
 
+    /// <summary>
+    /// Sets the global audio mute state.
+    /// </summary>
+    /// <param name="mute">True to mute all audio, false to unmute.</param>
     public static void SetGlobalMute(bool mute)
     {
         AudioMixerManager.SetGlobalMute(mute);
         ProjectSettings.Config.GlobalMute = mute;
     }
 
+    /// <summary>
+    /// Sets the mute state for all operator audio streams.
+    /// </summary>
+    /// <param name="mute">True to mute operator audio, false to unmute.</param>
     public static void SetOperatorMute(bool mute)
     {
         AudioMixerManager.SetOperatorMute(mute);
@@ -714,12 +895,20 @@ public static class AudioEngine
 
     #region Export Metering Accessors
 
+    /// <summary>
+    /// Gets all stereo operator states for export metering purposes.
+    /// </summary>
+    /// <returns>An enumerable of operator ID and stream state pairs.</returns>
     public static IEnumerable<KeyValuePair<Guid, (StereoOperatorAudioStream? Stream, bool IsStale)>> GetAllStereoOperatorStates()
     {
         foreach (var kvp in _stereoOperatorStates)
             yield return new KeyValuePair<Guid, (StereoOperatorAudioStream?, bool)>(kvp.Key, (kvp.Value.Stream, kvp.Value.IsStale));
     }
 
+    /// <summary>
+    /// Gets all spatial operator states for export metering purposes.
+    /// </summary>
+    /// <returns>An enumerable of operator ID and stream state pairs.</returns>
     public static IEnumerable<KeyValuePair<Guid, (SpatialOperatorAudioStream? Stream, bool IsStale)>> GetAllSpatialOperatorStates()
     {
         foreach (var kvp in _spatialOperatorStates)
