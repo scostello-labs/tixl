@@ -53,14 +53,21 @@
       }
     },
     {
-      "ChildId": "178a62d3-f119-4310-ba61-e27c21d5e09d"/*StereoAudioPlayer*/,
+      "ChildId": "178a62d3-f119-4310-ba61-e27c21d5e09d"/*AudioPlayer*/,
       "Position": {
         "X": 1795.2355,
         "Y": 905.85706
       }
     },
     {
-      "ChildId": "27374ba9-2136-4833-8c52-a24a27068def"/*StereoAudioPlayer*/,
+      "ChildId": "19fd2997-8f1d-4826-bb92-99e7c8bf85e3"/*TransformMesh*/,
+      "Position": {
+        "X": 3099.3103,
+        "Y": 391.7645
+      }
+    },
+    {
+      "ChildId": "27374ba9-2136-4833-8c52-a24a27068def"/*AudioPlayer*/,
       "Position": {
         "X": 1106.4431,
         "Y": 855.9512
@@ -88,6 +95,13 @@
       }
     },
     {
+      "ChildId": "37a7c635-2f6e-4be1-b45e-bacd3f73905d"/*DrawMesh*/,
+      "Position": {
+        "X": 3099.3103,
+        "Y": 461.7645
+      }
+    },
+    {
       "ChildId": "38cfd7ee-c04a-4ee3-8347-bb5853517b4b"/*DrawLines*/,
       "Position": {
         "X": 1273.4781,
@@ -106,6 +120,13 @@
       "Position": {
         "X": 1110.7972,
         "Y": 2081.416
+      }
+    },
+    {
+      "ChildId": "419ae44b-ca9e-44d9-9248-2d1ccc5061ce"/*SequenceAnim*/,
+      "Position": {
+        "X": 2164.7837,
+        "Y": 584.286
       }
     },
     {
@@ -158,10 +179,24 @@
       }
     },
     {
-      "ChildId": "5db4da1e-801f-42e6-85b7-28e71b3a59c0"/*StereoAudioPlayer*/,
+      "ChildId": "5db4da1e-801f-42e6-85b7-28e71b3a59c0"/*AudioPlayer*/,
       "Position": {
         "X": 1106.4431,
         "Y": 1056.6053
+      }
+    },
+    {
+      "ChildId": "5fb6c5dc-3d96-46f9-957a-5dd08b0a8341"/*OscillateVec3*/,
+      "Position": {
+        "X": 2155.0417,
+        "Y": 408.58893
+      }
+    },
+    {
+      "ChildId": "63957b0f-6b8a-4b88-bcb5-4248c8b2361e"/*Execute*/,
+      "Position": {
+        "X": 3028.1228,
+        "Y": 667.5907
       }
     },
     {
@@ -207,7 +242,7 @@
       }
     },
     {
-      "ChildId": "76039d3e-382c-404e-9c02-cade364738b0"/*StereoAudioPlayer*/,
+      "ChildId": "76039d3e-382c-404e-9c02-cade364738b0"/*AudioPlayer*/,
       "Position": {
         "X": 1106.443,
         "Y": 1135.1057
@@ -235,10 +270,24 @@
       }
     },
     {
+      "ChildId": "940bb0d1-fa95-472c-afcf-fa47805b298a"/*Value*/,
+      "Position": {
+        "X": 2617.6577,
+        "Y": 685.76624
+      }
+    },
+    {
       "ChildId": "9607e7bb-0a51-4665-9f24-cb01f81554be"/*PlayAudioClip*/,
       "Position": {
         "X": 775.9529,
         "Y": 1581.2078
+      }
+    },
+    {
+      "ChildId": "9a384a77-89fc-4dfd-b097-e110f35a00ea"/*SpatialAudioPlayer*/,
+      "Position": {
+        "X": 2443.476,
+        "Y": 613.0639
       }
     },
     {
@@ -249,7 +298,7 @@
       }
     },
     {
-      "ChildId": "9c770b7d-356d-499a-9f0a-bca3f40a0776"/*StereoAudioPlayer*/,
+      "ChildId": "9c770b7d-356d-499a-9f0a-bca3f40a0776"/*AudioPlayer*/,
       "Position": {
         "X": 1106.4431,
         "Y": 934.32806
@@ -288,6 +337,13 @@
       "Position": {
         "X": 1486.6915,
         "Y": 1551.4812
+      }
+    },
+    {
+      "ChildId": "b3ab5f79-29da-45fa-a2c5-0f9025f7bfcb"/*CubeMesh*/,
+      "Position": {
+        "X": 3099.3103,
+        "Y": 356.7645
       }
     },
     {

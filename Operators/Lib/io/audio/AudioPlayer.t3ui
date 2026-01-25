@@ -1,5 +1,5 @@
 {
-  "Id": "65e95f77-4743-437f-ab31-f34b831d28d7"/*StereoAudioPlayer*/,
+  "Id": "65e95f77-4743-437f-ab31-f34b831d28d7"/*AudioPlayer*/,
   "Description": "An audio player using the BASS library with independent playback control, pause functionality, and stereo panning",
   "InputUis": [
     {
@@ -28,8 +28,8 @@
         "X": -200.0,
         "Y": 0.0
       },
-      "Usage": "FilePath",
       "Description": "Path to the audio file to play.",
+      "Usage": "FilePath",
       "FileFilter": "Audio files (mp3,wav,ogg,flac)|*.mp3;*.wav;*.ogg;*.flac"
     },
     {
@@ -75,6 +75,7 @@
         "X": -200.0,
         "Y": 475.0
       },
+      "GroupTitle": "Envelope",
       "Description": "Selects how playback triggers are handled (trigger or gate)."
     },
     {
@@ -151,38 +152,10 @@
       }
     },
     {
-      "OutputId": "3f8a9c2e-5d7b-4e1f-a6c8-9d2e1f3b5a7c"/*IsPaused*/,
-      "Position": {
-        "X": 300.0,
-        "Y": 250.0
-      }
-    },
-    {
       "OutputId": "b09d215a-bcf0-479a-a649-56f9c698ecb1"/*GetLevel*/,
       "Position": {
         "X": 300.0,
         "Y": 300.0
-      }
-    },
-    {
-      "OutputId": "8f4e2d1a-3b7c-4d89-9e12-7a5b8c9d0e1f"/*GetWaveform*/,
-      "Position": {
-        "X": 300.0,
-        "Y": 400.0
-      }
-    },
-    {
-      "OutputId": "7f8e9d2a-4b5c-3e89-8f12-6a5b9c8d0e2f"/*GetSpectrum*/,
-      "Position": {
-        "X": 300.0,
-        "Y": 500.0
-      }
-    },
-    {
-      "OutputId": "c46c2799-ed04-4ec5-9175-dfcfc488525a"/*EnvelopeValue*/,
-      "Position": {
-        "X": 300.0,
-        "Y": 600.0
       }
     }
   ]
