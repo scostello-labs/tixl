@@ -679,7 +679,7 @@ public class LoadGltfScene : Instance<LoadGltfScene>
     {
         if (_combineChannelsComputeShaderResource == null)
         {
-            const string sourcePath = @"cs\CombineGltfChannels-cs.hlsl";
+            const string sourcePath = "Lib:shaders/cs/CombineGltfChannels-cs.hlsl";
             const string entryPoint = "main";
 
             _combineChannelsComputeShaderResource = ResourceManager.CreateShaderResource<ComputeShader>(sourcePath, instance, () => entryPoint, OnShaderChanged);
