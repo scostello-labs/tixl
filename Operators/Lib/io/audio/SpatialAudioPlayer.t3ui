@@ -1,0 +1,205 @@
+{
+  "Id": "8a3c9f2e-4b7d-4e1a-9c5f-7d2e8b1a6c3f"/*SpatialAudioPlayer*/,
+  "Description": "",
+  "InputUis": [
+    {
+      "InputId": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"/*ListenerPosition*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 675.0
+      }
+    },
+    {
+      "InputId": "1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e"/*SourceOrientation*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 1050.0
+      }
+    },
+    {
+      "InputId": "2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e"/*ListenerForward*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 750.0
+      }
+    },
+    {
+      "InputId": "2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e7f"/*InnerConeAngle*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 1125.0
+      }
+    },
+    {
+      "InputId": "2c8f4e9a-7d3b-4a1f-8e5c-6b2d9a7f3c5e"/*Speed*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 450.0
+      }
+    },
+    {
+      "InputId": "2f8a4c9e-3d7b-4a1f-8e5c-9b2d7a6e1c4f"/*AudioFile*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 0.0
+      },
+      "Usage": "FilePath",
+      "FileFilter": "Audio files (mp3,wav,ogg,flac)|*.mp3;*.wav;*.ogg;*.flac"
+    },
+    {
+      "InputId": "3a7f4e2c-9d8b-4f1a-8c5e-2b7d6a9f3c1e"/*Volume*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 300.0
+      }
+    },
+    {
+      "InputId": "3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f"/*ListenerUp*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 825.0
+      }
+    },
+    {
+      "InputId": "3d4e5f6a-7b8c-9d0e-1f2a-3b4c5d6e7f8a"/*OuterConeAngle*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 1200.0
+      }
+    },
+    {
+      "InputId": "4d5b95c9-677a-4c69-8bf0-35d5b5b002d6"/*Envelope*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 1650.0
+      },
+      "Min": 0.0,
+      "Max": 1.0,
+      "ClampMin": true
+    },
+    {
+      "InputId": "4e5f6a7b-8c9d-0e1f-2a3b-4c5d6e7f8a9b"/*OuterConeVolume*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 1275.0
+      }
+    },
+    {
+      "InputId": "4e9c2f7a-8d3b-4a6f-9c1e-2b7f5a8d6c3e"/*MinDistance*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 900.0
+      }
+    },
+    {
+      "InputId": "5c9e2d7a-4b8f-4e3c-9a1d-6f2e8b7c3a5f"/*PlayAudio*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 75.0
+      }
+    },
+    {
+      "InputId": "5f6a7b8c-9d0e-1f2a-3b4c-5d6e7f8a9b0c"/*Audio3DMode*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 1350.0
+      }
+    },
+    {
+      "InputId": "6c2e9f4a-7d3b-4e8f-9a1c-5f2e7b8d4a6c"/*Mute*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 375.0
+      }
+    },
+    {
+      "InputId": "7a3e9f2c-4d8b-4f1a-8c5e-9b2d7a6f1c4e"/*MaxDistance*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 975.0
+      }
+    },
+    {
+      "InputId": "7d3f9b2e-4c8a-4f1a-9d5c-8a2b7e1f6c3d"/*StopAudio*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 150.0
+      }
+    },
+    {
+      "InputId": "8f4a2e7c-3d9b-4c1f-8e5a-7b2d6f9c3a4e"/*SourcePosition*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 600.0
+      },
+      "GroupTitle": "3D Settings"
+    },
+    {
+      "InputId": "9a4e2f7c-3d8b-4c1f-8e5a-7b2d6f9c4a3e"/*Seek*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 525.0
+      }
+    },
+    {
+      "InputId": "9e4c2f7a-5d8b-4a3f-8e1c-7b2d9a6f4c5e"/*PauseAudio*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 225.0
+      }
+    },
+    {
+      "InputId": "c79d2af5-48e5-45b7-a0eb-4ccd3e10c544"/*TriggerMode*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 1425.0
+      },
+      "GroupTitle": "Envelope"
+    },
+    {
+      "InputId": "d1fe6a8d-f14a-4755-8b8c-2fad5780e9b7"/*Duration*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 1500.0
+      }
+    },
+    {
+      "InputId": "f148f43b-3754-4967-899e-23f49b46b8f6"/*UseEnvelope*/,
+      "Position": {
+        "X": -200.0,
+        "Y": 1575.0
+      }
+    }
+  ],
+  "SymbolChildUis": [],
+  "OutputUis": [
+    {
+      "OutputId": "4a8e2f7c-9d3b-4c1f-8e5a-7b2d6f9c3a4e"/*Result*/,
+      "Position": {
+        "X": 300.0,
+        "Y": 200.0
+      }
+    },
+    {
+      "OutputId": "9c2f7a4e-3d8b-4a1f-8e5c-6b2d9a7f4c3e"/*IsPlaying*/,
+      "Position": {
+        "X": 300.0,
+        "Y": 300.0
+      }
+    },
+    {
+      "OutputId": "6e4a2f9c-7d3b-4c8f-9a1e-2b7d5f8c6a3e"/*IsPaused*/,
+      "Position": {
+        "X": 300.0,
+        "Y": 400.0
+      }
+    },
+    {
+      "OutputId": "3f9a2e7c-4d8b-4c1f-8a5e-7b2d6f9c3a4e"/*GetLevel*/,
+      "Position": {
+        "X": 300.0,
+        "Y": 500.0
+      }
+    }
+  ]
+}
