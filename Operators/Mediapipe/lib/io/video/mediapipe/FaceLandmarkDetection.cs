@@ -8,6 +8,7 @@ using SharpDX.Direct3D11;
 using Mediapipe.Tasks.Core;
 using Mediapipe.Tasks.Vision.Core;
 using Mediapipe.Tasks.Vision.FaceLandmarker;
+using T3.Core.Resource.Assets;
 using Image = Mediapipe.Framework.Formats.Image;
 
 #nullable enable
@@ -200,22 +201,26 @@ namespace Lib.io.video.mediapipe
             {
                 lock (_workerLock)
                 {
-                    string modelPath = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "mediapipe", "face_landmarker.task"));
-                    if (!File.Exists(modelPath))
-                    {
-                        string[] possiblePaths = {
-                            "../../../../Operators/Mediapipe/Resources/face_landmarker.task"
-                        };
-                        foreach (var p in possiblePaths)
-                        {
-                            var abs = Path.GetFullPath(p);
-                            if (File.Exists(abs))
-                            {
-                                modelPath = abs;
-                                break;
-                            }
-                        }
-                    }
+                    AssetRegistry.TryResolveAddress("Mediapipe:face_landmarker.task", this, out var modelPath, out _, logWarnings:true);
+                    // AssetRegistry.TryResolveAddress("Mediapipe:resources/face_landmarker.task", this, out var absolutePath, out _);
+                    //
+                    // string modelPath = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "mediapipe", "face_landmarker.task"));
+                    // if (!File.Exists(modelPath))
+                    // {
+                    //     string[] possiblePaths = {
+                    //                                      absolutePath,
+                    //         "../../../../Operators/Mediapipe/Resources/face_landmarker.task"
+                    //     };
+                    //     foreach (var p in possiblePaths)
+                    //     {
+                    //         var abs = Path.GetFullPath(p);
+                    //         if (File.Exists(abs))
+                    //         {
+                    //             modelPath = abs;
+                    //             break;
+                    //         }
+                    //     }
+                    // }
 
                     if (!File.Exists(modelPath))
                     {

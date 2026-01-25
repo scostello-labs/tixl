@@ -17,11 +17,11 @@ using Google.Protobuf;
 using Mediapipe;
 using SharpDX.Direct3D;
 #nullable enable
-
 using Mediapipe.Tasks.Vision.ObjectDetector;
 using Mediapipe.Tasks.Vision.Core;
 using Mediapipe.Tasks.Components.Containers;
 using Mediapipe.Framework.Formats;
+using T3.Core.Resource.Assets;
 using Image = Mediapipe.Framework.Formats.Image;
 
 namespace Lib.io.video.mediapipe;
@@ -192,19 +192,19 @@ public class ObjectDetection : Instance<ObjectDetection>
     private string _activeCategoryAllowlist = "";
     private string _activeCategoryDenylist = "";
     private readonly object _workerLock = new object();
-    
+
     private readonly ConcurrentDictionary<(int width, int height), SharpDX.Direct3D11.Texture2D> _cachedStagingTextures = new();
     private readonly object _textureCacheLock = new object();
-    
+
     private readonly ConcurrentBag<Mat> _matPool = new();
     private readonly ConcurrentBag<byte[]> _bufferPool = new();
     private readonly ConcurrentDictionary<int, ConcurrentBag<Detection[]>> _detectionArrayPool = new();
     private readonly object _poolLock = new object();
-
     #endregion
-    
+
     #region Worker Thread
-    private void InitializeWorker(int maxObjects, float minDetectionConfidence, bool debug, DetectionModel model, string categoryAllowlist, string categoryDenylist)
+    private void InitializeWorker(int maxObjects, float minDetectionConfidence, bool debug, DetectionModel model, string categoryAllowlist,
+                                  string categoryDenylist)
     {
         StopWorker(debug);
         _activeMaxObjects = maxObjects;
@@ -217,28 +217,33 @@ public class ObjectDetection : Instance<ObjectDetection>
         {
             lock (_workerLock)
             {
-                string modelName = model == DetectionModel.EfficientDetLite2 ? "efficientdet_lite2.tflite" : "efficientdet_lite0.tflite";
-                string modelPath = $"../../../../Operators/Mediapipe/Resources/{modelName}";
-                string fullPath = System.IO.Path.GetFullPath(modelPath);
+                string modelName = model == DetectionModel.EfficientDetLite2
+                                       ? "efficientdet_lite2.tflite"
+                                       : "efficientdet_lite0.tflite";
 
-                string[] possibleModelPaths = {
-                    fullPath,
-                    System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", modelName),
-                    System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Models", modelName),
-                    $"../../Mediapipe-Sharp/src/Mediapipe/Models/{modelName}",
-                    $"../../../Mediapipe-Sharp/src/Mediapipe/Models/{modelName}"
-                };
+                var modelFound = AssetRegistry.TryResolveAddress($"Mediapipe:{modelName}", this, out var fullPath, out _, logWarnings: true);
 
-                bool modelFound = false;
-                foreach (string path in possibleModelPaths)
-                {
-                    if (System.IO.File.Exists(path))
-                    {
-                        fullPath = System.IO.Path.GetFullPath(path);
-                        modelFound = true;
-                        break;
-                    }
-                }
+                // string modelPath = $"../../../../Operators/Mediapipe/Resources/{modelName}";
+                // string fullPath = System.IO.Path.GetFullPath(modelPath);
+                //
+                // string[] possibleModelPaths = {
+                //     fullPath,
+                //     System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", modelName),
+                //     System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Models", modelName),
+                //     $"../../Mediapipe-Sharp/src/Mediapipe/Models/{modelName}",
+                //     $"../../../Mediapipe-Sharp/src/Mediapipe/Models/{modelName}"
+                // };
+                //
+                // bool modelFound = false;
+                // foreach (string path in possibleModelPaths)
+                // {
+                //     if (System.IO.File.Exists(path))
+                //     {
+                //         fullPath = System.IO.Path.GetFullPath(path);
+                //         modelFound = true;
+                //         break;
+                //     }
+                // }
 
                 if (!modelFound)
                 {
@@ -247,26 +252,31 @@ public class ObjectDetection : Instance<ObjectDetection>
                 }
 
                 var baseOptions = new Mediapipe.Tasks.Core.CoreBaseOptions(
-                    modelAssetPath: fullPath,
-                    delegateCase: Mediapipe.Tasks.Core.CoreBaseOptions.Delegate.CPU
-                );
+                                                                           modelAssetPath: fullPath,
+                                                                           delegateCase: Mediapipe.Tasks.Core.CoreBaseOptions.Delegate.CPU
+                                                                          );
 
-                var allowList = string.IsNullOrEmpty(categoryAllowlist) ? null : categoryAllowlist.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
-                var denyList = string.IsNullOrEmpty(categoryDenylist) ? null : categoryDenylist.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+                var allowList = string.IsNullOrEmpty(categoryAllowlist)
+                                    ? null
+                                    : categoryAllowlist.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+                var denyList = string.IsNullOrEmpty(categoryDenylist)
+                                   ? null
+                                   : categoryDenylist.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
 
                 ObjectDetectorOptions options = new(
-                    baseOptions,
-                    VisionRunningMode.VIDEO,
-                    maxResults: maxObjects,
-                    scoreThreshold: minDetectionConfidence,
-                    categoryAllowList: allowList,
-                    categoryDenyList: denyList
-                );
+                                                    baseOptions,
+                                                    VisionRunningMode.VIDEO,
+                                                    maxResults: maxObjects,
+                                                    scoreThreshold: minDetectionConfidence,
+                                                    categoryAllowList: allowList,
+                                                    categoryDenyList: denyList
+                                                   );
 
                 lock (_objectDetectorLock)
                 {
                     _objectDetector = ObjectDetector.CreateFromOptions(options);
                 }
+
                 _cancellationTokenSource = new CancellationTokenSource();
                 var token = _cancellationTokenSource.Token;
                 _processingTask = Task.Run(() => WorkerLoop(token, debug), token);
@@ -327,23 +337,23 @@ public class ObjectDetection : Instance<ObjectDetection>
         {
             var detections = ConvertDetectionResultToDetections(result.Value, request.MinDetectionConfidence, request.MaxObjects, debug);
             var packet = new ObjectDetectionResultPacket
-            {
-                Detections = detections,
-                ObjectCount = detections != null ? detections.Length : 0,
-                ImageWidth = request.Width,
-                ImageHeight = request.Height
-            };
+                             {
+                                 Detections = detections,
+                                 ObjectCount = detections != null ? detections.Length : 0,
+                                 ImageWidth = request.Width,
+                                 ImageHeight = request.Height
+                             };
             _outputQueue.Enqueue(packet);
         }
         else
         {
             _outputQueue.Enqueue(new ObjectDetectionResultPacket
-            {
-                Detections = null,
-                ObjectCount = 0,
-                ImageWidth = request.Width,
-                ImageHeight = request.Height
-            });
+                                     {
+                                         Detections = null,
+                                         ObjectCount = 0,
+                                         ImageWidth = request.Width,
+                                         ImageHeight = request.Height
+                                     });
         }
     }
 
@@ -383,43 +393,45 @@ public class ObjectDetection : Instance<ObjectDetection>
             {
                 ReturnBufferToPool(req.PixelData);
             }
-            while (_outputQueue.TryDequeue(out _)) { }
+
+            while (_outputQueue.TryDequeue(out _))
+            {
+            }
         }
     }
-    
     #endregion Worker Thread
 
     #region Memory Management
     private SharpDX.Direct3D11.Texture2D GetOrCreateStagingTexture(int width, int height, SharpDX.DXGI.Format format)
     {
         var key = (width, height);
-        
+
         if (_cachedStagingTextures.TryGetValue(key, out var cachedTexture))
         {
             return cachedTexture;
         }
-        
+
         lock (_textureCacheLock)
         {
             if (_cachedStagingTextures.TryGetValue(key, out cachedTexture))
             {
                 return cachedTexture;
             }
-            
+
             var device = ResourceManager.Device;
             var newTexture = new SharpDX.Direct3D11.Texture2D(device, new Texture2DDescription
-            {
-                Width = width, Height = height, MipLevels = 1, ArraySize = 1,
-                Format = format, SampleDescription = new SharpDX.DXGI.SampleDescription(1, 0),
-                Usage = ResourceUsage.Staging, BindFlags = BindFlags.None,
-                CpuAccessFlags = CpuAccessFlags.Read, OptionFlags = ResourceOptionFlags.None
-            });
-            
+                                                                          {
+                                                                              Width = width, Height = height, MipLevels = 1, ArraySize = 1,
+                                                                              Format = format, SampleDescription = new SharpDX.DXGI.SampleDescription(1, 0),
+                                                                              Usage = ResourceUsage.Staging, BindFlags = BindFlags.None,
+                                                                              CpuAccessFlags = CpuAccessFlags.Read, OptionFlags = ResourceOptionFlags.None
+                                                                          });
+
             _cachedStagingTextures[key] = newTexture;
             return newTexture;
         }
     }
-    
+
     private Mat GetMat(int rows, int cols, MatType type)
     {
         if (_matPool.TryTake(out var mat))
@@ -433,9 +445,10 @@ public class ObjectDetection : Instance<ObjectDetection>
                 mat.Dispose();
             }
         }
+
         return new Mat(rows, cols, type);
     }
-    
+
     private void ReturnMatToPool(Mat? mat)
     {
         if (mat != null && !mat.IsDisposed)
@@ -443,7 +456,7 @@ public class ObjectDetection : Instance<ObjectDetection>
             _matPool.Add(mat);
         }
     }
-    
+
     private byte[] GetBuffer(int size)
     {
         if (_bufferPool.TryTake(out var b) && b.Length == size) return b;
@@ -454,7 +467,7 @@ public class ObjectDetection : Instance<ObjectDetection>
     {
         if (b != null) _bufferPool.Add(b);
     }
-    
+
     private Detection[] GetDetectionArray(int size)
     {
         if (!_detectionArrayPool.TryGetValue(size, out var pool))
@@ -468,15 +481,15 @@ public class ObjectDetection : Instance<ObjectDetection>
                 }
             }
         }
-        
+
         if (pool.TryTake(out var arr))
         {
             return arr;
         }
-        
+
         return new Detection[size];
     }
-    
+
     private void ReturnDetectionArrayToPool(Detection[]? arr)
     {
         if (arr != null)
@@ -493,11 +506,13 @@ public class ObjectDetection : Instance<ObjectDetection>
                     }
                 }
             }
+
             pool.Add(arr);
         }
     }
 
-    private ObjectDetectionRequest? CreateRequestFromTexture(Texture2D texture, float minDetectionConfidence, int maxObjects, string categoryAllowlist, string categoryDenylist)
+    private ObjectDetectionRequest? CreateRequestFromTexture(Texture2D texture, float minDetectionConfidence, int maxObjects, string categoryAllowlist,
+                                                             string categoryDenylist)
     {
         if (texture == null || texture.IsDisposed) return null;
 
@@ -524,39 +539,43 @@ public class ObjectDetection : Instance<ObjectDetection>
             {
                 IntPtr srcPtr = dataBox.DataPointer;
                 int rowPitch = dataBox.RowPitch;
-                
+
                 fixed (byte* dst = buffer)
                 {
                     IntPtr dstPtr = (IntPtr)dst;
                     Parallel.For(0, height, y =>
-                    {
-                        byte* rowSrc = (byte*)srcPtr + (y * rowPitch);
-                        byte* rowDst = (byte*)dstPtr + (y * width * 3);
-                        
-                        for (int x = 0; x < width; x++)
-                        {
-                            rowDst[x * 3] = rowSrc[x * 4 + 2];     // R
-                            rowDst[x * 3 + 1] = rowSrc[x * 4 + 1]; // G
-                            rowDst[x * 3 + 2] = rowSrc[x * 4];     // B
-                        }
-                    });
+                                            {
+                                                byte* rowSrc = (byte*)srcPtr + (y * rowPitch);
+                                                byte* rowDst = (byte*)dstPtr + (y * width * 3);
+
+                                                for (int x = 0; x < width; x++)
+                                                {
+                                                    rowDst[x * 3] = rowSrc[x * 4 + 2]; // R
+                                                    rowDst[x * 3 + 1] = rowSrc[x * 4 + 1]; // G
+                                                    rowDst[x * 3 + 2] = rowSrc[x * 4]; // B
+                                                }
+                                            });
                 }
             }
 
             long ts;
-            lock(_timestampLock) { ts = _frameTimestamp; _frameTimestamp += 33333; }
+            lock (_timestampLock)
+            {
+                ts = _frameTimestamp;
+                _frameTimestamp += 33333;
+            }
 
             return new ObjectDetectionRequest
-            {
-                PixelData = buffer,
-                Width = width,
-                Height = height,
-                Timestamp = ts,
-                MinDetectionConfidence = minDetectionConfidence,
-                MaxObjects = maxObjects,
-                CategoryAllowlist = string.IsNullOrEmpty(categoryAllowlist) ? null : categoryAllowlist.Split(','),
-                CategoryDenylist = string.IsNullOrEmpty(categoryDenylist) ? null : categoryDenylist.Split(',')
-            };
+                       {
+                           PixelData = buffer,
+                           Width = width,
+                           Height = height,
+                           Timestamp = ts,
+                           MinDetectionConfidence = minDetectionConfidence,
+                           MaxObjects = maxObjects,
+                           CategoryAllowlist = string.IsNullOrEmpty(categoryAllowlist) ? null : categoryAllowlist.Split(','),
+                           CategoryDenylist = string.IsNullOrEmpty(categoryDenylist) ? null : categoryDenylist.Split(',')
+                       };
         }
         finally
         {
@@ -568,7 +587,7 @@ public class ObjectDetection : Instance<ObjectDetection>
     private void UpdateOutputsWithResult(ObjectDetectionResultPacket result, bool correctAspectRatio, float zScale)
     {
         UpdateCount.Value++;
-        
+
         if (result.Detections == null || result.Detections.Length == 0)
         {
             ObjectCount.Value = 0;
@@ -580,7 +599,7 @@ public class ObjectDetection : Instance<ObjectDetection>
 
         ObjectCount.Value = result.ObjectCount;
         _detectionsArray = result.Detections;
-        
+
         var points = new StructuredList<T3.Core.DataTypes.Point>(result.ObjectCount * 5);
         var objectData = new Dict<float>(0f);
         var activeCategories = new List<string>();
@@ -592,7 +611,7 @@ public class ObjectDetection : Instance<ObjectDetection>
         for (int i = 0; i < result.ObjectCount; i++)
         {
             var d = result.Detections[i];
-            
+
             float cx = d.BoundingBox.CenterX / imgW;
             float cy = d.BoundingBox.CenterY / imgH;
             float w = d.BoundingBox.Width / imgW;
@@ -603,21 +622,21 @@ public class ObjectDetection : Instance<ObjectDetection>
             void AddPoint(int indexOffset, float u, float v)
             {
                 var p = new T3.Core.DataTypes.Point();
-                
+
                 p.Position = new System.Numerics.Vector3(
-                    (u - 0.5f) * 2.0f * aspectRatio,
-                    (0.5f - v) * 2.0f,
-                    0
-                );
+                                                         (u - 0.5f) * 2.0f * aspectRatio,
+                                                         (0.5f - v) * 2.0f,
+                                                         0
+                                                        );
                 p.Position.Z *= zScale;
                 p.F1 = d.Confidence;
                 p.Orientation = System.Numerics.Quaternion.Identity;
                 p.Color = new System.Numerics.Vector4(1, 1, 1, 1);
                 p.Scale = System.Numerics.Vector3.One;
-                
+
                 points.TypedElements[i * 5 + indexOffset] = p;
             }
-            
+
             AddPoint(0, cx, cy);
             AddPoint(1, cx - halfW, cy - halfH);
             AddPoint(2, cx + halfW, cy - halfH);
@@ -633,58 +652,58 @@ public class ObjectDetection : Instance<ObjectDetection>
                 }
             }
         }
-        
+
         ObjectData.Value = objectData;
         ActiveCategories.Value = activeCategories;
 
         int stride = System.Runtime.InteropServices.Marshal.SizeOf<T3.Core.DataTypes.Point>();
-        
+
         if (_pointBufferWithViews == null)
         {
             _pointBufferWithViews = new BufferWithViews();
         }
 
         ResourceManager.SetupStructuredBuffer(points.TypedElements, stride * points.NumElements, stride, ref _pointBufferWithViews.Buffer);
-        
+
         if (_pointBufferWithViews.Buffer != null)
         {
-             if (_pointBufferWithViews.Srv == null || _pointBufferWithViews.Srv.Description.Buffer.ElementCount != points.NumElements)
-             {
-                 _pointBufferWithViews.Srv?.Dispose();
-                 _pointBufferWithViews.Srv = new ShaderResourceView(ResourceManager.Device, _pointBufferWithViews.Buffer, 
-                     new ShaderResourceViewDescription
-                     {
-                         Format = SharpDX.DXGI.Format.Unknown,
-                         Dimension = ShaderResourceViewDimension.Buffer,
-                         Buffer = new ShaderResourceViewDescription.BufferResource
-                         {
-                             ElementWidth = points.NumElements,
-                             FirstElement = 0
-                         }
-                     });
-             }
-             
-             if (_pointBufferWithViews.Uav == null || _pointBufferWithViews.Uav.Description.Buffer.ElementCount != points.NumElements)
-             {
-                 _pointBufferWithViews.Uav?.Dispose();
-                 _pointBufferWithViews.Uav = new UnorderedAccessView(ResourceManager.Device, _pointBufferWithViews.Buffer,
-                     new UnorderedAccessViewDescription
-                     {
-                         Format = SharpDX.DXGI.Format.Unknown,
-                         Dimension = UnorderedAccessViewDimension.Buffer,
-                         Buffer = new UnorderedAccessViewDescription.BufferResource
-                         {
-                             ElementCount = points.NumElements,
-                             FirstElement = 0,
-                             Flags = UnorderedAccessViewBufferFlags.None
-                         }
-                     });
-             }
-             
-             PointBuffer.Value = _pointBufferWithViews;
+            if (_pointBufferWithViews.Srv == null || _pointBufferWithViews.Srv.Description.Buffer.ElementCount != points.NumElements)
+            {
+                _pointBufferWithViews.Srv?.Dispose();
+                _pointBufferWithViews.Srv = new ShaderResourceView(ResourceManager.Device, _pointBufferWithViews.Buffer,
+                                                                   new ShaderResourceViewDescription
+                                                                       {
+                                                                           Format = SharpDX.DXGI.Format.Unknown,
+                                                                           Dimension = ShaderResourceViewDimension.Buffer,
+                                                                           Buffer = new ShaderResourceViewDescription.BufferResource
+                                                                                        {
+                                                                                            ElementWidth = points.NumElements,
+                                                                                            FirstElement = 0
+                                                                                        }
+                                                                       });
+            }
+
+            if (_pointBufferWithViews.Uav == null || _pointBufferWithViews.Uav.Description.Buffer.ElementCount != points.NumElements)
+            {
+                _pointBufferWithViews.Uav?.Dispose();
+                _pointBufferWithViews.Uav = new UnorderedAccessView(ResourceManager.Device, _pointBufferWithViews.Buffer,
+                                                                    new UnorderedAccessViewDescription
+                                                                        {
+                                                                            Format = SharpDX.DXGI.Format.Unknown,
+                                                                            Dimension = UnorderedAccessViewDimension.Buffer,
+                                                                            Buffer = new UnorderedAccessViewDescription.BufferResource
+                                                                                         {
+                                                                                             ElementCount = points.NumElements,
+                                                                                             FirstElement = 0,
+                                                                                             Flags = UnorderedAccessViewBufferFlags.None
+                                                                                         }
+                                                                        });
+            }
+
+            PointBuffer.Value = _pointBufferWithViews;
         }
     }
-    
+
     private BufferWithViews? _pointBufferWithViews;
 
     private void DrawDebugVisualsFromDetections(Mat mat, Detection[]? detections)
@@ -709,17 +728,17 @@ public class ObjectDetection : Instance<ObjectDetection>
 
             string label = $"{detection.Label ?? "Unknown"} {detection.Confidence:0.00}";
             var textSize = Cv2.GetTextSize(label, HersheyFonts.HersheySimplex, 0.5, 1, out var baseline);
-            
+
             int textY = y - 5;
             if (textY < textSize.Height) textY = y + textSize.Height + 5;
 
-            Cv2.Rectangle(mat, 
-                new OpenCvSharp.Point(x, textY - textSize.Height), 
-                new OpenCvSharp.Point(x + textSize.Width, textY + baseline), 
-                boxColor, -1);
+            Cv2.Rectangle(mat,
+                          new OpenCvSharp.Point(x, textY - textSize.Height),
+                          new OpenCvSharp.Point(x + textSize.Width, textY + baseline),
+                          boxColor, -1);
 
             Cv2.PutText(mat, label, new OpenCvSharp.Point(x, textY),
-                HersheyFonts.HersheySimplex, 0.5, new Scalar(0, 0, 0, 255), 1, LineTypes.AntiAlias);
+                        HersheyFonts.HersheySimplex, 0.5, new Scalar(0, 0, 0, 255), 1, LineTypes.AntiAlias);
         }
     }
 
@@ -731,17 +750,17 @@ public class ObjectDetection : Instance<ObjectDetection>
         {
             _debugTexture?.Dispose();
             var desc = new Texture2DDescription
-            {
-                Width = mat.Width,
-                Height = mat.Height,
-                MipLevels = 1,
-                ArraySize = 1,
-                Format = SharpDX.DXGI.Format.B8G8R8A8_UNorm,
-                SampleDescription = new SampleDescription(1, 0),
-                Usage = ResourceUsage.Default,
-                BindFlags = BindFlags.ShaderResource | BindFlags.RenderTarget,
-                OptionFlags = ResourceOptionFlags.None
-            };
+                           {
+                               Width = mat.Width,
+                               Height = mat.Height,
+                               MipLevels = 1,
+                               ArraySize = 1,
+                               Format = SharpDX.DXGI.Format.B8G8R8A8_UNorm,
+                               SampleDescription = new SampleDescription(1, 0),
+                               Usage = ResourceUsage.Default,
+                               BindFlags = BindFlags.ShaderResource | BindFlags.RenderTarget,
+                               OptionFlags = ResourceOptionFlags.None
+                           };
             _debugTexture = new Texture2D(new SharpDX.Direct3D11.Texture2D(ResourceManager.Device, desc));
         }
 
@@ -775,17 +794,17 @@ public class ObjectDetection : Instance<ObjectDetection>
                         float centerY = (float)detection.BoundingBox.Top + height / 2.0f;
 
                         detections.Add(new Detection
-                        {
-                            Label = category.CategoryName,
-                            Confidence = category.Score,
-                            BoundingBox = new BoundingBox
-                            {
-                                CenterX = centerX,
-                                CenterY = centerY,
-                                Width = width,
-                                Height = height
-                            }
-                        });
+                                           {
+                                               Label = category.CategoryName,
+                                               Confidence = category.Score,
+                                               BoundingBox = new BoundingBox
+                                                                 {
+                                                                     CenterX = centerX,
+                                                                     CenterY = centerY,
+                                                                     Width = width,
+                                                                     Height = height
+                                                                 }
+                                           });
                     }
                 }
             }
@@ -822,6 +841,7 @@ public class ObjectDetection : Instance<ObjectDetection>
             {
                 cachedTexture?.Dispose();
             }
+
             _cachedStagingTextures.Clear();
         }
 
@@ -831,6 +851,7 @@ public class ObjectDetection : Instance<ObjectDetection>
             {
                 mat?.Dispose();
             }
+
             _matPool.Clear();
         }
 
@@ -845,9 +866,10 @@ public class ObjectDetection : Instance<ObjectDetection>
             {
                 pool.Clear();
             }
+
             _detectionArrayPool.Clear();
         }
-        
+
         if (_pointBufferWithViews != null)
         {
             _pointBufferWithViews.Srv?.Dispose();
@@ -897,7 +919,7 @@ public class ObjectDetection : Instance<ObjectDetection>
         EfficientDetLite0,
         EfficientDetLite2,
     }
-    
+
     #region Texture Conversion (Minimal OpenCV Usage)
     private Mat Texture2DToMat(Texture2D texture)
     {

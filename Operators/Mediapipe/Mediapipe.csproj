@@ -4,8 +4,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UserSecretsId>4ddcedc9-2c55-476d-9aeb-8e069ecd278a</UserSecretsId>
-    <RootNamespace>t3.mediapipe</RootNamespace>
-    <AssemblyName>$(RootNamespace)</AssemblyName>
     <Configurations>Debug;Release</Configurations>
     <Platforms>AnyCPU</Platforms>
     <VersionPrefix>1.0.5</VersionPrefix>
@@ -159,6 +157,9 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Remove="Examples\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Vendor\" />
   </ItemGroup>
   <Target Name="ClearBuildOutput" BeforeTargets="BeforeBuild">
     <!-- Clear previous files in the export folder -->

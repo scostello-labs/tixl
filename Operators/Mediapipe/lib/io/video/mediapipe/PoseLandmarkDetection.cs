@@ -8,6 +8,7 @@ using SharpDX.Direct3D;
 #nullable enable
 using Mediapipe.Tasks.Vision.PoseLandmarker;
 using Mediapipe.Tasks.Vision.Core;
+using T3.Core.Resource.Assets;
 using Image = Mediapipe.Framework.Formats.Image;
 
 namespace Lib.io.video.mediapipe;
@@ -210,27 +211,30 @@ public class PoseLandmarkDetection : Instance<PoseLandmarkDetection>
         {
             lock (_workerLock)
             {
-                string modelPath = "../../../../Operators/Mediapipe/Resources/pose_landmarker.task";
-                string fullPath = System.IO.Path.GetFullPath(modelPath);
-
-                string[] possibleModelPaths = {
-                    fullPath,
-                    System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", "pose_landmarker.task"),
-                    System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Models", "pose_landmarker.task"),
-                    "../../Mediapipe-Sharp/src/Mediapipe/Models/pose_landmarker.task",
-                    "../../../Mediapipe-Sharp/src/Mediapipe/Models/pose_landmarker.task"
-                };
-
-                bool modelFound = false;
-                foreach (string path in possibleModelPaths)
-                {
-                    if (System.IO.File.Exists(path))
-                    {
-                        fullPath = System.IO.Path.GetFullPath(path);
-                        modelFound = true;
-                        break;
-                    }
-                }
+                var modelFound = AssetRegistry.TryResolveAddress($"Mediapipe:pose_landmarker.task", this, out var fullPath, out _, logWarnings: true);
+                
+                //
+                // string modelPath = "../../../../Operators/Mediapipe/Resources/pose_landmarker.task";
+                // string fullPath = System.IO.Path.GetFullPath(modelPath);
+                //
+                // string[] possibleModelPaths = {
+                //     fullPath,
+                //     System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", "pose_landmarker.task"),
+                //     System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Models", "pose_landmarker.task"),
+                //     "../../Mediapipe-Sharp/src/Mediapipe/Models/pose_landmarker.task",
+                //     "../../../Mediapipe-Sharp/src/Mediapipe/Models/pose_landmarker.task"
+                // };
+                //
+                // bool modelFound = false;
+                // foreach (string path in possibleModelPaths)
+                // {
+                //     if (System.IO.File.Exists(path))
+                //     {
+                //         fullPath = System.IO.Path.GetFullPath(path);
+                //         modelFound = true;
+                //         break;
+                //     }
+                // }
 
                 if (!modelFound)
                 {

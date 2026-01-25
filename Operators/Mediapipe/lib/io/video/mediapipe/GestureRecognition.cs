@@ -22,6 +22,7 @@ using Mediapipe.Tasks.Vision.HandLandmarker;
 using Mediapipe.Tasks.Vision.Core;
 using Mediapipe.Tasks.Components.Containers;
 using Mediapipe.Framework.Formats;
+using T3.Core.Resource.Assets;
 using Landmark = Mediapipe.Landmark;
 using Image = Mediapipe.Framework.Formats.Image;
 
@@ -246,27 +247,29 @@ public class GestureRecognition : Instance<GestureRecognition>
         {
             lock (_workerLock)
             {
-                string modelPath = "../../../../Operators/Mediapipe/Resources/hand_landmarker.task";
-                string fullPath = System.IO.Path.GetFullPath(modelPath);
-
-                string[] possibleModelPaths = {
-                    fullPath,
-                    System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", "hand_landmarker.task"),
-                    System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Models", "hand_landmarker.task"),
-                    "../../Mediapipe-Sharp/src/Mediapipe/Models/hand_landmarker.task",
-                    "../../../Mediapipe-Sharp/src/Mediapipe/Models/hand_landmarker.task"
-                };
-
-                bool modelFound = false;
-                foreach (string path in possibleModelPaths)
-                {
-                    if (System.IO.File.Exists(path))
-                    {
-                        fullPath = System.IO.Path.GetFullPath(path);
-                        modelFound = true;
-                        break;
-                    }
-                }
+                var modelFound = AssetRegistry.TryResolveAddress("Mediapipe:hand_landmarker.task", this, out var fullPath, out _, logWarnings:true);
+                
+                // string modelPath = "../../../../Operators/Mediapipe/Resources/hand_landmarker.task";
+                // string fullPath = System.IO.Path.GetFullPath(modelPath);
+                //
+                // string[] possibleModelPaths = {
+                //     fullPath,
+                //     System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", "hand_landmarker.task"),
+                //     System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Models", "hand_landmarker.task"),
+                //     "../../Mediapipe-Sharp/src/Mediapipe/Models/hand_landmarker.task",
+                //     "../../../Mediapipe-Sharp/src/Mediapipe/Models/hand_landmarker.task"
+                // };
+                //
+                // bool modelFound = false;
+                // foreach (string path in possibleModelPaths)
+                // {
+                //     if (System.IO.File.Exists(path))
+                //     {
+                //         fullPath = System.IO.Path.GetFullPath(path);
+                //         modelFound = true;
+                //         break;
+                //     }
+                // }
 
                 if (!modelFound)
                 {

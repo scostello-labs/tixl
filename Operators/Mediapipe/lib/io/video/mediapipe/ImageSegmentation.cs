@@ -7,6 +7,7 @@ using SharpDX.Direct3D11;
 using Mediapipe.Tasks.Vision.ImageSegmenter;
 using Mediapipe.Tasks.Vision.Core;
 using Mediapipe.Framework.Formats;
+using T3.Core.Resource.Assets;
 using Image = Mediapipe.Framework.Formats.Image;
 // ReSharper disable InconsistentNaming
 
@@ -183,7 +184,7 @@ public class ImageSegmentation : Instance<ImageSegmentation>
         {
             lock (_workerLock)
             {
-                string modelName = "";
+                var modelName = "";
                 switch (model)
                 {
                     case SegmentationModel.SelfieMulticlass:
@@ -200,28 +201,30 @@ public class ImageSegmentation : Instance<ImageSegmentation>
                         modelName = "selfie_segmenter.tflite";
                         break;
                 }
-
-                string modelPath = $"../../../../Operators/Mediapipe/Resources/{modelName}";
-                string fullPath = System.IO.Path.GetFullPath(modelPath);
-
-                string[] possibleModelPaths = {
-                    fullPath,
-                    System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", modelName),
-                    System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Models", modelName),
-                    $"../../Mediapipe-Sharp/src/Mediapipe/Models/{modelName}",
-                    $"../../../Mediapipe-Sharp/src/Mediapipe/Models/{modelName}"
-                };
-
-                bool modelFound = false;
-                foreach (string path in possibleModelPaths)
-                {
-                    if (System.IO.File.Exists(path))
-                    {
-                        fullPath = System.IO.Path.GetFullPath(path);
-                        modelFound = true;
-                        break;
-                    }
-                }
+                
+                var modelFound = AssetRegistry.TryResolveAddress($"Mediapipe:{modelName}", this, out var fullPath, out _, logWarnings:true);
+                
+                // string modelPath = $"../../../../Operators/Mediapipe/Resources/{modelName}";
+                // string fullPath = System.IO.Path.GetFullPath(modelPath);
+                //
+                // string[] possibleModelPaths = {
+                //     fullPath,
+                //     System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", modelName),
+                //     System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Models", modelName),
+                //     $"../../Mediapipe-Sharp/src/Mediapipe/Models/{modelName}",
+                //     $"../../../Mediapipe-Sharp/src/Mediapipe/Models/{modelName}"
+                // };
+                //
+                // bool modelFound = false;
+                // foreach (string path in possibleModelPaths)
+                // {
+                //     if (System.IO.File.Exists(path))
+                //     {
+                //         fullPath = System.IO.Path.GetFullPath(path);
+                //         modelFound = true;
+                //         break;
+                //     }
+                // }
 
                 if (!modelFound)
                 {

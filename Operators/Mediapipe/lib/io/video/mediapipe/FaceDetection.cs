@@ -1,28 +1,13 @@
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using OpenCvSharp;
 using SharpDX;
 using SharpDX.Direct3D11;
-using T3.Core.DataTypes;
-using T3.Core.Logging;
-using T3.Core.Operator;
-using T3.Core.Operator.Attributes;
-using T3.Core.Operator.Slots;
-using T3.Core.Resource;
-using Google.Protobuf;
-using Mediapipe;
 #nullable enable
 
 using Mediapipe.Tasks.Vision.FaceDetector;
 using Mediapipe.Tasks.Vision.Core;
 using Mediapipe.Tasks.Components.Containers;
-using Mediapipe.Framework.Formats;
+using T3.Core.Resource.Assets;
 using Image = Mediapipe.Framework.Formats.Image;
-using ImageFormat = Mediapipe.RegionFlowComputationOptions.Types.ImageFormat;
 
 namespace Lib.io.video.mediapipe
 {
@@ -199,28 +184,30 @@ namespace Lib.io.video.mediapipe
             {
                 lock (_workerLock)
                 {
-                    string modelPath = "../../../../Operators/Mediapipe/Resources/blaze_face_short_range.tflite";
-                    string fullPath = System.IO.Path.GetFullPath(modelPath);
+                    var modelFound = AssetRegistry.TryResolveAddress("Mediapipe:blaze_face_short_range.tflite", this, out var fullPath, out _);
                     
-                    string[] possibleModelPaths = {
-                        fullPath,
-                        System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "mediapipe", "blaze_face_short_range.tflite"),
-                        System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "blaze_face_short_range.tflite"),
-                        System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", "blaze_face_short_range.tflite"),
-                        System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Models", "blaze_face_short_range.tflite"),
-                        "../../Mediapipe-Sharp/src/Mediapipe/Models/blaze_face_short_range.tflite"
-                    };
+                    // string modelPath = "../../../../Operators/Mediapipe/Resources/blaze_face_short_range.tflite";
+                    // string fullPath = System.IO.Path.GetFullPath(modelPath);
+                    //
+                    // string[] possibleModelPaths = {
+                    //     fullPath,
+                    //     System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "mediapipe", "blaze_face_short_range.tflite"),
+                    //     System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "blaze_face_short_range.tflite"),
+                    //     System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", "blaze_face_short_range.tflite"),
+                    //     System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Models", "blaze_face_short_range.tflite"),
+                    //     "../../Mediapipe-Sharp/src/Mediapipe/Models/blaze_face_short_range.tflite"
+                    // };
                     
-                    bool modelFound = false;
-                    foreach (string path in possibleModelPaths)
-                    {
-                        if (System.IO.File.Exists(path))
-                        {
-                            fullPath = System.IO.Path.GetFullPath(path);
-                            modelFound = true;
-                            break;
-                        }
-                    }
+                    // bool modelFound = false;
+                    // foreach (string path in possibleModelPaths)
+                    // {
+                    //     if (System.IO.File.Exists(path))
+                    //     {
+                    //         fullPath = System.IO.Path.GetFullPath(path);
+                    //         modelFound = true;
+                    //         break;
+                    //     }
+                    // }
                     
                     if (!modelFound)
                     {
