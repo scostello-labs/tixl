@@ -372,6 +372,9 @@ public static class StringUtils
         precedingChar = default;
         return -1;
     }
+    
+    
+    
 
     /// <summary>
     /// A naive implementation of a filtering algorithm that supports wildcards ('*').
@@ -584,6 +587,35 @@ public static class StringUtils
         return results;
     }
 
+    public static int LevenshteinDistance(ReadOnlySpan<char> s, ReadOnlySpan<char> t)
+    {
+        if (s.Length == 0) return t.Length;
+        if (t.Length == 0) return s.Length;
+
+        // Use two rows to save memory
+        var v0 = new int[t.Length + 1];
+        var v1 = new int[t.Length + 1];
+
+        for (var i = 0; i <= t.Length; i++)
+            v0[i] = i;
+
+        for (var i = 0; i < s.Length; i++)
+        {
+            v1[0] = i + 1;
+
+            for (var j = 0; j < t.Length; j++)
+            {
+                var cost = (s[i] == t[j]) ? 0 : 1;
+                v1[j + 1] = Math.Min(v1[j] + 1, Math.Min(v0[j + 1] + 1, v0[j] + cost));
+            }
+
+            Array.Copy(v1, v0, v0.Length);
+        }
+
+        return v0[t.Length];
+    }
+    
+    
     public static string ShortenGuid(this Guid guid, int length = 7)
     {
         if (length < 1 || length > 22)

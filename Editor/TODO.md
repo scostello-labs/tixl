@@ -57,16 +57,22 @@
 - [x] In AssetLib (only use AssetRegistry)
 - [.] Test Recompile / Symbol Reload
 - [x] Rename "Resource/" -> "Assets/"
+
+## Asset Lib
+- [x] Fix count alignment
+- [x] Fix selection sync
+- [x] Automatically open "Examples" instead of "Lib" on Asset Library
+- [x] Highlight current project in Asset browser (Bold?)
+- [ ] Implement search
+- [ ] Handle File asset Drag and Drop between folders
+- [ ] Implement multi selection
 - [ ] Check .\Lib\Resources\shaders\points\sim\SimSamplePointAttributes.hlsl
 - [ ] Maybe: Fix paths with pasting symbols from (e.g. from Discord)
-- [ ] Use AssetTypes and AssetRegistry to draw FilePicking with filters
-- [ ] Handle File asset Drag and Drop between folders
+- [x] Use AssetTypes and AssetRegistry to draw FilePicking with filters
+- [x] Disabled asset browser popup
 - [ ] Collect AssetReferences on package load
 - [ ] List all uses for an Asset
-- [ ] Highlight current project in Asset browser (Bold?)
-- [ ] Replace [...] button with "open asset lib" window action
-- [ ] Automatically open "Examples" instead of "Lib" on Asset Library
-- 
+- [x] Replace [...] button with "open asset lib" window action
 
 optional:
 - [ ] ~~Add some kind of cache which projects have been "fixed"~~ 

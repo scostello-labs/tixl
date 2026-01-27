@@ -18,11 +18,11 @@ namespace T3.Editor.Compilation;
 /// </summary>
 internal static partial class ProjectXml
 {
-    public static ProjectRootElement CreateNewProjectRootElement(string projectNamespace, Guid homeGuid)
+    public static ProjectRootElement CreateNewProjectRootElement(string projectNamespace, Guid homeGuid, Guid packageId)
     {
         var rootElement = ProjectRootElement.Create();
         rootElement.Sdk = "Microsoft.NET.Sdk";
-        rootElement.AddDefaultPropertyGroup(projectNamespace, homeGuid);
+        rootElement.AddDefaultPropertyGroup(projectNamespace, homeGuid, packageId);
         rootElement.AddDefaultUsings();
         rootElement.AddDefaultReferenceGroup();
         rootElement.AddDefaultContent();
@@ -102,7 +102,7 @@ internal static partial class ProjectXml
         }
     }
 
-    private static void AddDefaultPropertyGroup(this ProjectRootElement project, string projectNamespace, Guid homeGuid)
+    private static void AddDefaultPropertyGroup(this ProjectRootElement project, string projectNamespace, Guid homeGuid, Guid packageId)
     {
         var propertyGroup = project.AddPropertyGroup();
         foreach (var defaultProperty in _defaultProperties)
@@ -120,6 +120,7 @@ internal static partial class ProjectXml
         propertyGroup.AddProperty(PropertyType.TargetFramework.GetItemName(), TargetFramework);
         propertyGroup.AddProperty(PropertyType.RootNamespace.GetItemName(), projectNamespace);
         propertyGroup.AddProperty(PropertyType.HomeGuid.GetItemName(), homeGuid.ToString());
+        propertyGroup.AddProperty(PropertyType.PackageId.GetItemName(), packageId.ToString());
         propertyGroup.AddProperty(PropertyType.AssemblyName.GetItemName(), UnevaluatedVariable(GetItemName(PropertyType.RootNamespace)));
     }
 
@@ -201,8 +202,8 @@ internal static partial class ProjectXml
 <RemoveDir Directories="bin/$(Configuration)"/>
 </Target>  */
     }
-    
-    private static void AddPackageInfoTarget(this ProjectRootElement project)
+
+    internal static void AddPackageInfoTarget(this ProjectRootElement project)
     {
         var target = project.AddTarget("CreatePackageInfo");
         target.AfterTargets = "AfterBuild";
@@ -213,12 +214,14 @@ internal static partial class ProjectXml
         const string resourcesOnly = nameof(OperatorPackageReference.ResourcesOnly);
         const string includeVar = nameof(OperatorPackageReference.Identity); // dont ask me, this is just how MSBuild works. I guess the "Include" tag is
         // basically the identity of the item?
-
-        const string jsonStructure = $"\n\t\t{{\n" +
-                                     $"\t\t\t\"{includeVar}\": \"%({includeVar})\",\n" +
-                                     $"\t\t\t\"{version}\": \"%({version})\", \n" +
-                                     $"\t\t\t\"{resourcesOnly}\": \"%({resourcesOnly})\"\n" +
-                                     $"\t\t}}";
+        
+        const string jsonStructure = $$"""
+                                       {
+                                           "{{includeVar}}": "%({{includeVar}})",
+                                           "{{version}}": "%({{version}})", 
+                                           "{{resourcesOnly}}": "%({{resourcesOnly}})"
+                                       }
+                                       """;
 
         const string opReferencesArray = "OperatorReferenceArray";
         const string jsonArrayIterator = $"@({OpPackIncludeTagName} -> '%({perPackageInfoTagName})', ',')";
@@ -233,17 +236,23 @@ internal static partial class ProjectXml
 
         const string fullJsonTagName = "OperatorPackageInfoJson";
         var homeGuidPropertyName = GetItemName(PropertyType.HomeGuid);
+        var packageIdPropertyName = GetItemName(PropertyType.PackageId);
         var rootNamespacePropertyName = GetItemName(PropertyType.RootNamespace);
         var editorVersionPropertyName = GetItemName(PropertyType.EditorVersion);
-        propertyGroup.AddProperty(fullJsonTagName, "{\n" +
-                                                   $"\t\"{nameof(ReleaseInfoSerialized.HomeGuid)}\": \"{UnevaluatedVariable(homeGuidPropertyName)}\", \n" +
-                                                   $"\t\"{nameof(ReleaseInfoSerialized.RootNamespace)}\": \"{UnevaluatedVariable(rootNamespacePropertyName)}\",\n" +
-                                                   $"\t\"{nameof(ReleaseInfoSerialized.AssemblyFileName)}\": \"{UnevaluatedVariable(GetItemName(PropertyType.RootNamespace))}\",\n" +
-                                                   $"\t\"{nameof(ReleaseInfoSerialized.Version)}\": \"{UnevaluatedVariable(GetItemName(PropertyType.VersionPrefix))}\",\n" +
-                                                   $"\t\"{nameof(ReleaseInfoSerialized.EditorVersion)}\": \"{UnevaluatedVariable(editorVersionPropertyName)}\",\n" +
-                                                   $"\"{nameof(ReleaseInfoSerialized.IsEditorOnly)}\": \"{UnevaluatedVariable(GetItemName(PropertyType.IsEditorOnly))}\",\n" +
-                                                   $"\t\"{nameof(ReleaseInfoSerialized.OperatorPackages)}\": [{UnevaluatedVariable(opReferencesArray)}\n\t]\n" +
-                                                   "}\n");
+        
+        propertyGroup.AddProperty(fullJsonTagName, $$"""
+                                                     {
+                                                         "{{nameof(ReleaseInfoSerialized.HomeGuid)}}": "{{UnevaluatedVariable(homeGuidPropertyName)}}", 
+                                                         "{{nameof(ReleaseInfoSerialized.PackageId)}}": "{{UnevaluatedVariable(packageIdPropertyName)}}",
+                                                         "{{nameof(ReleaseInfoSerialized.RootNamespace)}}": "{{UnevaluatedVariable(rootNamespacePropertyName)}}",
+                                                         "{{nameof(ReleaseInfoSerialized.AssemblyFileName)}}": "{{UnevaluatedVariable(GetItemName(PropertyType.RootNamespace))}}",
+                                                         "{{nameof(ReleaseInfoSerialized.Version)}}": "{{UnevaluatedVariable(GetItemName(PropertyType.VersionPrefix))}}",
+                                                         "{{nameof(ReleaseInfoSerialized.EditorVersion)}}": "{{UnevaluatedVariable(editorVersionPropertyName)}}",
+                                                         "{{nameof(ReleaseInfoSerialized.IsEditorOnly)}}": "{{UnevaluatedVariable(GetItemName(PropertyType.IsEditorOnly))}}",
+                                                         "{{nameof(ReleaseInfoSerialized.OperatorPackages)}}": [{{UnevaluatedVariable(opReferencesArray)}}
+                                                         ]
+                                                     }
+                                                     """);
 
         const string outputPathVariable = "OutputPath"; // built-in variable to get the output path of the project
 
@@ -458,6 +467,7 @@ internal enum PropertyType
     VersionPrefix,
     Nullable,
     HomeGuid,
+    PackageId,
     EditorVersion,
     AssemblyName,
     IsEditorOnly,

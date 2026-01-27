@@ -41,7 +41,10 @@ internal static partial class ProjectSetup
 
         Environment.SetEnvironmentVariable(envVar, envValue, EnvironmentVariableTarget.User);
     }
-    public static bool TryCreateProject(string nameSpace, bool shareResources, [NotNullWhen(true)] out EditableSymbolProject? newProject, [NotNullWhen(false)] out string? failureLog)
+    public static bool TryCreateProject(string nameSpace, 
+                                        bool shareResources,
+                                        [NotNullWhen(true)] out EditableSymbolProject? newProject, 
+                                        [NotNullWhen(false)] out string? failureLog)
     {
         var name = nameSpace.Split('.').Last();
         var newCsProj = CsProjectFile.CreateNewProject(name, nameSpace, shareResources, UserSettings.Config.ProjectDirectories[0]);
@@ -98,7 +101,7 @@ internal static partial class ProjectSetup
             return;
         #endif
         
-        package.InitializeShaderLinting(ResourceManager.SharedShaderPackages);
+        package.InitializeShaderLinting(ResourceManager.SharedResourcePackages);
     }
 
     public static void DisposePackages()

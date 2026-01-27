@@ -69,7 +69,8 @@ internal sealed class AssetLibState
     /// </summary>
     public int LastFileWatcherState = -1;
     
-    public bool OpenedLibFolderOnce;
+    public bool OpenedExamplesFolderOnce;
+    public bool OpenedProjectsFolderOnce;
     
     public readonly TreeHandler TreeHandler = new();
     public bool FilteringNeedsUpdate;

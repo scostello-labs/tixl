@@ -62,7 +62,7 @@ public sealed class AssetType
     
     public static readonly AssetType Unknown = new("unknown", [])
                                                    {
-                                                       PrimaryOperators = null,
+                                                       PrimaryOperators = [],
                                                        Color = default,
                                                        IconId = 0
                                                    };

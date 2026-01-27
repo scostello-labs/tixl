@@ -307,3 +307,4 @@ Resources/user/pixtur/VJ/meshes
 ImageSequence
 Installer/Output
 Installer/dependencies/downloads
+*.json

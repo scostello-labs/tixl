@@ -1,5 +1,5 @@
 ﻿using ImGuiNET;
-using T3.Core.DataTypes.Vector;
+using T3.Core.Resource.Assets;
 using T3.Core.Utils;
 using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.UiHelpers;
@@ -19,29 +19,30 @@ namespace T3.Editor.Gui.Input;
 ///
 /// It should work for now, but it's likely to break with future versions of ImGui.
 /// </remarks>
-internal static partial class ResourceInputWithTypeAheadSearch
+internal static class AssetInputWithTypeAheadSearch
 {
-    //public readonly record struct Args(string Label, IEnumerable<string> Items, bool Warning);
-
-    internal static bool Draw(string label, IEnumerable<string> items, bool hasWarning, ref string searchString, out string selected, bool outlineOnly=false)
+    internal static bool Draw(bool hasWarning,
+                              string fileFilter,
+                              ref string searchString,
+                              bool pickFolder)
     {
-        var inputId = ImGui.GetID(label); 
-        var isSearchResultWindowOpen = inputId == _activeInputId;
+        searchString ??= string.Empty; // ImGui will crash if null is passed
+
+        var inputId = ImGui.GetID("Input");
+
         var shouldUpdateScroll = false;
-        var  wasSelected= false;
-        selected = searchString;
+        var wasSelected = false;
 
-
+        var isSearchResultWindowOpen = inputId == _activeInputId;
         if (isSearchResultWindowOpen)
         {
             if (ImGui.IsKeyPressed((ImGuiKey)Key.CursorDown, true))
             {
                 if (_lastTypeAheadResults.Count > 0)
                 {
-                    _selectedResultIndex = (_selectedResultIndex + 1).Clamp(0, _lastTypeAheadResults.Count-1);
+                    _selectedResultIndex = (_selectedResultIndex + 1).Clamp(0, _lastTypeAheadResults.Count - 1);
                     shouldUpdateScroll = true;
-                    searchString = _lastTypeAheadResults[_selectedResultIndex];
-                    selected = searchString;
+                    searchString = _lastTypeAheadResults[_selectedResultIndex].Address;
                     wasSelected = true;
                 }
             }
@@ -53,64 +54,44 @@ internal static partial class ResourceInputWithTypeAheadSearch
                     if (_selectedResultIndex < 0)
                         _selectedResultIndex = 0;
                     shouldUpdateScroll = true;
-                    searchString = _lastTypeAheadResults[_selectedResultIndex];
-                    selected = searchString;
+                    searchString = _lastTypeAheadResults[_selectedResultIndex].Address;
                     wasSelected = true;
                 }
             }
+
             if (ImGui.IsKeyPressed((ImGuiKey)Key.Return, false))
             {
                 if (_selectedResultIndex >= 0 && _selectedResultIndex < _lastTypeAheadResults.Count)
                 {
-                    searchString = _lastTypeAheadResults[_selectedResultIndex];
-                    selected = searchString;
+                    searchString = _lastTypeAheadResults[_selectedResultIndex].Address;
                     _activeInputId = 0;
                     return true;
                 }
             }
+
             if (ImGui.IsKeyPressed((ImGuiKey)Key.Esc, false))
             {
                 _activeInputId = 0;
-                selected = searchString;
                 return false;
             }
-            
         }
 
-        if (outlineOnly)
-        {
-            ImGui.PushStyleColor(ImGuiCol.FrameBg, Color.Transparent.Rgba);
-            ImGui.PushStyleColor(ImGuiCol.FrameBgActive, Color.Red.Rgba);
-        }
-            
-        var color = hasWarning ? UiColors.StatusWarning.Rgba : UiColors.Text.Rgba;
-        ImGui.PushStyleColor(ImGuiCol.Text, color);
-            
-        searchString ??= string.Empty;  // ImGui will crash if null is passed
-        
-        var filterInputChanged = ImGui.InputText(label, ref searchString, 256, ImGuiInputTextFlags.AutoSelectAll);
-        
+        ImGui.PushStyleColor(ImGuiCol.Text, hasWarning ? UiColors.StatusWarning.Rgba : UiColors.Text.Rgba);
+
+        var filterInputChanged = ImGui.InputText("##input", ref searchString, 256, ImGuiInputTextFlags.AutoSelectAll);
+
         // Sadly, ImGui will revert the searchSearch to its internal state if cursor is moved up or down.
         // To apply is as a new result we need to revert that...
         if (wasSelected)
         {
-            searchString = selected;
+            //searchString = selected; // TODO: Test this.
         }
-        
-        ImGui.PopStyleColor();
-            
-            
-        if (outlineOnly)
-        {
-            var drawList = ImGui.GetWindowDrawList();
-            drawList.AddRect(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), UiColors.BackgroundInputField, 5);
-            ImGui.PopStyleColor(2);
-        }
-        var justOpened = ImGui.IsItemActivated();
 
+        ImGui.PopStyleColor();
+
+        var justOpened = ImGui.IsItemActivated();
         if (justOpened)
         {
-            
             _lastTypeAheadResults.Clear();
             _selectedResultIndex = -1;
             DrawUtils.DisableImGuiKeyboardNavigation();
@@ -120,134 +101,15 @@ internal static partial class ResourceInputWithTypeAheadSearch
 
         // We defer exit to get clicks on opened popup list
         var lostFocus = isItemDeactivated || ImGui.IsKeyDown((ImGuiKey)Key.Esc);
-        selected = default;
-            
-        if ( ImGui.IsItemActive() || isSearchResultWindowOpen)
+
+        if (ImGui.IsItemActive() || isSearchResultWindowOpen)
         {
+            var filterNeedsUpdate = justOpened || filterInputChanged;
+            if (filterNeedsUpdate)
+                FilterItems(fileFilter, searchString, pickFolder, ref _lastTypeAheadResults);
+
             _activeInputId = inputId;
-
-            var lastPosition = new Vector2(ImGui.GetItemRectMin().X, ImGui.GetItemRectMax().Y);
-            var size = new Vector2(ImGui.GetItemRectSize().X , 350 * T3Ui.UiScaleFactor);
-            ImGui.SetNextWindowPos(lastPosition);
-            ImGui.SetNextWindowSize(size);
-            if (ImGui.IsItemFocused() && ImGui.IsKeyPressed((ImGuiKey)Key.Return))
-            {
-                wasSelected = true;
-                _activeInputId = 0;
-            }
-                
-            const ImGuiWindowFlags flags = ImGuiWindowFlags.NoTitleBar
-                                           | ImGuiWindowFlags.NoMove
-                                           | ImGuiWindowFlags.Tooltip // ugly as f**k. Sadly .PopUp will lead to random crashes.
-                                           | ImGuiWindowFlags.NoFocusOnAppearing;
-                
-            ImGui.SetNextWindowSize(new Vector2(750,300));
-            ImGui.PushStyleColor(ImGuiCol.PopupBg, UiColors.BackgroundFull.Rgba);
-            if (ImGui.Begin("##typeAheadSearchPopup", ref isSearchResultWindowOpen,flags))
-            {
-                //_lastTypeAheadResults.Clear();
-                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.Gray.Rgba);
-                
-                if(justOpened || filterInputChanged)
-                     FilterItems(items, searchString, ref _lastTypeAheadResults);
-                
-                var index = 0;
-                var lastProjectGroup = ReadOnlySpan<char>.Empty;
-                
-                if(_lastTypeAheadResults.Count == 0)
-                {
-                    ImGui.TextUnformatted("No results found");
-                }
-                
-                foreach (var path in _lastTypeAheadResults)
-                {
-                    var isSelected = index == _selectedResultIndex;
-                    if ( _selectedResultIndex == -1 && path == searchString)
-                    {
-                        _selectedResultIndex = index;
-                        isSelected = true;
-                        shouldUpdateScroll = true;
-                    }
-                    
-                    if(isSelected && shouldUpdateScroll)
-                    {
-                        ImGui.SetScrollHereY();
-                    }
-
-                    // We can't use IsItemHovered because we need to use Tooltip hack 
-                    ImGui.PushStyleColor(ImGuiCol.Text, UiColors.Text.Rgba);
-
-                    TryGetProjectPathAndFilenameFromAddress(path, out var project, out var pathInProject, out var filename);
-
-                    if (!project.Equals(lastProjectGroup, StringComparison.Ordinal))
-                    {
-                        if (lastProjectGroup != string.Empty)
-                            FormInputs.AddVerticalSpace(8);
-                        
-                        ImGui.PushFont(Fonts.FontSmall);
-                        ImGui.PushStyleColor(ImGuiCol.Text, UiColors.TextMuted.Rgba);
-                        ImGui.TextUnformatted( $"/{project}/");
-                        ImGui.PopStyleColor();
-                        ImGui.PopFont();
-                        lastProjectGroup = project;
-                    }
-                    
-                    var lastPos = ImGui.GetCursorPos();
-                    ImGui.Selectable( $"##{path}" , isSelected, ImGuiSelectableFlags.None);
-                    var isItemHovered = new ImRect(ImGui.GetItemRectMin(), ImGui.GetItemRectMax()).Contains( ImGui.GetMousePos());
-                    var keepNextPos = ImGui.GetCursorPos();
-                    
-                    isSelected = path == searchString;
-                    ImGui.PushFont(isSelected ? Fonts.FontBold : Fonts.FontNormal);
-
-                    ImGui.SetCursorPos(lastPos);
-                    ImGui.PushStyleColor(ImGuiCol.Text, UiColors.TextMuted.Rgba);
-                    ImGui.TextUnformatted(pathInProject);
-                    ImGui.PopStyleColor();
-                    ImGui.SameLine();
-                    ImGui.TextUnformatted(filename);
-                    ImGui.PopFont();
-                    
-                    ImGui.SetCursorPos(keepNextPos);
-
-                    // Tooltips inside other tooltips are not working 
-                    // if (isItemHovered && !string.IsNullOrEmpty(path))
-                    // {
-                    //     ImGui.BeginTooltip();
-                    //     ImGui.TextUnformatted(path);
-                    //     ImGui.EndTooltip();
-                    // }
-                        
-                    ImGui.PopStyleColor();
-                            
-                    if (!justOpened && 
-                        ( ImGui.IsMouseClicked(ImGuiMouseButton.Left) && isItemHovered 
-                        || isSelected && ImGui.IsKeyPressed((ImGuiKey)Key.Return)))
-                    {
-                        searchString = path;
-                        wasSelected = true;
-                        _activeInputId = 0;
-                        selected = path;
-                    }
-
-                    //_lastTypeAheadResults.Add(path);
-                    if (++index > 100)
-                        break;
-                }
-                
-                var isPopupHovered = ImRect.RectWithSize(ImGui.GetWindowPos( ), ImGui.GetWindowSize())
-                                           .Contains(ImGui.GetMousePos());
-
-                if (!isPopupHovered && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
-                {
-                    _activeInputId = 0;
-                }
-
-                ImGui.PopStyleColor();
-            }
-
-            ImGui.End();
-            ImGui.PopStyleColor();
+            wasSelected = DrawResultsList(ref searchString, wasSelected, isSearchResultWindowOpen, justOpened, shouldUpdateScroll);
         }
 
         if (lostFocus)
@@ -258,96 +120,193 @@ internal static partial class ResourceInputWithTypeAheadSearch
         return wasSelected;
     }
 
-    private static bool TryGetProjectPathAndFilenameFromAddress(ReadOnlySpan<char> address, 
-                                                            out ReadOnlySpan<char> project,
-                                                            out ReadOnlySpan<char> path,
-                                                            out ReadOnlySpan<char> filename
-                                                            )
+    private static bool DrawResultsList(ref string searchString,
+                                        bool wasSelected, bool isSearchResultWindowOpen, bool justOpened, bool shouldUpdateScroll)
     {
-        filename =path=project = ReadOnlySpan<char>.Empty;
-
-        var colon = address.IndexOf(':');
-        if (colon <= 1 || colon >= address.Length -1)
-            return false;
-
-        project = address[..colon];
-        var rest = address[(colon + 1)..];
-
-        var lastSlash = rest.LastIndexOf('/');
-
-        if (lastSlash == -1)
+        var lastPosition = new Vector2(ImGui.GetItemRectMin().X, ImGui.GetItemRectMax().Y);
+        var size = new Vector2(ImGui.GetItemRectSize().X, 350 * T3Ui.UiScaleFactor);
+        ImGui.SetNextWindowPos(lastPosition);
+        ImGui.SetNextWindowSize(size);
+        if (ImGui.IsItemFocused() && ImGui.IsKeyPressed((ImGuiKey)Key.Return))
         {
-            filename = rest;
-            return true;
+            wasSelected = true;
+            _activeInputId = 0;
         }
 
-        path = rest[..lastSlash];
-        filename = rest[(lastSlash + 1)..];
-        return true;
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoTitleBar
+                                       | ImGuiWindowFlags.NoMove
+                                       | ImGuiWindowFlags.Tooltip // ugly as f**k. Sadly .PopUp will lead to random crashes.
+                                       | ImGuiWindowFlags.NoFocusOnAppearing;
+
+        ImGui.SetNextWindowSize(new Vector2(750, 300));
+        ImGui.PushStyleColor(ImGuiCol.PopupBg, UiColors.BackgroundFull.Rgba);
+        if (ImGui.Begin("##typeAheadSearchPopup", ref isSearchResultWindowOpen, flags))
+        {
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.Gray.Rgba);
+
+            var index = 0;
+            var lastPackageId = Guid.Empty;
+
+            if (_lastTypeAheadResults.Count == 0)
+            {
+                ImGui.TextUnformatted("No results found");
+            }
+
+            int separatorIndex = 0;
+
+            foreach (var asset in _lastTypeAheadResults)
+            {
+                var isSelected = index == _selectedResultIndex;
+                if (_selectedResultIndex == -1 && asset.Address == searchString)
+                {
+                    _selectedResultIndex = index;
+                    isSelected = true;
+                    shouldUpdateScroll = true;
+                }
+
+                if (isSelected && shouldUpdateScroll)
+                {
+                    ImGui.SetScrollHereY();
+                }
+
+                // We can't use IsItemHovered because we need to use Tooltip hack 
+                ImGui.PushStyleColor(ImGuiCol.Text, UiColors.Text.Rgba);
+
+                var address = asset.Address.AsSpan();
+
+                if (lastPackageId != asset.PackageId)
+                {
+                    separatorIndex = asset.Address.IndexOf(AssetRegistry.PackageSeparator);
+                    var packageName = separatorIndex != -1
+                                          ? address[..(separatorIndex + 1)]
+                                          : "?";
+
+                    // Add padding except for first
+                    if (lastPackageId != Guid.Empty)
+                        FormInputs.AddVerticalSpace(8);
+
+                    ImGui.PushFont(Fonts.FontSmall);
+                    ImGui.PushStyleColor(ImGuiCol.Text, UiColors.TextMuted.Rgba);
+                    ImGui.TextUnformatted(packageName);
+                    ImGui.PopStyleColor();
+                    ImGui.PopFont();
+                    lastPackageId = asset.PackageId;
+                }
+
+                var lastPos = ImGui.GetCursorPos();
+                ImGui.Selectable($"##{asset}", isSelected, ImGuiSelectableFlags.None);
+                var isItemHovered = new ImRect(ImGui.GetItemRectMin(), ImGui.GetItemRectMax()).Contains(ImGui.GetMousePos())
+                    && ImRect.RectWithSize(ImGui.GetWindowPos(), ImGui.GetWindowSize() ).Contains(ImGui.GetMousePos());
+                
+                var keepNextPos = ImGui.GetCursorPos();
+
+                isSelected = asset.Address == searchString;
+                ImGui.PushFont(isSelected ? Fonts.FontBold : Fonts.FontNormal);
+
+                var localPath = address[(separatorIndex + 1)..];
+                var lastSlash = localPath.LastIndexOf('/');
+
+                ImGui.SetCursorPos(lastPos);
+                var hasPath = lastSlash != 1;
+                if (hasPath)
+                {
+                    var pathInProject = localPath[..(lastSlash + 1)];
+                    ImGui.PushStyleColor(ImGuiCol.Text, UiColors.TextMuted.Rgba);
+                    ImGui.TextUnformatted(pathInProject);
+                    ImGui.PopStyleColor();
+                }
+
+                ImGui.SameLine();
+                ImGui.TextUnformatted(hasPath ? localPath[lastSlash..] : localPath);
+                ImGui.PopFont();
+
+                ImGui.SetCursorPos(keepNextPos);
+
+                // Tooltips inside other tooltips are not working 
+                // if (isItemHovered && !string.IsNullOrEmpty(path))
+                // {
+                //     ImGui.BeginTooltip();
+                //     ImGui.TextUnformatted(path);
+                //     ImGui.EndTooltip();
+                // }
+
+                ImGui.PopStyleColor();
+
+                if (!justOpened &&
+                    (ImGui.IsMouseClicked(ImGuiMouseButton.Left) && isItemHovered
+                     || isSelected && ImGui.IsKeyPressed((ImGuiKey)Key.Return)))
+                {
+                    searchString = asset.Address;
+                    wasSelected = true;
+                    _activeInputId = 0;
+                }
+
+                if (++index > MaxItemCount)
+                    break;
+            }
+
+            var isPopupHovered = ImRect.RectWithSize(ImGui.GetWindowPos(), ImGui.GetWindowSize())
+                                       .Contains(ImGui.GetMousePos());
+
+            if (!isPopupHovered && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
+            {
+                _activeInputId = 0;
+            }
+
+            ImGui.PopStyleColor();
+        }
+
+        ImGui.End();
+        ImGui.PopStyleColor();
+        return wasSelected;
     }
-    
 
-    private static void FilterItems(IEnumerable<string> allItems, string filter, ref List<string> filteredItems)
+    private static void FilterItems(string fileFilter, string searchFilter, bool pickFolder, ref List<Asset> filteredItems)
     {
-        //var listItems = new List<string>();
-        filteredItems.Clear();
-        
-        var allValidItems = allItems.Where(i => i != null).ToList();
-        if (string.IsNullOrWhiteSpace(filter))
-        {
-            filteredItems.AddRange(allValidItems);
-            return;
-        }
+        var requiredExtensionIds = FileExtensionRegistry.GetExtensionIdsFromExtensionSetString(fileFilter);
+
+        var allItems = AssetRegistry.AllAssets
+                                    .Where(a => a.IsDirectory == pickFolder &&
+                                                (requiredExtensionIds.Count == 0 || requiredExtensionIds.Contains(a.ExtensionId)))
+                                    .OrderBy(a => a.Address)
+                                    .ToList();
 
         var matches = new List<ResultWithRelevancy>();
-        // var others = new List<string>();
-
-        foreach (var word in allValidItems)
+        foreach (var asset in allItems)
         {
-            if (word == null)
-                continue;
-
-            if (word.StartsWith(filter, StringComparison.InvariantCulture))
+            if (asset.Address.StartsWith(searchFilter, StringComparison.InvariantCulture))
             {
-                matches.Add(new ResultWithRelevancy(word, 1));
+                matches.Add(new ResultWithRelevancy(asset, 1));
             }
-            else if (word.Contains(filter, StringComparison.InvariantCultureIgnoreCase))
+            else if (asset.Address.Contains(searchFilter, StringComparison.InvariantCultureIgnoreCase))
             {
-                matches.Add(new ResultWithRelevancy(word, 2));
+                matches.Add(new ResultWithRelevancy(asset, 2));
             }
         }
 
+        filteredItems.Clear();
         switch (matches.Count)
         {
             case 0:
                 return;
-            case 1 when matches[0].Word == filter:
-                filteredItems.AddRange(allValidItems);
+
+            case 1 when matches[0].Asset.Address == searchFilter:
+                filteredItems.AddRange(allItems);
                 return;
+
             default:
-                filteredItems.AddRange( matches.OrderBy(r => r.Relevancy)
-                                               .Select(m => m.Word)
-                                               .ToList());
+                filteredItems.AddRange(matches
+                                      .OrderBy(r => r.Relevancy)
+                                      .Select(r => r.Asset));
                 break;
         }
     }
 
-    private sealed record ResultWithRelevancy(string Word, float Relevancy);
+    private sealed record ResultWithRelevancy(Asset Asset, float Relevancy);
 
-    // private struct ResultWithRelevancy
-    // {
-    //     public ResultWithRelevancy(string word, float relevancy)
-    //     {
-    //         Word = word;
-    //         Relevancy = relevancy;
-    //     }
-    //
-    //     public string Word;
-    //     public float Relevancy;
-    // }
-
-    private static List<string> _lastTypeAheadResults = [];
+    private static List<Asset> _lastTypeAheadResults = [];
     private static int _selectedResultIndex;
     private static uint _activeInputId;
 
+    private const int MaxItemCount = 500;
 }

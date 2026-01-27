@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using T3.Core.Logging;
 
 namespace T3.Core.Resource.Assets;
@@ -17,24 +18,33 @@ namespace T3.Core.Resource.Assets;
 /// </remarks>
 public static class FileExtensionRegistry
 {
-    public static int GetUniqueId(string ext) => _map.TryGetValue(ext, out var id) 
-                                               ? id 
-                                               : _map[ext]=_next++;
+    public static int GetUniqueId(string ext)
+    {
+        lock (_registryLock)
+        {
+            if (_map.TryGetValue(ext, out var id))
+                return id;
+
+            var newId = _next++;
+            _map[ext] = newId;
+            return newId;
+        }
+    }
 
     public static bool TryGetExtensionIdForFilePath(string filepath, out int id)
     {
         id = -1;
-
         try
         {
-            var extension = Path.GetExtension(filepath); // includes dot (e.g .ext)
+            var extension = Path.GetExtension(filepath);
             if (extension.Length < 2)
                 return false;
 
-            if (!_map.TryGetValue(extension[1..], out id))
+            // Dictionary reads are generally thread-safe if no writes occur, 
+            // but since we write during startup, we lock for safety
+            lock (_registryLock)
             {
-                id = -1;
-                return false;
+                return _map.TryGetValue(extension[1..], out id);
             }
         }
         catch (Exception e)
@@ -42,8 +52,6 @@ public static class FileExtensionRegistry
             Log.Warning($"Can't get extension from {filepath}: " + e.Message);
             return false;
         }
-        
-        return true;
     }
     
     public static List<int> IdsFromFileFilter(string filter)
@@ -85,7 +93,7 @@ public static class FileExtensionRegistry
             }
         }
     }
-
+    
     // Returns normalized extension without leading dot, keeps composite (e.g. "tar.gz"), or null to skip.
     private static string? ExtractExtensionFromPattern(string pattern)
     {
@@ -107,7 +115,31 @@ public static class FileExtensionRegistry
         return null;
     }
     
+    /// <summary>
+    /// A helper method that generates a list of filter ids from an
+    /// extension set string (e.g. "mp4, mov, m4v")
+    /// </summary>
+    public static List<int> GetExtensionIdsFromExtensionSetString(string? filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter)) return [];
+        
+        var ids = new List<int>();
+        
+        var extensions = filter.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var ext in extensions)
+        {
+            
+            var cleanExt = ext.Trim();
+            if (string.IsNullOrEmpty(cleanExt))
+                continue;
+            
+            ids.Add(GetUniqueId(cleanExt));
+        }
+        return ids;
+    }    
     
+    private static readonly Lock _registryLock = new(); 
     private static readonly Dictionary<string,int> _map = new(StringComparer.OrdinalIgnoreCase);
     private static int _next;
 }

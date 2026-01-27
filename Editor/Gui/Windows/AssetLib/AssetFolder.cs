@@ -3,10 +3,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using T3.Core.Operator;
-using T3.Core.Resource;
 using T3.Core.Resource.Assets;
 using T3.Editor.Gui.Windows.SymbolLib;
-using T3.Editor.UiModel.ProjectHandling;
 
 namespace T3.Editor.Gui.Windows.AssetLib;
 
@@ -21,7 +19,7 @@ internal sealed class AssetFolder
     private AssetFolder? Parent { get; }
     internal int MatchingAssetCount;
     
-    public int HashCode;
+    public readonly int HashCode;
 
     /// <summary>
     /// This could later be used for UI to distinguish projects from folders 
@@ -81,12 +79,11 @@ internal sealed class AssetFolder
         state.RootFolder.UpdateMatchingAssetCounts(state.CompatibleExtensionIds);
     }
 
-    
-    private int UpdateMatchingAssetCounts(List<int> compatibleExtensionIds)
+    internal int UpdateMatchingAssetCounts(List<int> compatibleExtensionIds)
     {
         var count = 0;
 
-        // Count direct assets in this folder
+        // No filter: count everything
         if (compatibleExtensionIds.Count == 0)
         {
             count += FolderAssets.Count;
@@ -96,11 +93,13 @@ internal sealed class AssetFolder
             foreach (var asset in FolderAssets)
             {
                 if (compatibleExtensionIds.Contains(asset.ExtensionId))
+                {
                     count++;
+                }
             }
         }
 
-        // Aggregate counts from subfolders
+        // Recursively aggregate counts from subfolders
         foreach (var subFolder in SubFolders)
         {
             count += subFolder.UpdateMatchingAssetCounts(compatibleExtensionIds);

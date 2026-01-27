@@ -10,29 +10,28 @@ namespace T3.Core.Resource;
 /// Todo: Should probably be split into multiple classes
 public static partial class ResourceManager
 {
-
     static ResourceManager()
     {
     }
 
     internal static void AddSharedResourceFolder(IResourcePackage resourcePackage, bool allowSharedNonCodeFiles)
     {
-        if (allowSharedNonCodeFiles)
-            _sharedResourcePackages.Add(resourcePackage);
+        //if (allowSharedNonCodeFiles)
+        _sharedResourcePackages.Add(resourcePackage);
 
-        ShaderPackages.Add(resourcePackage);
+        //ShaderPackages.Add(resourcePackage);
         resourcePackage.ResourcesFolder.ToForwardSlashesUnsafe();
     }
 
     internal static void RemoveSharedResourceFolder(IResourcePackage resourcePackage)
     {
-        ShaderPackages.Remove(resourcePackage);
+        //ShaderPackages.Remove(resourcePackage);
         _sharedResourcePackages.Remove(resourcePackage);
     }
 
-    public static IReadOnlyList<IResourcePackage> SharedShaderPackages => ShaderPackages;
+    public static IReadOnlyList<IResourcePackage> SharedResourcePackages => _sharedResourcePackages;
     private static readonly List<IResourcePackage> _sharedResourcePackages = new(4);
-    public static readonly List<IResourcePackage> ShaderPackages = new(4);
+    //public static readonly List<IResourcePackage> ShaderPackages = new(4);
 
     public enum PathMode
     {
@@ -65,4 +64,5 @@ public static partial class ResourceManager
     }
 
     private static readonly List<ResourceFileWatcher> _fileWatchers = [];
+    public const string DefaultShaderFilter = "*.hlsl";
 }

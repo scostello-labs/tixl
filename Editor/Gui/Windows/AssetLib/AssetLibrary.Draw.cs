@@ -1,16 +1,17 @@
 ﻿#nullable enable
-using System.IO;
 using System.Runtime.CompilerServices;
 using ImGuiNET;
 using T3.Core.DataTypes.Vector;
 using T3.Core.Operator.Slots;
 using T3.Core.Resource.Assets;
 using T3.Core.SystemUi;
+using T3.Core.UserData;
 using T3.Core.Utils;
 using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.UiModel.Commands;
 using T3.Editor.UiModel.Commands.Graph;
+using T3.Editor.UiModel.ProjectHandling;
 
 namespace T3.Editor.Gui.Windows.AssetLib;
 
@@ -75,21 +76,33 @@ internal sealed partial class AssetLibrary
         }
         else
         {
-            var hasMatches = folder.MatchingAssetCount > 0;
-            var isFiltering = _state.CompatibleExtensionIds.Count > 0;            
-            if (isFiltering && !hasMatches)
-            {
-                ImGui.PushStyleColor(ImGuiCol.Text, UiColors.TextMuted.Rgba);
-            }
-            
-            
-            ImGui.SetNextItemWidth(10);
-            if (folder.Name == "Lib" && !_state.OpenedLibFolderOnce)
+            // Open main folders automatically
+            if (!_state.OpenedExamplesFolderOnce
+                && folder.Name == FileLocations.ExamplesPackageName)
             {
                 ImGui.SetNextItemOpen(true);
-                _state.OpenedLibFolderOnce = true;
+                _state.OpenedExamplesFolderOnce = true;
             }
 
+            if (!_state.OpenedProjectsFolderOnce
+                && folder.Name == ProjectView.Focused?.RootInstance.Symbol.SymbolPackage.Name)
+            {
+                ImGui.SetNextItemOpen(true);
+                _state.OpenedProjectsFolderOnce = true;
+            }
+            
+            // Draw 
+            ImGui.SetNextItemWidth(10);
+            
+            var hasMatches = folder.MatchingAssetCount > 0;
+            var isFiltering = _state.CompatibleExtensionIds.Count > 0;
+            var isCurrentCompositionPackage = _state.Composition?.Symbol.SymbolPackage.Name == folder.Name;
+            
+            var textMutedRgba = (isFiltering && !hasMatches) ? UiColors.TextMuted: UiColors.Text;
+            textMutedRgba = textMutedRgba.Fade(isCurrentCompositionPackage ? 1 : 0.8f);
+
+            ImGui.PushStyleColor(ImGuiCol.Text, textMutedRgba.Rgba);
+            
             _state.TreeHandler.UpdateForNode(folder.HashCode);
 
             var containsTargetFile = ContainsTargetFile(folder);
@@ -98,24 +111,19 @@ internal sealed partial class AssetLibrary
                 ImGui.SetNextItemOpen(true);
             }
 
-            var isOpen = ImGui.TreeNodeEx(folder.Name);
             
+            ImGui.PushFont(isCurrentCompositionPackage ? Fonts.FontBold : Fonts.FontNormal);
+            var isOpen = ImGui.TreeNodeEx(folder.Name);
+            ImGui.PopFont();
+
             // Show filter count
             if (isFiltering && hasMatches)
             {
-                var countLabel = $"{folder.MatchingAssetCount}";
-                var labelSize = ImGui.CalcTextSize(countLabel);
-                CustomComponents.RightAlign(labelSize.X + 4 + (containsTargetFile ? Icons.FontSize : 0));
-                ImGui.PushStyleColor(ImGuiCol.Text, UiColors.ForegroundFull.Fade(0.3f).Rgba);
-                ImGui.TextUnformatted(countLabel);
-                ImGui.PopStyleColor();
+                ShowMatchCount(folder, containsTargetFile, isOpen);
             }
-            
-            if (isFiltering && !hasMatches)
-            {
-                ImGui.PopStyleColor();
-            }            
-            
+
+            ImGui.PopStyleColor();
+
             _state.TreeHandler.NoFolderOpen = false;
 
             _folderForMenu = folder;
@@ -134,8 +142,6 @@ internal sealed partial class AssetLibrary
                                                     }
                                                 });
 
-
-            
             if (isOpen)
             {
                 DrawFolderContent(folder);
@@ -183,9 +189,20 @@ internal sealed partial class AssetLibrary
                     ImGui.PopID();
                 }
             }
-            
-
         }
+    }
+
+    /** Extracted to separate method to limit hot code reloading block from stack alloc **/
+    private static void ShowMatchCount(AssetFolder folder, bool containsTargetFile, bool isOpen)
+    {
+        Span<char> buffer = stackalloc char[32];
+        var countLabel = buffer.Format($"{folder.MatchingAssetCount}\0");
+
+        var labelSize = ImGui.CalcTextSize(countLabel[..^1]); // skip null byte
+        CustomComponents.RightAlign(labelSize.X + 4 + ((containsTargetFile && !isOpen) ? Icons.FontSize : 0));
+        ImGui.PushStyleColor(ImGuiCol.Text, UiColors.ForegroundFull.Fade(0.3f).Rgba);
+        ImGui.TextUnformatted(countLabel);
+        ImGui.PopStyleColor();
     }
 
     private static bool ContainsTargetFile(AssetFolder folder)
@@ -214,7 +231,6 @@ internal sealed partial class AssetLibrary
 
     private void DrawAssetItem(Asset asset)
     {
-        
         var isSelected = asset.Address == _state.ActiveAssetAddress;
 
         var fileConsumerOpSelected = _state.CompatibleExtensionIds.Count > 0;
@@ -235,10 +251,10 @@ internal sealed partial class AssetLibrary
 
             var iconColor = ColorVariations.OperatorLabel.Apply(asset.AssetType != null ? asset.AssetType.Color : UiColors.Text);
             var icon = asset.AssetType != null
-                         ? (Icon)asset.AssetType.IconId 
-                         : Icon.FileImage;
-            
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() -6);
+                           ? (Icon)asset.AssetType.IconId
+                           : Icon.FileImage;
+
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() - 6);
             if (ButtonWithIcon(string.Empty,
                                asset.FileSystemInfo?.Name ?? string.Empty,
                                icon,
@@ -275,8 +291,9 @@ internal sealed partial class AssetLibrary
                                                                        var absolutePath = asset.FileSystemInfo?.FullName;
                                                                        if (!string.IsNullOrEmpty(absolutePath))
                                                                        {
-                                                                            CoreUi.Instance.OpenWithDefaultApplication(absolutePath);
+                                                                           CoreUi.Instance.OpenWithDefaultApplication(absolutePath);
                                                                        }
+
                                                                        Log.Debug("Not implemented yet");
                                                                    }
                                                                },

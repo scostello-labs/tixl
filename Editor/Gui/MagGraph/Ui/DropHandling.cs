@@ -137,7 +137,7 @@ internal static class DropHandling
                     {
                         File.Copy(filepath, destFilepath);
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                         Log.Warning($"Failed to copy to {destFilepath}");
                         continue;

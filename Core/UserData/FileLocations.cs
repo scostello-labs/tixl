@@ -18,6 +18,7 @@ public static class FileLocations
     private const string TestsSubFolder = "Tests";
 
     public const string LibPackageName = "Lib";
+    public const string ExamplesPackageName = "Examples";
     
     public static string TempFolder => Path.Combine(SettingsDirectory, "Tmp");
 

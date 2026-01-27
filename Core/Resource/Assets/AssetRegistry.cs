@@ -20,11 +20,12 @@ public static class AssetRegistry
         return _assetsByAddress.TryGetValue(address, out asset);
     }
 
-    public static bool TryResolveAddress(string address,
+    public static bool TryResolveAddress(string? address,
                                      IResourceConsumer? consumer,
                                      out string absolutePath,
                                      [NotNullWhen(true)] out IResourcePackage? resourceContainer,
-                                     bool isFolder = false)
+                                     bool isFolder = false,
+                                     bool logWarnings = false)
     {
         resourceContainer = null;
         absolutePath = string.Empty;
@@ -40,7 +41,7 @@ public static class AssetRegistry
                 absolutePath = asset.FileSystemInfo.FullName;
                 resourceContainer = null;
 
-                foreach (var c in ResourceManager.SharedShaderPackages)
+                foreach (var c in ResourceManager.SharedResourcePackages)
                 {
                     if (c.Id != asset.PackageId) continue;
                     resourceContainer = c;
@@ -58,8 +59,13 @@ public static class AssetRegistry
         if (span.StartsWith("./"))
         {
             absolutePath = Path.GetFullPath(address);
+            if (!logWarnings) 
+                return false;
+            
             if (consumer is Instance instance)
+            { 
                 Log.Warning($"Can't resolve relative asset '{address}'", instance);
+            }
             else
                 Log.Warning($"Can't relative resolve asset '{address}'");
 
@@ -77,7 +83,9 @@ public static class AssetRegistry
 
         if (projectSeparator == -1)
         {
-            Log.Warning($"Can't resolve asset '{address}'");
+            if(logWarnings)
+                Log.Warning($"Can't resolve asset '{address}'");
+            
             return false;
         }
 
@@ -85,10 +93,12 @@ public static class AssetRegistry
         var packageName = span[..projectSeparator];
         var localPath = span[(projectSeparator + 1)..];
 
-        var packages = consumer?.AvailableResourcePackages ?? ResourceManager.ShaderPackages;
+        var packages = consumer?.AvailableResourcePackages ?? ResourceManager.SharedResourcePackages;
         if (packages.Count == 0)
         {
-            Log.Warning($"Can't resolve asset '{address}' (no packages found)");
+            if(logWarnings)
+                Log.Warning($"Can't resolve asset '{address}' (no packages found)");
+            
             return false;
         }
 
@@ -147,8 +157,12 @@ public static class AssetRegistry
 
             var asset =RegisterEntry(fileInfo, root, packageAlias, packageId, false);
             
-            // Populate the healer index to avoid double-scanning
-            _healerIndex.TryAdd(fileInfo.Name, asset.Address);
+            // Collect all possible addresses for this filename
+            var list = _healerIndex.GetOrAdd(fileInfo.Name, _ => []);
+            lock (list)
+            {
+                if (!list.Contains(asset.Address)) list.Add(asset.Address);
+            }
         }
 
         // Register all directories
@@ -323,8 +337,8 @@ public static class AssetRegistry
         }
     }
 
-    public static bool TryHealPath(string filename, [NotNullWhen(true)] out string? healedAddress) 
-        => _healerIndex.TryGetValue(filename, out healedAddress);
+    public static bool TryGetHealerMatches(string filename, [NotNullWhen(true)] out List<string>? matches) 
+        => _healerIndex.TryGetValue(filename, out matches);
     
     public const char PathSeparator = '/';
     public const char PackageSeparator = ':';
@@ -332,6 +346,5 @@ public static class AssetRegistry
     public static ICollection<Asset> AllAssets => _assetsByAddress.Values;
 
     private static readonly ConcurrentDictionary<string, Asset> _assetsByAddress = new(StringComparer.OrdinalIgnoreCase);
-    //private static readonly ConcurrentDictionary<string, List<AssetReference>> _usagesByAddress = new();
-    private static readonly ConcurrentDictionary<string, string> _healerIndex = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, List<string>> _healerIndex = new(StringComparer.OrdinalIgnoreCase);
 }

@@ -154,6 +154,9 @@
         <PackageNames Include="skills" />
         <PackageNames Include="spout" />
         <PackageNames Include="ndi" />
+        <PackageNames Include="Mediapipe">
+            <Name>t3.mediapipe</Name>
+        </PackageNames>
         <!-- Add more as needed -->
     </ItemGroup>
     <PropertyGroup>

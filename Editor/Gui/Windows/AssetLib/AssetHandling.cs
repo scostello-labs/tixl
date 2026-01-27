@@ -1,6 +1,5 @@
 ﻿#nullable enable
 
-using System.Diagnostics.CodeAnalysis;
 using T3.Core.Resource.Assets;
 using T3.Editor.Gui.Styling;
 
@@ -145,5 +144,5 @@ internal static class AssetHandling
                                    });
     }
 
-    internal static int TotalAssetCount;
+    internal static int TotalAssetCount = 0;
 }

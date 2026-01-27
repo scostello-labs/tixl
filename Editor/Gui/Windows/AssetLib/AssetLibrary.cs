@@ -102,12 +102,13 @@ internal sealed partial class AssetLibrary : Window
         if (SymbolAnalysis.TryGetFileInputFromInstance(selectedInstance, out _state.ActivePathInput, out var stringInputUi))
         {
             _state.ActiveAssetAddress = _state.ActivePathInput.GetCurrentValue();
-            AssetRegistry.TryGetAsset(_state.ActiveAssetAddress, out _state.ActiveAsset);
+            _state.CompatibleExtensionIds = AssetRegistry.TryGetAsset(_state.ActiveAssetAddress, out _state.ActiveAsset) 
+                                                ? _state.ActiveAsset.AssetType.ExtensionIds.ToList()// Copy to prevent accident changes   
+                                                : FileExtensionRegistry.GetExtensionIdsFromExtensionSetString(stringInputUi.FileFilter);
 
             if (!UserSettings.Config.SyncWithOperatorSelection) 
                 return;
             
-            FileExtensionRegistry.IdsFromFileFilter(stringInputUi.FileFilter, ref _state.CompatibleExtensionIds);
             _state.ActiveTypeFilters.Clear();
             foreach (var assetType in AssetType.AvailableTypes)
             {
@@ -128,6 +129,7 @@ internal sealed partial class AssetLibrary : Window
             _state.ActivePathInput = null;
             _state.ActiveTypeFilters.Clear();
         }
+        _state.RootFolder.UpdateMatchingAssetCounts(_state.CompatibleExtensionIds);
     }
 
     private int? _lastCompositionObjId = 0;

@@ -42,10 +42,11 @@ public sealed partial class AssemblyInformation
     
     public string Directory => _directory!;
 
-    // The mocked ID based on the Name
-    // This is only temporary. Eventually the ID should be generated and stored in csproj file
-    public Guid Id => StringUtils.GenerateGuidFromString(Name);
-    
+    internal Guid Id =>
+        TryGetReleaseInfo(out var releaseInfo) 
+            ? releaseInfo.PackageId 
+            : Guid.Empty; 
+
     public bool IsLoaded => _loadContext != null;
 
     private bool _loadedTypes;

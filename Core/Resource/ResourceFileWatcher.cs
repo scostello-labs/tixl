@@ -4,8 +4,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using T3.Core.Logging;
-using T3.Core.Resource.Assets;
 using T3.Core.UserData;
 using T3.Core.Utils;
 
@@ -109,7 +109,7 @@ public sealed class ResourceFileWatcher : IDisposable
                 var path = details.Args.FullPath;
 
                 // 1. Synchronize the AssetRegistry
-                if (fileKey.isRename && details.Args is RenamedEventArgs renamedArgs)
+                if (fileKey.IsRename && details.Args is RenamedEventArgs renamedArgs)
                 {
                     HandleRename(renamedArgs); // Update internal hooks
                     FileRenamed?.Invoke(renamedArgs.OldFullPath, renamedArgs.FullPath);
@@ -226,16 +226,16 @@ public sealed class ResourceFileWatcher : IDisposable
         watcher = null;
     }
 
-    private record struct FileKey(string Path, WatcherChangeTypes ChangeType, bool isRename);
+    private record struct FileKey(string Path, WatcherChangeTypes ChangeType, bool IsRename);
 
     private record struct FileWatchDetails(long TimeTicks, FileSystemEventArgs Args);
 
     private record struct FileWatchQueuedAction(FileSystemEventArgs Args, FileWatcherAction Action);
 
     private readonly Dictionary<FileKey, FileWatchDetails> _newFileEvents = new();
-    private readonly object _eventLock = new();
+    private readonly Lock _eventLock = new();
     private readonly string _watchedDirectory;
-    private FileSystemWatcher? _fsWatcher = null;
+    private FileSystemWatcher? _fsWatcher;
 
     private readonly ConcurrentDictionary<string, List<FileWatcherAction>> _fileChangeActions = new();
     private readonly Queue<FileWatchQueuedAction> _queuedActions = new();

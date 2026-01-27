@@ -12,6 +12,7 @@ public readonly record struct OperatorPackageReferenceSerialized(string Identity
 public record ReleaseInfoSerialized(
     string AssemblyFileName,
     Guid HomeGuid,
+    Guid PackageId,
     string RootNamespace,
     string EditorVersion,
     string Version,
@@ -24,6 +25,7 @@ public sealed record OperatorPackageReference(string Identity, Version Version, 
 public sealed record ReleaseInfo(
     string AssemblyFileName,
     Guid HomeGuid,
+    Guid PackageId,
     string RootNamespace,
     Version EditorVersion,
     Version Version,
@@ -53,6 +55,7 @@ public static class ReleaseInfoExtensions
         return new ReleaseInfo(
                                serialized.AssemblyFileName,
                                serialized.HomeGuid,
+                               serialized.PackageId,
                                serialized.RootNamespace,
                                editorVersion,
                                version,

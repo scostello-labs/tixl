@@ -10,7 +10,7 @@
         "Y": -304.6504
       },
       "Usage": "FilePath",
-      "FileFilter": "HFCS files (hfcs,xml)|*.hfcs;*.xml"
+      "FileFilter": "hfcs, xml"
     }
   ],
   "SymbolChildUis": [

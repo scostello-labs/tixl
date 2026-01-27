@@ -32,7 +32,7 @@ public sealed class StringInputUi : InputValueUi<string>
     }
 
     public UsageType Usage { get; private set; } = UsageType.Default;
-    public string FileFilter { get; private set; } = string.Empty;
+    public string FileFilter { get; set; } = string.Empty;
 
     public override IInputUi Clone()
     {

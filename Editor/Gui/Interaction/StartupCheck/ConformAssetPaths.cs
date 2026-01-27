@@ -5,6 +5,7 @@ using T3.Core.Operator;
 using T3.Core.Operator.Slots;
 using T3.Core.Resource.Assets;
 using T3.Core.UserData;
+using T3.Core.Utils;
 using T3.Editor.Gui.InputUi.SimpleInputUis;
 using T3.Editor.UiModel;
 using T3.Editor.UiModel.InputsAndTypes;
@@ -61,19 +62,19 @@ internal static class ConformAssetPaths
             var targetFile = Path.Combine(targetPath, relative);
 
             Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
-        
+
             // Use true to overwrite if a file with the same name exists in the target
-            file.MoveTo(targetFile, true); 
+            file.MoveTo(targetFile, true);
         }
     }
-    
+
     private static void UpdateCsprojFile(string packageFolder)
     {
         var projectFiles = Directory.GetFiles(packageFolder, "*.csproj");
         foreach (var projFile in projectFiles)
         {
             var content = File.ReadAllText(projFile);
-        
+
             // This targets both the Include and Link attributes in your ItemGroup
             var updatedContent = content
                                 .Replace("Include=\"Resources/", "Include=\"Assets/")
@@ -87,7 +88,7 @@ internal static class ConformAssetPaths
             }
         }
     }
-    
+
     /// <summary>
     /// Validates and updates the asset-paths of all loaded symbols 
     /// </summary>
@@ -178,9 +179,15 @@ internal static class ConformAssetPaths
         {
             case StringInputUi.UsageType.FilePath:
             {
+                if (TryMigrateFilterString(stringUi.FileFilter, out var migratedFilter))
+                {
+                    stringUi.FileFilter = migratedFilter;
+                    symbol.GetSymbolUi().FlagAsModified();
+                }
+
                 if (TryConvertResourcePathFuzzy(stringValue.Value, symbol, out var converted))
                 {
-                    Log.Debug($"{symbol.SymbolPackage.Name}: {stringValue.Value} -> {converted}");
+                    Log.Debug($"Migrated asset reference for {symbol}.{inputUi.InputDefinition.Name}: {stringValue.Value} -> {converted}");
                     stringValue.Value = converted;
                 }
 
@@ -252,17 +259,14 @@ internal static class ConformAssetPaths
         {
             nonRooted = nonRooted[resourcesPrefix.Length..];
         }
-        
+
         // Skip package name
         if (nonRooted.StartsWith(symbol.SymbolPackage.Name + "/"))
         {
             nonRooted = nonRooted[(symbol.SymbolPackage.Name.Length + 1)..];
         }
-        
 
-        //absolutePath = $"{symbol.SymbolPackage.ResourcesFolder}/{nonRooted}";
         newPath = $"{symbol.SymbolPackage.Name}:{nonRooted}";
-
         return true;
     }
 
@@ -272,20 +276,27 @@ internal static class ConformAssetPaths
         if (string.IsNullOrWhiteSpace(path) || IsAbsoluteFilePath(path))
             return false;
 
-        
         var separatorCount = path.Count(c => c == AssetRegistry.PackageSeparator);
-    
+
         // If it's a valid address already, leave it be.
         if (separatorCount == 1 && AssetRegistry.TryGetAsset(path, out _))
             return false;
 
+        // Ignore URLs
+        if (path.Contains("://"))
+            return false;
+
+        // Ignore wildcards...
+        if (path.IndexOfAny(['{', '}', '*']) != -1)
+            return false;
+
         string fileName;
-        if (separatorCount > 1)
+        if (separatorCount > 0)
         {
             // Fix double-alias: take everything after the last colon
             var lastAddressIndex = path.LastIndexOf(AssetRegistry.PackageSeparator);
-            fileName = path[(lastAddressIndex + 1)..]; 
-        
+            fileName = path[(lastAddressIndex + 1)..];
+
             // If the remainder is a path, get just the filename for healing
             if (fileName.Contains('/'))
                 fileName = Path.GetFileName(fileName);
@@ -295,13 +306,13 @@ internal static class ConformAssetPaths
             fileName = Path.GetFileName(path);
         }
 
-        if (AssetRegistry.TryHealPath(fileName, out var healedAddress))
+        if (TryHeal(fileName, path, symbol, out var healedAddress))
         {
             newPath = healedAddress;
             return true;
         }
 
-        // 2. Fallback: Strip legacy prefixes
+        // Strip legacy prefixes
         var conformed = path.Replace("\\", "/").TrimStart('/');
         const string legacyPrefix = "Resources/";
         if (conformed.StartsWith(legacyPrefix, StringComparison.OrdinalIgnoreCase))
@@ -309,7 +320,79 @@ internal static class ConformAssetPaths
             conformed = conformed[legacyPrefix.Length..];
         }
 
+        if (separatorCount == 1)
+        {
+            var separator = conformed.IndexOf(AssetRegistry.PackageSeparator);
+            conformed = conformed[(separator + 1)..];
+        }
+
         newPath = $"{symbol.SymbolPackage.Name}:{conformed}";
         return !string.Equals(newPath, path, StringComparison.Ordinal);
+    }
+
+    private static bool TryHeal(string fileName, string originalAddress, Symbol symbol, out string matchedAddress)
+    {
+        matchedAddress = string.Empty;
+        if (!AssetRegistry.TryGetHealerMatches(fileName, out var candidates))
+        {
+            return false;
+        }
+
+        if (candidates.Count == 1)
+        {
+            matchedAddress = candidates[0];
+            return true;
+        }
+
+        // Multiple matches found: Use scoring
+        matchedAddress = candidates
+                        .OrderBy(candidate => CalculateMatchScore(originalAddress, candidate, symbol.SymbolPackage.Name))
+                        .First();
+        return true;
+    }
+    
+
+    private static float CalculateMatchScore(string legacyPath, string candidateAddress, string currentPackageName)
+    {
+        // 1. Heavy preference for the same package
+        float score = candidateAddress.StartsWith(currentPackageName + ":") ? 0f : 100f;
+
+        // 2. Levenshtein distance between the paths
+        // We compare "Resources/images/helmet10.png" to "Lib:images/helmet10.png"
+        score += StringUtils.LevenshteinDistance(legacyPath, candidateAddress);
+
+        return score;
+    }
+    
+
+    
+    private static bool TryMigrateFilterString(string legacyFilter, out string migratedFilter)
+    {
+        migratedFilter = legacyFilter;
+
+        // If it doesn't contain the Windows separator, it might already be migrated
+        if (string.IsNullOrWhiteSpace(legacyFilter) || !legacyFilter.Contains('|'))
+            return false;
+
+        try
+        {
+            // Extract the extension pattern part (e.g., "*.mp4;*.mov")
+            var parts = legacyFilter.Split('|');
+            var patterns = parts.Length > 1 ? parts[1] : parts[0];
+
+            // Clean up into a simple list: "mp4, mov"
+            var extensions = patterns.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                     .Select(ext => ext.Trim().TrimStart('*', '.'))
+                                     .Where(ext => !string.Equals(ext, "*", StringComparison.Ordinal)) // Ignore wildcards
+                                     .Distinct();
+
+            migratedFilter = string.Join(", ", extensions);
+            return !string.Equals(legacyFilter, migratedFilter, StringComparison.Ordinal);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Failed to migrate filter string '{legacyFilter}': {e.Message}");
+            return false;
+        }
     }
 }

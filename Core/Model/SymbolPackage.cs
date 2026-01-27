@@ -32,8 +32,8 @@ namespace T3.Core.Model;
 public abstract partial class SymbolPackage : IResourcePackage
 {
     public virtual ResourceFileWatcher? FileWatcher => null;
-    public string Name => AssemblyInformation.Name;
-    public Guid Id => AssemblyInformation.Id;
+
+    
     public bool IsSharingResources => AssemblyInformation.ShouldShareResources;
     public readonly bool DoNotIncludedSharedPackages;
 
@@ -78,7 +78,34 @@ public abstract partial class SymbolPackage : IResourcePackage
             throw new InvalidOperationException($"Failed to get release info for package {AssemblyInformation.Name}");
         }
     }
+    
+    public string Name 
+    {
+        get
+        {
+            // 1. If AssemblyInfo already has a name (Debug/Dev), use it.
+            if (!string.IsNullOrWhiteSpace(AssemblyInformation.Name))
+                return AssemblyInformation.Name;
 
+            // 2. Fallback to ReleaseInfo's RootNamespace (Release build).
+            // Accessing ReleaseInfo triggers TryGetReleaseInfo() internally.
+            try
+            {
+                return ReleaseInfo.RootNamespace;
+            }
+            catch (Exception)
+            {
+                // 3. Last resort fallback
+                return AssemblyInformation.Name ?? string.Empty;
+            }
+        }
+    }
+    
+    public Guid Id => AssemblyInformation.Id != Guid.Empty 
+                          ? AssemblyInformation.Id 
+                          : ReleaseInfo.PackageId; // Use a dedicated PackageId field
+
+    
     static SymbolPackage()
     {
         RenderStatsCollector.RegisterProvider(new OpUpdateCounter());
@@ -106,6 +133,10 @@ public abstract partial class SymbolPackage : IResourcePackage
     {
         ResourcesFolder = Path.Combine(Folder, FileLocations.AssetsSubfolder);
 
+        // FIX: Force the assembly information to load the JSON metadata now
+        // This ensures Name and Id are valid before registration starts.
+        _ = ReleaseInfo;
+        
         // Avoid creating resource folder in protected program folder
         if (!IsReadOnly)
         {
