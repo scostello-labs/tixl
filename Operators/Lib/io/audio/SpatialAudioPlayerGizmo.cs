@@ -52,7 +52,7 @@ internal sealed class SpatialAudioPlayerGizmo : Instance<SpatialAudioPlayerGizmo
     [Input(Guid = "cafd2a8d-ffa1-4441-b66a-001e383343ad")]
     public readonly InputSlot<float> OuterConeAngle = new();
     
-    /// <summary>Length of the cone visualization.</summary>
+    /// <summary>Length of the cone visualization. Typically matches MaxDistance for accurate representation.</summary>
     [Input(Guid = "73ab9ccd-bcec-4d28-9961-d05db79bd1e6")]
     public readonly InputSlot<float> ConeLength = new();
     

@@ -303,12 +303,12 @@
         {
           "Id": "785bb240-2020-4937-b132-b46f542e8986"/*InnerConeAngle*/,
           "Type": "System.Single",
-          "Value": 70.0
+          "Value": 69.73
         },
         {
           "Id": "7eb612cb-1dbf-4336-b91d-1042573bd7ff"/*MaxDistance*/,
           "Type": "System.Single",
-          "Value": 0.0
+          "Value": 2.8166666
         },
         {
           "Id": "9c0b519b-45b1-4b28-8c0e-2eba7035a999"/*Speed*/,
