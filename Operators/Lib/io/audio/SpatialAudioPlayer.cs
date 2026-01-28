@@ -12,7 +12,7 @@ namespace Lib.io.audio
     /// Supports sound positioning, listener orientation, distance-based attenuation, and directional sound cones.
     /// </summary>
     [Guid("8a3c9f2e-4b7d-4e1a-9c5f-7d2e8b1a6c3f")]
-    internal sealed class SpatialAudioPlayer : Instance<SpatialAudioPlayer>, ITransformable
+    internal sealed class SpatialAudioPlayer : Instance<SpatialAudioPlayer>, ITransformable, ICompoundWithUpdate
     {
         #region ITransformable Implementation
         
@@ -110,12 +110,6 @@ namespace Lib.io.audio
         [Output(Guid = "ccbff254-1090-4ba2-8341-08fa3cb1540c")]
         public readonly Slot<float> GetLevel = new();
 
-        /// <summary>
-        /// Command output for the embedded gizmo visualization.
-        /// Connect this to your render graph to display spatial audio gizmos.
-        /// </summary>
-        [Output(Guid = "df5bd9eb-a922-44c1-98e1-ed580fa70d00")]
-        public readonly Slot<Command> GizmoOutput = new();
 
         private Guid _operatorId;
         private bool _wasPausedLastFrame;
@@ -225,21 +219,10 @@ namespace Lib.io.audio
             IsPaused.Value = AudioEngine.IsSpatialOperatorPaused(_operatorId);
             GetLevel.Value = AudioEngine.GetSpatialOperatorLevel(_operatorId);
             
-            // Evaluate the VisibleGizmos child to render gizmo visualization through GizmoOutput
-            foreach (var child in Children.Values)
-            {
-                // Find VisibleGizmos by its symbol ID
-                if (child.Symbol.Id == VisibleGizmosSymbolId && child.Outputs.Count > 0)
-                {
-                    child.Outputs[0].DirtyFlag.Invalidate();
-                    child.Outputs[0].Update(context);
-                    break;
-                }
-            }
+            // Evaluate the connected gizmo visualization through the composite connection
+            // This triggers VisibleGizmos which checks visibility and renders the gizmo
+            Result.ConnectedUpdate(context);
         }
-        
-        // VisibleGizmos symbol ID for finding the gizmo child
-        private static readonly Guid VisibleGizmosSymbolId = new("d61d7192-9ca3-494e-91e2-10a530ee9375");
 
         /// <summary>
         /// Render audio for export. This is called by AudioRendering during export.
