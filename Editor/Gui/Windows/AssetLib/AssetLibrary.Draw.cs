@@ -244,7 +244,7 @@ internal sealed partial class AssetLibrary
 
     private void DrawAssetItem(Asset asset)
     {
-        var isSelected = asset.Address == _state.ActiveAssetAddress;
+        var isActive = asset.Address == _state.ActiveAssetAddress;
 
         var fileConsumerOpSelected = _state.CompatibleExtensionIds.Count > 0;
         var fileConsumerOpIsCompatible = fileConsumerOpSelected
@@ -262,40 +262,69 @@ internal sealed partial class AssetLibrary
                                ? 1f
                                : 0.2f;
 
-            var iconColor = ColorVariations.OperatorLabel.Apply(asset.AssetType != null ? asset.AssetType.Color : UiColors.Text);
-            var icon = asset.AssetType != null
+            var knownType = asset.AssetType != AssetType.Unknown;
+            var iconColor = ColorVariations.OperatorLabel.Apply(knownType ? asset.AssetType.Color : UiColors.Text);
+            var icon = knownType
                            ? (Icon)asset.AssetType.IconId
                            : Icon.FileImage;
 
+            
+            var isSelected = _state.Selection.IsSelected(asset.Id);
+            
             // Draw Item
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() - 6);
             if (ButtonWithIcon(string.Empty,
                                asset.FileSystemInfo?.Name ?? string.Empty,
                                icon,
                                iconColor.Fade(fade),
-                               UiColors.Text.Fade(fade),
-                               isSelected
+                               isSelected ? UiColors.StatusActivated : UiColors.Text.Fade(fade),
+                               isActive
                               ))
             {
                 var stringInput = _state.ActivePathInput;
-                if (stringInput != null && !isSelected && fileConsumerOpIsCompatible)
+                if (stringInput != null && !isActive && fileConsumerOpIsCompatible)
                 {
                     _state.ActiveAssetAddress = asset.Address;
 
                     ApplyResourcePath(asset, stringInput);
                 }
+                
+                var io = ImGui.GetIO();
+                bool ctrl = io.KeyCtrl;
+                bool shift = io.KeyShift;
+
+                if (shift && _state.AnchorSelectionKey != default)
+                {
+                    // TODO: This needs to be fixed for tree. 
+                    var range = GetRange(AssetRegistry.AllAssets.ToList(), _state.AnchorSelectionKey, asset.Id);
+                    if (!ctrl) _state.Selection.Clear();
+                    _state.Selection.AddSelection(range);
+                }
+                else if (ctrl)
+                {
+                    if (isActive) _state.Selection.Deselect(asset.Id);
+                    else _state.Selection.Select(asset.Id);
+                    _state.AnchorSelectionKey = asset.Id;
+                }
+                else
+                {
+                    _state.Selection.Clear();
+                    _state.Selection.Select(asset.Id);
+                    _state.AnchorSelectionKey = asset.Id;
+                }
+                
             }
 
             CustomComponents.DrawSearchMatchUnderline(_state.SearchString, asset.FileSystemInfo?.Name, 
                                                       ImGui.GetItemRectMin() + new Vector2(4,3));
 
-            if (isSelected && !ImGui.IsItemVisible() && _state.HasActiveInstanceChanged)
+            if (isActive && !ImGui.IsItemVisible() && _state.HasActiveInstanceChanged)
             {
                 ImGui.SetScrollHereY();
             }
 
             // Stop expanding if item becomes visible
-            if (isSelected && _expandToFileTriggered)
+            if (isActive && _expandToFileTriggered)
             {
                 _expandToFileTriggered = false;
                 ImGui.SetScrollHereY(1f);
@@ -354,8 +383,8 @@ internal sealed partial class AssetLibrary
         ImGui.PopID();
     }
 
-    // TODO: Clean up and move to custom components
-    private static bool ButtonWithIcon(string id, string label, Icon icon, Color iconColor, Color textColor, bool selected)
+    
+    private static bool ButtonWithIcon(string id, string label, Icon icon, Color iconColor, Color textColor, bool isActive)
     {
         var cursorPos = ImGui.GetCursorScreenPos();
         var frameHeight = ImGui.GetFrameHeight();
@@ -380,7 +409,7 @@ internal sealed partial class AssetLibrary
         var drawList = ImGui.GetWindowDrawList();
         var buttonMin = ImGui.GetItemRectMin();
         var buttonMax = ImGui.GetItemRectMax();
-        if (selected)
+        if (isActive)
         {
             drawList.AddRect(buttonMin, buttonMax, UiColors.StatusActivated, 5);
         }
@@ -429,6 +458,19 @@ internal sealed partial class AssetLibrary
         UndoRedoStack.Add(changeInputValueCommand);
     }
 
+    
+    // Helper to find IDs between two points
+    private IEnumerable<Guid> GetRange(List<Asset> list, Guid startId, Guid endId)
+    {
+        int start = list.FindIndex(a => a.Id == startId);
+        int end = list.FindIndex(a => a.Id == endId);
+    
+        int min = Math.Min(start, end);
+        int max = Math.Max(start, end);
+    
+        return list.Skip(min).Take(max - min + 1).Select(a => a.Id);
+    }
+    
     // private static void HandleDropTarget(AssetFolder subtree)
     // {
     //     if (!DragAndDropHandling.TryGetDataDroppedLastItem(DragAndDropHandling.AssetDraggingId, out var data))

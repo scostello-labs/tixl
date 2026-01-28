@@ -107,6 +107,7 @@ internal sealed partial class AssetLibrary : Window
         _state.ActiveAssetAddress = null;
         _state.SearchStringChanged = false;
         _state.CompatibleExtensionIds.Clear();
+        _state.Selection.Clear();
 
         // Check if active instance has asset reference...
         if (SymbolAnalysis.TryGetFileInputFromInstance(selectedInstance, out _state.ActivePathInput, out var stringInputUi))
@@ -145,4 +146,6 @@ internal sealed partial class AssetLibrary : Window
     private int? _lastCompositionObjId = 0;
 
     private static readonly AssetLibState _state = new();
+    
+    
 }

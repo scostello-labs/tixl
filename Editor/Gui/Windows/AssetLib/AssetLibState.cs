@@ -65,7 +65,10 @@ internal sealed class AssetLibState
     
     public readonly HashSet<AssetType> ActiveTypeFilters = [];
 
-    #region internal
+    internal readonly SelectionHandler<Guid> Selection = new();
+    internal Guid AnchorSelectionKey;
+    
+    
     /// <summary>
     /// An internal counter to check if any of the resource folders have changed externally.
     /// If changed we completely rescan ResourceFolders.
@@ -77,6 +80,5 @@ internal sealed class AssetLibState
     
     public readonly TreeHandler TreeHandler = new();
     public bool FilteringNeedsUpdate;
-    #endregion
     
 }
