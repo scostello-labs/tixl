@@ -12,7 +12,7 @@ namespace Lib.io.audio
     /// Supports sound positioning, listener orientation, distance-based attenuation, and directional sound cones.
     /// </summary>
     [Guid("8a3c9f2e-4b7d-4e1a-9c5f-7d2e8b1a6c3f")]
-    internal sealed class SpatialAudioPlayer : Instance<SpatialAudioPlayer>, ITransformable, ICompoundWithUpdate
+    internal sealed class SpatialAudioPlayer : Instance<SpatialAudioPlayer>, ITransformable
     {
         #region ITransformable Implementation
         
@@ -91,6 +91,13 @@ namespace Lib.io.audio
         /// </summary>
         [Output(Guid = "117c0d2e-c14b-471a-8a6d-a9f983e48908")]
         public readonly TransformCallbackSlot<Command> Result = new();
+
+        /// <summary>
+        /// Internal gizmo output - connected to child gizmo for proper instance setup.
+        /// This slot is evaluated for side effects (rendering) but its value is not used.
+        /// </summary>
+        [Output(Guid = "f8a7c3e1-5b2d-4f9a-8c6e-1d3b5a7f9e2c")]
+        public readonly Slot<Command> GizmoOutput = new();
 
         /// <summary>
         /// Indicates whether the audio is currently playing.
@@ -218,11 +225,10 @@ namespace Lib.io.audio
             IsPlaying.Value = AudioEngine.IsSpatialOperatorStreamPlaying(_operatorId);
             IsPaused.Value = AudioEngine.IsSpatialOperatorPaused(_operatorId);
             GetLevel.Value = AudioEngine.GetSpatialOperatorLevel(_operatorId);
-            
-            // Evaluate the connected gizmo visualization through the composite connection
-            // This triggers VisibleGizmos which checks visibility and renders the gizmo
-            Result.ConnectedUpdate(context);
         }
+        
+        // SpatialAudioPlayerGizmo child ID from the .t3 file (kept for reference)
+        private static readonly Guid SpatialAudioPlayerGizmoChildId = new("0b459c75-9edc-4f8c-8748-26a701380436");
 
         /// <summary>
         /// Render audio for export. This is called by AudioRendering during export.

@@ -23,7 +23,7 @@
         "Y": 0.0
       },
       "Usage": "FilePath",
-      "FileFilter": "Audio files (mp3,wav,ogg,flac)|*.mp3;*.wav;*.ogg;*.flac"
+      "FileFilter": "mp3, wav, ogg, flac"
     },
     {
       "InputId": "3cf1b579-a1f2-4e9f-a54a-0e9e3580a6bf"/*SourceRotation*/,
@@ -151,8 +151,8 @@
     {
       "ChildId": "66e4e93c-4731-4d1a-8930-31ef127de8ee"/*VisibleGizmos*/,
       "Position": {
-        "X": 99.999985,
-        "Y": 539.23895
+        "X": 250.0,
+        "Y": 195.55374
       }
     }
   ],
@@ -162,6 +162,13 @@
       "Position": {
         "X": 300.0,
         "Y": 200.0
+      }
+    },
+    {
+      "OutputId": "f8a7c3e1-5b2d-4f9a-8c6e-1d3b5a7f9e2c"/*GizmoOutput*/,
+      "Position": {
+        "X": 300.0,
+        "Y": 250.0
       }
     },
     {
@@ -183,13 +190,6 @@
       "Position": {
         "X": 300.0,
         "Y": 500.0
-      }
-    },
-    {
-      "OutputId": "df5bd9eb-a922-44c1-98e1-ed580fa70d00"/*GizmoOutput*/,
-      "Position": {
-        "X": 300.0,
-        "Y": 600.0
       }
     }
   ]
