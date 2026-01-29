@@ -1,6 +1,6 @@
 {
   "Id": "65e95f77-4743-437f-ab31-f34b831d28d7"/*AudioPlayer*/,
-  "Description": "An audio player using the BASS library with independent playback control, pause functionality, and stereo panning",
+  "Description": "An audio player using BASS audio library. Features include:\n\n- [Playback Control]: Independent play, pause, and stop functionality with seek support\n- [Stereo Panning]: Position audio in the stereo field from left to right\n- [ADSR Envelope]: Optional amplitude envelope for dynamic volume shaping\n- [Speed Control]: Playback speed multiplier (affects pitch)",
   "InputUis": [
     {
       "InputId": "1a3f4b7c-12d3-4a5b-9c7d-8e1f2a3b4c5d"/*Mute*/,
@@ -8,7 +8,7 @@
         "X": -200.0,
         "Y": 300.0
       },
-      "Description": "If true, mutes playback."
+      "Description": "When enabled, mutes the audio output without stopping playback"
     },
     {
       "InputId": "3dbcbbe6-a8b4-4b83-a2c0-e22b24b91b42"/*Envelope*/,
@@ -16,7 +16,7 @@
         "X": -200.0,
         "Y": 700.0
       },
-      "Description": "ADSR envelope input (Vec4) applied to amplitude when enabled.",
+      "Description": "ADSR envelope applied to amplitude when UseEnvelope is enabled",
       "Min": 0.0,
       "Max": 1.0,
       "ClampMin": true,
@@ -28,7 +28,7 @@
         "X": -200.0,
         "Y": 0.0
       },
-      "Description": "Path to the audio file to play.",
+      "Description": "Path to the audio file to play",
       "Usage": "FilePath",
       "FileFilter": "mp3, wav, ogg, flac"
     },
@@ -38,7 +38,7 @@
         "X": -200.0,
         "Y": 350.0
       },
-      "Description": "Stereo panning, -1 = left, 0 = center, 1 = right.",
+      "Description": "Stereo panning position (-1.0 = left, 0.0 = center, 1.0 = right)",
       "Min": -1.0,
       "Max": 1.0,
       "Scale": 0.001,
@@ -51,7 +51,7 @@
         "X": -200.0,
         "Y": 125.0
       },
-      "Description": "Trigger to stop playback and reset position."
+      "Description": "Stops the audio playback and resets the position to the beginning"
     },
     {
       "InputId": "726bc4d3-df8b-4abe-a38e-2e09cf44ca10"/*PlayAudio*/,
@@ -59,7 +59,7 @@
         "X": -200.0,
         "Y": 75.0
       },
-      "Description": "Trigger to start or resume playback."
+      "Description": "Trigger to start or resume audio playback"
     },
     {
       "InputId": "7e42f2a8-3c5d-4f6e-9b8a-1d2e3f4a5b6c"/*PauseAudio*/,
@@ -67,7 +67,7 @@
         "X": -200.0,
         "Y": 175.0
       },
-      "Description": "Trigger to pause playback."
+      "Description": "Pauses the audio playback at the current position"
     },
     {
       "InputId": "905d9e01-b1fb-47c0-801c-fc920ed36884"/*TriggerMode*/,
@@ -76,7 +76,7 @@
         "Y": 475.0
       },
       "GroupTitle": "Envelope",
-      "Description": "Selects how playback triggers are handled (trigger or gate)."
+      "Description": "The trigger behavior mode (e.g., trigger or gate) for envelope playback"
     },
     {
       "InputId": "a5de0d72-5924-4f3a-a02f-d5de7c03f07f"/*Seek*/,
@@ -84,7 +84,7 @@
         "X": -200.0,
         "Y": 400.0
       },
-      "Description": "Normalized seek position within the track (0..1).",
+      "Description": "Seek to a normalized position in the audio file (0.0 = start, 1.0 = end)",
       "Min": 0.0,
       "Max": 0.99,
       "Scale": 0.001,
@@ -97,7 +97,7 @@
         "X": -200.0,
         "Y": 625.0
       },
-      "Description": "Enable applying the Envelope input to amplitude."
+      "Description": "When enabled, applies the Envelope input to modulate amplitude"
     },
     {
       "InputId": "c0645e37-db4e-4658-9d65-96478851f6f6"/*Volume*/,
@@ -105,7 +105,7 @@
         "X": -200.0,
         "Y": 250.0
       },
-      "Description": "The volume of playback",
+      "Description": "The master volume level of the audio (0.0 = silent, 1.0 = full volume, >1.0 = amplified)",
       "Min": 0.0,
       "Max": 2.0,
       "Scale": 0.001,
@@ -117,7 +117,7 @@
         "X": -200.0,
         "Y": 425.0
       },
-      "Description": "Playback speed multiplier.",
+      "Description": "Playback speed multiplier (1.0 = normal speed, affects pitch)",
       "Min": 0.001,
       "Max": 4.0,
       "Scale": 1.0,
@@ -130,7 +130,7 @@
         "X": -200.0,
         "Y": 550.0
       },
-      "Description": "Optional duration override for playback (seconds).",
+      "Description": "Optional duration override for playback (in seconds)",
       "Min": 0.0,
       "ClampMin": true
     }
