@@ -77,14 +77,6 @@ internal sealed partial class AssetLibrary
         }
         else
         {
-            var hasMatches = folder.MatchingAssetCount > 0;
-            var isSearching = !string.IsNullOrEmpty(_state.SearchString);
-            var isFiltering = _state.CompatibleExtensionIds.Count > 0 || isSearching;
-            var isCurrentCompositionPackage = _state.Composition?.Symbol.SymbolPackage.Name == strId;
-
-            if (isSearching && !hasMatches)
-                return;
-
             // Open main folders automatically
             if (!_state.OpenedExamplesFolderOnce
                 && strId == FileLocations.ExamplesPackageName)
@@ -99,6 +91,15 @@ internal sealed partial class AssetLibrary
                 ImGui.SetNextItemOpen(true);
                 _state.OpenedProjectsFolderOnce = true;
             }
+            
+            var hasMatches = folder.MatchingAssetCount > 0;
+            var isSearching = !string.IsNullOrEmpty(_state.SearchString);
+            var isFiltering = _state.CompatibleExtensionIds.Count > 0 || isSearching;
+            var isCurrentCompositionPackage = _state.Composition?.Symbol.SymbolPackage.Name == strId;
+
+            if (isSearching && !hasMatches)
+                return;
+
 
             // Draw 
             ImGui.SetNextItemWidth(10);
@@ -108,20 +109,23 @@ internal sealed partial class AssetLibrary
 
             ImGui.PushStyleColor(ImGuiCol.Text, textMutedRgba.Rgba);
 
-            _state.TreeHandler.UpdateForNode(folder.HashCode);
 
             var containsTargetFile = ContainsTargetFile(folder);
             if (_expandToFileTriggered && containsTargetFile)
             {
                 ImGui.SetNextItemOpen(true);
             }
+            
+            _state.TreeHandler.UpdateForNode(folder.HashCode);
 
             // Draw the actual folder item
             ImGui.PushFont(isCurrentCompositionPackage ? Fonts.FontBold : Fonts.FontNormal);
             var isOpen = ImGui.TreeNodeEx(strId);
             ImGui.PopFont();
 
-            DrawSearchMatchUnderline(_state.SearchString, strId, Vector2.Zero);
+            CustomComponents.DrawSearchMatchUnderline(_state.SearchString, strId, 
+                                                      ImGui.GetItemRectMin() 
+                                                      +   new Vector2(ImGui.GetFontSize(),0));
             
             // Show filter count
             if (isFiltering && hasMatches)
@@ -175,8 +179,8 @@ internal sealed partial class AssetLibrary
                     }
 
                     var timeSinceChange = (float)(ImGui.GetTime() - _state.TimeActiveInstanceChanged);
-                    var fadeProgress = (timeSinceChange / 0.5f).Clamp(0, 1);
-                    var blinkFade = -MathF.Cos(timeSinceChange * 15f) * (1f - fadeProgress) * 0.7f + 0.75f;
+                    var fadeProgress = (timeSinceChange / 0.7f).Clamp(0, 1);
+                    var blinkFade = MathUtils.Lerp( -MathF.Cos(timeSinceChange * 15f)  * 0.8f +0.2f, 1, fadeProgress);
                     var color = UiColors.StatusActivated.Fade(blinkFade);
                     Icons.DrawIconOnLastItem(Icon.Aim, color);
 
@@ -197,29 +201,6 @@ internal sealed partial class AssetLibrary
                 }
             }
         }
-    }
-
-    private static void DrawSearchMatchUnderline(string searchString, ReadOnlySpan<char> strId, Vector2 offset)
-    {
-        if (string.IsNullOrEmpty(searchString)) 
-            return;
-        
-        var start = strId.IndexOf(searchString, StringComparison.OrdinalIgnoreCase);
-        if (start == -1) 
-            return;
-        
-        var span = strId.Slice(start, searchString.Length);
-        var sizeMatch = ImGui.CalcTextSize(span);
-
-        var sizeBefore = start > 0 ? ImGui.CalcTextSize(strId[..start])
-                             : Vector2.Zero;
-                    
-        var fontSize = ImGui.GetFontSize();
-        var min = ImGui.GetItemRectMin() 
-                  + offset
-                  + new Vector2(fontSize + sizeBefore.X, fontSize) ;
-                    
-        ImGui.GetWindowDrawList().AddLine(min, min + new Vector2(sizeMatch.X,0), UiColors.StatusAttention);
     }
 
     /** Extracted to separate method to limit hot code reloading block from stack alloc **/
@@ -265,7 +246,7 @@ internal sealed partial class AssetLibrary
 
     private void DrawAssetItem(Asset asset)
     {
-        var isSelected = asset.Address == _state.ActiveAssetAddress;
+        var isActive = asset.Address == _state.ActiveAssetAddress;
 
         var fileConsumerOpSelected = _state.CompatibleExtensionIds.Count > 0;
         var fileConsumerOpIsCompatible = fileConsumerOpSelected
@@ -275,7 +256,9 @@ internal sealed partial class AssetLibrary
         if (fileConsumerOpSelected && !fileConsumerOpIsCompatible)
             return;
 
-        ImGui.PushID(RuntimeHelpers.GetHashCode(asset));
+        _state.KeepVisibleTreeItemIds.Add(asset.Id);
+        
+        ImGui.PushID(asset.Id.GetHashCode());
         {
             var fade = !fileConsumerOpSelected
                            ? 0.7f
@@ -283,39 +266,70 @@ internal sealed partial class AssetLibrary
                                ? 1f
                                : 0.2f;
 
-            var iconColor = ColorVariations.OperatorLabel.Apply(asset.AssetType != null ? asset.AssetType.Color : UiColors.Text);
-            var icon = asset.AssetType != null
+            var knownType = asset.AssetType != AssetType.Unknown;
+            var iconColor = ColorVariations.OperatorLabel.Apply(knownType ? asset.AssetType.Color : UiColors.Text);
+            var icon = knownType
                            ? (Icon)asset.AssetType.IconId
                            : Icon.FileImage;
 
+            
+            var isSelected = _state.Selection.IsSelected(asset.Id);
+            
             // Draw Item
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() - 6);
             if (ButtonWithIcon(string.Empty,
                                asset.FileSystemInfo?.Name ?? string.Empty,
                                icon,
                                iconColor.Fade(fade),
-                               UiColors.Text.Fade(fade),
-                               isSelected
+                               isSelected ? UiColors.StatusActivated : UiColors.Text.Fade(fade),
+                               isActive
                               ))
             {
                 var stringInput = _state.ActivePathInput;
-                if (stringInput != null && !isSelected && fileConsumerOpIsCompatible)
+                if (stringInput != null && !isActive && fileConsumerOpIsCompatible)
                 {
                     _state.ActiveAssetAddress = asset.Address;
 
                     ApplyResourcePath(asset, stringInput);
                 }
-            }
-            
-            DrawSearchMatchUnderline(_state.SearchString, asset.FileSystemInfo?.Name, new Vector2(4,3));
+                
+                var io = ImGui.GetIO();
+                bool ctrl = io.KeyCtrl;
+                bool shift = io.KeyShift;
 
-            if (isSelected && !ImGui.IsItemVisible() && _state.HasActiveInstanceChanged)
+                if (shift && _state.AnchorSelectionKey != default)
+                {
+                    // TODO: This needs to be fixed for tree. 
+                    var range = GetRange(_state.LastVisibleTreeItemIds, _state.AnchorSelectionKey, asset.Id);
+                    if (!ctrl) _state.Selection.Clear();
+                    _state.Selection.AddSelection(range);
+                }
+                else if (ctrl)
+                {
+                    if (isActive) _state.Selection.Deselect(asset.Id);
+                    else _state.Selection.Select(asset.Id);
+                    _state.AnchorSelectionKey = asset.Id;
+                }
+                else
+                {
+                    _state.Selection.Clear();
+                    _state.Selection.Select(asset.Id);
+                    _state.AnchorSelectionKey = asset.Id;
+                }
+                
+            }
+
+            CustomComponents.DrawSearchMatchUnderline(_state.SearchString, asset.FileSystemInfo?.Name, 
+                                                      ImGui.GetItemRectMin() 
+                                                      + new Vector2(  ImGui.GetFontSize() +5,3) );
+
+            if (isActive && !ImGui.IsItemVisible() && _state.HasActiveInstanceChanged)
             {
                 ImGui.SetScrollHereY();
             }
 
             // Stop expanding if item becomes visible
-            if (isSelected && _expandToFileTriggered)
+            if (isActive && _expandToFileTriggered)
             {
                 _expandToFileTriggered = false;
                 ImGui.SetScrollHereY(1f);
@@ -374,8 +388,8 @@ internal sealed partial class AssetLibrary
         ImGui.PopID();
     }
 
-    // TODO: Clean up and move to custom components
-    private static bool ButtonWithIcon(string id, string label, Icon icon, Color iconColor, Color textColor, bool selected)
+    
+    private static bool ButtonWithIcon(string id, string label, Icon icon, Color iconColor, Color textColor, bool isActive)
     {
         var cursorPos = ImGui.GetCursorScreenPos();
         var frameHeight = ImGui.GetFrameHeight();
@@ -400,7 +414,7 @@ internal sealed partial class AssetLibrary
         var drawList = ImGui.GetWindowDrawList();
         var buttonMin = ImGui.GetItemRectMin();
         var buttonMax = ImGui.GetItemRectMax();
-        if (selected)
+        if (isActive)
         {
             drawList.AddRect(buttonMin, buttonMax, UiColors.StatusActivated, 5);
         }
@@ -449,6 +463,19 @@ internal sealed partial class AssetLibrary
         UndoRedoStack.Add(changeInputValueCommand);
     }
 
+    
+    // Helper to find IDs between two points
+    private static IEnumerable<Guid> GetRange(List<Guid> list, Guid startId, Guid endId)
+    {
+        var start = list.FindIndex(id => id == startId);
+        var end = list.FindIndex(id => id == endId);
+    
+        var min = Math.Min(start, end);
+        var max = Math.Max(start, end);
+    
+        return list.Skip(min).Take(max - min + 1);
+    }
+    
     // private static void HandleDropTarget(AssetFolder subtree)
     // {
     //     if (!DragAndDropHandling.TryGetDataDroppedLastItem(DragAndDropHandling.AssetDraggingId, out var data))
