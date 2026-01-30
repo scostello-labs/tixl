@@ -564,46 +564,5 @@ internal sealed partial class SettingsWindow : Window
     {
         return new List<Window>();
     }
-
-    /// <summary>
-    /// Draws an audio level meter with clipping indicator, similar to PlaybackSettingsPopup
-    /// </summary>
-    private static void DrawAudioLevelMeter(string label, float currentLevel, ref float smoothedLevel)
-    {
-        var dl = ImGui.GetWindowDrawList();
-        FormInputs.DrawInputLabel(label);
-        ImGui.InvisibleButton("##" + label + "Meter", new Vector2(-1, ImGui.GetFrameHeight()));
-
-        // Smooth the level (decay slower than attack)
-        smoothedLevel = currentLevel > smoothedLevel 
-            ? currentLevel 
-            : Math.Max(currentLevel, smoothedLevel - 2f * ImGui.GetIO().DeltaTime);
-
-        var min = ImGui.GetItemRectMin();
-        var max = ImGui.GetItemRectMax();
-        var paddedWidth = (max.X - min.X) * 0.80f;
-        var paddedHeight = (max.Y - min.Y) / 3f;
-        max.X = min.X + paddedWidth;
-
-        // Full gradient bar: green on left, orange on right
-        dl.AddRectFilledMultiColor(
-            new Vector2(min.X, min.Y + paddedHeight),
-            new Vector2(min.X + paddedWidth, max.Y - paddedHeight),
-            UiColors.StatusControlled, UiColors.StatusWarning,
-            UiColors.StatusWarning, UiColors.StatusControlled);
-
-        // Cover the unfilled portion (draw from right edge to level position)
-        var levelPosition = min.X + paddedWidth * smoothedLevel;
-        dl.AddRectFilled(
-            new Vector2(levelPosition, min.Y + paddedHeight),
-            new Vector2(max.X, max.Y - paddedHeight),
-            UiColors.BackgroundHover);
-
-        // Peak/clipping LED indicator
-        dl.AddRectFilled(
-            new Vector2(max.X + 5f * T3Ui.UiScaleFactor, min.Y + paddedHeight),
-            new Vector2(max.X + 25f * T3Ui.UiScaleFactor, max.Y - paddedHeight),
-            currentLevel >= 1f ? UiColors.StatusError : UiColors.BackgroundHover);
-    }
 }
 

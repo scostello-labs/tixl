@@ -158,7 +158,7 @@ internal sealed partial class SettingsWindow : Window
         }
         
         // Use the standard audio level meter
-        DrawAudioLevelMeter("", currentLevel, ref smoothedLevel);
+        AudioLevelMeter.Draw("", currentLevel, ref smoothedLevel);
         
         // Section separator
         FormInputs.AddVerticalSpace(6);
@@ -198,7 +198,7 @@ internal sealed partial class SettingsWindow : Window
         FormInputs.AddVerticalSpace(2);
         
         // Use the standard audio level meter
-        DrawAudioLevelMeter("", currentLevel, ref smoothedLevel);
+        AudioLevelMeter.Draw("", currentLevel, ref smoothedLevel);
         
         // Section separator
         FormInputs.AddVerticalSpace(6);

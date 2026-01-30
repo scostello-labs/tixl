@@ -355,36 +355,11 @@ internal static class PlaybackSettingsPopup
                                                 "The decay factors controls the impact of [AudioReaction] when AttackMode. Good values strongly depend on style, loudness and variation of input signal.",
                                                 0.9f);
 
-                // Input meter
+                // Input meter - use shared AudioLevelMeter component
                 var level = settings.AudioGainFactor * WasapiAudioInput.DecayingAudioLevel * 0.03f;
-                var dl = ImGui.GetWindowDrawList();
-                FormInputs.DrawInputLabel("Input Level");
-                ImGui.InvisibleButton("##gainMeter", new Vector2(-1, ImGui.GetFrameHeight()));
-
-                var normalizedLevel =  level / 644f;
-                _smoothedLevel = normalizedLevel > _smoothedLevel ? normalizedLevel : Math.Max(normalizedLevel, _smoothedLevel - 2f * ImGui.GetIO().DeltaTime);
-
-                var min = ImGui.GetItemRectMin();
-                var max = ImGui.GetItemRectMax();
-                var paddedWidth = (max.X - min.X) * .80f;
-                var paddedHeight = (max.Y - min.Y) / 3f;
-                max.X = min.X + paddedWidth;
-
-                // A full gradient with green-ish at bottom, and orange-ish at the top
-                dl.AddRectFilledMultiColor(new Vector2(min.X, min.Y + paddedHeight),
-                                           new Vector2(min.X + paddedWidth, max.Y - paddedHeight),
-                                           UiColors.StatusControlled, UiColors.StatusWarning,
-                                           UiColors.StatusWarning, UiColors.StatusControlled);
-
-                // We cover it according to smoothed level (the gain range is inverted)
-                dl.AddRectFilled(new Vector2(max.X, min.Y + paddedHeight),
-                                 new Vector2(Math.Min(min.X + paddedWidth * _smoothedLevel, min.X + paddedWidth), max.Y - paddedHeight),
-                                 UiColors.BackgroundHover);
-
-                // Peak LED
-                dl.AddRectFilled(new Vector2(max.X + 5f * T3Ui.UiScaleFactor, min.Y + paddedHeight),
-                                 new Vector2(max.X + 25f * T3Ui.UiScaleFactor, max.Y - paddedHeight),
-                                 normalizedLevel < 1f ? UiColors.BackgroundHover : UiColors.StatusError);
+                var normalizedLevel = level / 644f;
+                AudioLevelMeter.Draw("Input Level", normalizedLevel, ref _smoothedLevel);
+                
                 FormInputs.DrawInputLabel("Input Device");
                 ImGui.BeginGroup();
 
