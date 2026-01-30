@@ -6,56 +6,102 @@ namespace T3.Editor.Gui.UiHelpers;
 
 /// <summary>
 /// Provides shared audio level meter (VU meter) drawing functionality.
-/// Used by SettingsWindow and PlaybackSettingsPopup.
 /// </summary>
-public static class AudioLevelMeter
+internal static class AudioLevelMeter
 {
+    private const float LedWidthBase = 20f;
+    private const float LedSpacingBase = 5f;
+    private const float DefaultDecayRate = 2f;
+    
+    private static float LedWidth => LedWidthBase * T3Ui.UiScaleFactor;
+    private static float LedSpacing => LedSpacingBase * T3Ui.UiScaleFactor;
+    private static float LedTotalWidth => LedWidth + LedSpacing;
+
     /// <summary>
     /// Draws an audio level meter with clipping indicator.
     /// </summary>
-    /// <param name="label">Optional label for the meter (can be empty)</param>
-    /// <param name="currentLevel">The current audio level (0.0 to 1.0+ range, values >= 1.0 trigger clipping indicator)</param>
-    /// <param name="smoothedLevel">Reference to smoothed level state for decay animation</param>
-    /// <param name="decayRate">Rate at which the level decays (default 2.0)</param>
-    public static void Draw(string label, float currentLevel, ref float smoothedLevel, float decayRate = 2f)
+    internal static void Draw(string label, float currentLevel, ref float smoothedLevel, float decayRate = DefaultDecayRate, float leftPadding = 0f, float rightEdgeX = 0f)
     {
-        var dl = ImGui.GetWindowDrawList();
-        FormInputs.DrawInputLabel(label);
+        var (min, max) = PrepareAndGetBounds(label, currentLevel, ref smoothedLevel, decayRate);
+        min.X += leftPadding;
         
-        var uniqueId = string.IsNullOrEmpty(label) ? "##levelMeter" : "##" + label + "Meter";
-        ImGui.InvisibleButton(uniqueId, new Vector2(-1, ImGui.GetFrameHeight()));
+        var meterEndX = rightEdgeX > 0
+            ? rightEdgeX - LedTotalWidth
+            : max.X - LedTotalWidth - 10f * T3Ui.UiScaleFactor;
+        
+        DrawMeterContent(min, max, meterEndX, currentLevel, smoothedLevel);
+    }
+    
+    /// <summary>
+    /// Draws an audio level meter where the entire meter (bar + LED) fits within the specified bounds.
+    /// </summary>
+    internal static void DrawAbsoluteWithinBounds(string label, float currentLevel, ref float smoothedLevel, float decayRate, float leftEdgeX, float rightEdgeX)
+    {
+        var meterWidth = rightEdgeX - leftEdgeX;
+        
+        // Position cursor at the left edge (convert from screen to window coordinates)
+        var windowPos = ImGui.GetWindowPos();
+        ImGui.SetCursorPosX(leftEdgeX - windowPos.X);
+        
+        var uniqueId = string.IsNullOrEmpty(label) ? "##levelMeter" : $"##{label}Meter";
+        ImGui.InvisibleButton(uniqueId, new Vector2(meterWidth, ImGui.GetFrameHeight()));
 
-        // Smooth the level (decay slower than attack)
         smoothedLevel = currentLevel > smoothedLevel 
             ? currentLevel 
             : Math.Max(currentLevel, smoothedLevel - decayRate * ImGui.GetIO().DeltaTime);
 
         var min = ImGui.GetItemRectMin();
         var max = ImGui.GetItemRectMax();
-        var paddedWidth = (max.X - min.X) * 0.80f;
-        var paddedHeight = (max.Y - min.Y) / 3f;
-        max.X = min.X + paddedWidth;
+        
+        // Fit the entire meter (bar + LED) within bounds
+        var meterEndX = min.X + meterWidth - LedTotalWidth;
+        var ledRightX = min.X + meterWidth;
+        DrawMeterContent(min, max, meterEndX, currentLevel, smoothedLevel, ledRightX);
+    }
+    
+    private static (Vector2 min, Vector2 max) PrepareAndGetBounds(string label, float currentLevel, ref float smoothedLevel, float decayRate)
+    {
+        FormInputs.DrawInputLabel(label);
+        
+        var uniqueId = string.IsNullOrEmpty(label) ? "##levelMeter" : $"##{label}Meter";
+        ImGui.InvisibleButton(uniqueId, new Vector2(-1, ImGui.GetFrameHeight()));
 
-        // Full gradient bar: green on left, orange on right
+        smoothedLevel = currentLevel > smoothedLevel 
+            ? currentLevel 
+            : Math.Max(currentLevel, smoothedLevel - decayRate * ImGui.GetIO().DeltaTime);
+
+        return (ImGui.GetItemRectMin(), ImGui.GetItemRectMax());
+    }
+    
+    private static void DrawMeterContent(Vector2 min, Vector2 max, float meterEndX, float currentLevel, float smoothedLevel, float? maxRightEdge = null)
+    {
+        var dl = ImGui.GetWindowDrawList();
+        var meterWidth = meterEndX - min.X;
+        var paddedHeight = (max.Y - min.Y) / 3f;
+        var topY = min.Y + paddedHeight;
+        var bottomY = max.Y - paddedHeight;
+
+        // Gradient bar: green to orange
         dl.AddRectFilledMultiColor(
-            new Vector2(min.X, min.Y + paddedHeight),
-            new Vector2(min.X + paddedWidth, max.Y - paddedHeight),
+            new Vector2(min.X, topY),
+            new Vector2(min.X + meterWidth, bottomY),
             UiColors.StatusControlled, UiColors.StatusWarning,
             UiColors.StatusWarning, UiColors.StatusControlled);
 
-        // Cover the unfilled portion (draw from level position to right edge)
-        // Clamp the display level to 1.0 to prevent the gradient from bleeding into the LED area
+        // Cover unfilled portion
         var clampedLevel = Math.Min(smoothedLevel, 1f);
-        var levelPosition = min.X + paddedWidth * clampedLevel;
+        var levelPosition = min.X + meterWidth * clampedLevel;
         dl.AddRectFilled(
-            new Vector2(levelPosition, min.Y + paddedHeight),
-            new Vector2(max.X, max.Y - paddedHeight),
+            new Vector2(levelPosition, topY),
+            new Vector2(min.X + meterWidth, bottomY),
             UiColors.BackgroundHover);
 
-        // Peak/clipping LED indicator
+        // Clipping LED indicator
+        var ledLeftX = meterEndX + LedSpacing;
+        var ledRightX = maxRightEdge ?? (meterEndX + LedSpacing + LedWidth);
         dl.AddRectFilled(
-            new Vector2(max.X + 5f * T3Ui.UiScaleFactor, min.Y + paddedHeight),
-            new Vector2(max.X + 25f * T3Ui.UiScaleFactor, max.Y - paddedHeight),
+            new Vector2(ledLeftX, topY),
+            new Vector2(ledRightX, bottomY),
             currentLevel >= 1f ? UiColors.StatusError : UiColors.BackgroundHover);
     }
 }

@@ -355,10 +355,13 @@ internal static class PlaybackSettingsPopup
                                                 "The decay factors controls the impact of [AudioReaction] when AttackMode. Good values strongly depend on style, loudness and variation of input signal.",
                                                 0.9f);
 
-                // Input meter - use shared AudioLevelMeter component
+                // Input meter - aligned to match form input fields (with tooltip + reset button space like Audio Gain)
                 var level = settings.AudioGainFactor * WasapiAudioInput.DecayingAudioLevel * 0.03f;
                 var normalizedLevel = level / 644f;
-                AudioLevelMeter.Draw("Input Level", normalizedLevel, ref _smoothedLevel);
+                FormInputs.DrawInputLabel("Input Level");
+                var inputSize = FormInputs.GetAvailableInputSize(" ", true, true); // Pass tooltip + hasReset to account for 2 icon spaces
+                var cursorScreenPos = ImGui.GetCursorScreenPos();
+                AudioLevelMeter.DrawAbsoluteWithinBounds("", normalizedLevel, ref _smoothedLevel, 2f, cursorScreenPos.X, cursorScreenPos.X + inputSize.X);
                 
                 FormInputs.DrawInputLabel("Input Device");
                 ImGui.BeginGroup();
