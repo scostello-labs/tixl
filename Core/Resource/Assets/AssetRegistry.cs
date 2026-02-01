@@ -78,7 +78,9 @@ public static class AssetRegistry
         if (projectSeparator == 1)
         {
             absolutePath = address;
-            return Exists(absolutePath, isFolder);
+            return isFolder
+                       ? Directory.Exists(absolutePath)
+                       : File.Exists(absolutePath);
         }
 
         if (projectSeparator == -1)
@@ -108,18 +110,23 @@ public static class AssetRegistry
                 continue;
 
             resourceContainer = package;
-            absolutePath = $"{package.ResourcesFolder}/{localPath}";
-            return Exists(absolutePath, isFolder);
+            absolutePath = $"{package.AssetsFolder}/{localPath}";
+            return isFolder
+                       ? Directory.Exists(absolutePath)
+                       : File.Exists(absolutePath);
         }
 
         return false;
     }
 
-    private static bool Exists(string absolutePath, bool isFolder) => isFolder
-                                                                          ? Directory.Exists(absolutePath)
-                                                                          : File.Exists(absolutePath);
-
-    internal static bool TryConvertToRelativePath(string absolutePath, [NotNullWhen(true)] out string? relativeAddress)
+    public static bool TryToGetAssetFromFilepath(string absolutePath, [NotNullWhen(true)] out Asset? asset)
+    {
+        asset = null;
+        return TryConvertFilepathToAddress(absolutePath, out var address) 
+               && _assetsByAddress.TryGetValue(address, out asset);
+    }
+    
+    internal static bool TryConvertFilepathToAddress(string absolutePath, [NotNullWhen(true)] out string? relativeAddress)
     {
         absolutePath.ToForwardSlashesUnsafe();
         foreach (var package in SymbolPackage.AllPackages)
@@ -137,17 +144,20 @@ public static class AssetRegistry
         relativeAddress = null;
         return false;
     }
+    
+    
+    
 
     public static void RegisterAssetsFromPackage(SymbolPackage package)
     {
-        var root = package.ResourcesFolder;
+        var root = package.AssetsFolder;
         if (!Directory.Exists(root)) return;
 
         var di = new DirectoryInfo(root);
         var packageId = package.Id;
         var packageAlias = package.Name;
 
-        RegisterEntry(di, root, packageAlias, packageId, isDirectory: true);
+        RegisterPackageEntry(di, package, isDirectory: true);
 
         // Register all files
         foreach (var fileInfo in di.EnumerateFiles("*.*", SearchOption.AllDirectories))
@@ -155,7 +165,7 @@ public static class AssetRegistry
             if (FileLocations.IgnoredFiles.Contains(fileInfo.Name))
                 continue;
 
-            var asset =RegisterEntry(fileInfo, root, packageAlias, packageId, false);
+            var asset =RegisterPackageEntry(fileInfo, package, false);
             
             // Collect all possible addresses for this filename
             var list = _assetsMatchingFilenames.GetOrAdd(fileInfo.Name, _ => []);
@@ -171,26 +181,26 @@ public static class AssetRegistry
             if (FileLocations.IgnoredFiles.Contains(dirInfo.Name))
                 continue;
 
-            RegisterEntry(new FileInfo(dirInfo.FullName), root, packageAlias, packageId, true);
+            RegisterPackageEntry(new FileInfo(dirInfo.FullName), package, true);
         }
 
         //Log.Debug($"{packageAlias}: Registered {_assetsByAddress.Count(a => a.Value.PackageId == packageId)} assets (including directories).");
     }
     
 
-    public static Asset RegisterEntry(FileSystemInfo info, string root, string packageAlias, Guid packageId, bool isDirectory)
+    public static Asset RegisterPackageEntry(FileSystemInfo info, SymbolPackage package, bool isDirectory)
     {
         info.Refresh();
         
         // If the info is the root itself, relative path is empty string
-        var relativePath = Path.GetRelativePath(root, info.FullName).Replace("\\", "/");
+        var relativePath = Path.GetRelativePath(package.AssetsFolder, info.FullName).Replace("\\", "/");
         if (relativePath == ".") relativePath = string.Empty;
 
-        var address = $"{packageAlias}{PackageSeparator}{relativePath}";
+        var address = $"{package.Name}{PackageSeparator}{relativePath}";
 
         // Pre-calculate path parts
         var parts = relativePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var pathParts = new List<string>(parts.Length + 1) { packageAlias };
+        var pathParts = new List<string>(parts.Length + 1) { package.Name };
 
         // Logic for folder structure
         var partCount = isDirectory ? parts.Length : parts.Length - 1;
@@ -203,7 +213,7 @@ public static class AssetRegistry
 
         var asset = new Asset(address)
                         {
-                            PackageId = packageId,
+                            PackageId = package.Id,
                             FileSystemInfo = info,
                             AssetType = assetType,
                             IsDirectory = isDirectory,
@@ -232,7 +242,8 @@ public static class AssetRegistry
     /// This will try to first create a localUrl, then a packageUrl,
     /// and finally fall back to an absolute path.
     ///
-    /// This method is useful to test if path would be valid before the asset is being registered...
+    /// This method is useful to test if path would be valid before before dropping and external file
+    /// into the editor the asset is being registered...
     /// </summary>
     public static bool TryConstructAddressFromFilePath(string absolutePath,
                                                        Instance composition,
@@ -249,7 +260,7 @@ public static class AssetRegistry
         var localPackage = composition.Symbol.SymbolPackage;
 
         // Disable localUris for now
-        var localRoot = localPackage.ResourcesFolder.TrimEnd('/') + "/";
+        var localRoot = localPackage.AssetsFolder.TrimEnd('/') + "/";
          if (normalizedPath.StartsWith(localRoot, StringComparison.OrdinalIgnoreCase))
          {
              // Dropping the root folder gives us the local relative path
@@ -263,7 +274,7 @@ public static class AssetRegistry
         {
             if (p == localPackage) continue;
 
-            var packageRoot = p.ResourcesFolder.TrimEnd('/') + "/";
+            var packageRoot = p.AssetsFolder.TrimEnd('/') + "/";
             if (normalizedPath.StartsWith(packageRoot, StringComparison.OrdinalIgnoreCase))
             {
                 address = $"{p.Name}:{normalizedPath[packageRoot.Length..]}";
@@ -304,7 +315,7 @@ public static class AssetRegistry
         // }        
         
         // 1. Remove old address
-        if (TryConvertToRelativePath(oldPath, out var oldAddress))
+        if (TryConvertFilepathToAddress(oldPath, out var oldAddress))
         {
             if (_assetsByAddress.TryRemove(oldAddress, out _))
             {
@@ -314,14 +325,14 @@ public static class AssetRegistry
 
         // 2. Register new address
         var info = isDir ? (FileSystemInfo)new DirectoryInfo(newPath) : new FileInfo(newPath);
-        RegisterEntry(info, package.ResourcesFolder, package.Name, package.Id, isDir);
+        RegisterPackageEntry(info, package, isDir);
     }
     
     
     public static void UnregisterAbsoluteFilePath(string absolutePath, SymbolPackage package)
     {
         // Convert the absolute disk path back to our conformed "Alias:Path"
-        var root = package.ResourcesFolder;
+        var root = package.AssetsFolder;
         if (!absolutePath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
             return;
 
@@ -351,6 +362,24 @@ public static class AssetRegistry
             Log.Debug($"Removed {address} from file matches.");
         }
     }
+    
+    public static void AddAssetReference(Asset asset, Guid symbolId, Guid symbolChildId, Guid stringUiId)
+    {
+        if (!ReferencesForAssetId.TryGetValue(asset.Id, out var list))
+        {
+            list = [];
+            ReferencesForAssetId[asset.Id] = list;
+        }
+
+        list.Add(new AssetReference
+                     {
+                         Asset = asset,
+                         SymbolId = symbolId,
+                         SymbolChildId = symbolChildId,
+                         InputId = stringUiId
+                     });
+    }
+    
 
     public static bool TryGetAssetsForFilename(string filename, [NotNullWhen(true)] out List<Asset>? matches) 
         => _assetsMatchingFilenames.TryGetValue(filename, out matches);
@@ -364,4 +393,6 @@ public static class AssetRegistry
 
     private static readonly ConcurrentDictionary<string, Asset> _assetsByAddress = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, List<Asset>> _assetsMatchingFilenames = new(StringComparer.OrdinalIgnoreCase);
+
+
 }

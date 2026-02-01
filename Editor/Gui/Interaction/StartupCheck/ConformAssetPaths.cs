@@ -125,7 +125,7 @@ internal static class ConformAssetPaths
             foreach (var symbol in package.Symbols.Values)
             {
                 // Symbol Defaults
-                SymbolUi symbolUi = null;
+                SymbolUi? symbolUi = null;
                 foreach (var inputDef in symbol.InputDefinitions)
                 {
                     if (inputDef.ValueType != typeof(string))
@@ -195,19 +195,11 @@ internal static class ConformAssetPaths
 
                 if (asset != null)
                 {
-                    if (!AssetRegistry.ReferencesForAssetId.TryGetValue(asset.Id, out var list))
-                    {
-                        list = [];
-                        AssetRegistry.ReferencesForAssetId[asset.Id] = list;
-                    }
-                    
-                    list.Add(new AssetReference
-                                 {
-                                     Asset = asset,
-                                     SymbolId = symbol.Id,
-                                     SymbolChildId = symbolChild?.Id ?? Guid.Empty,
-                                     InputId = stringUi.Id
-                                 });
+                    var symbolId = symbol.Id;
+                    var symbolChildId = symbolChild?.Id ?? Guid.Empty;
+                    var stringUiId = stringUi.Id;
+
+                    AssetRegistry.AddAssetReference(asset, symbolId, symbolChildId, stringUiId);
                 }
                 break;
             }

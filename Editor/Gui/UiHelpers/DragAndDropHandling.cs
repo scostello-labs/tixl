@@ -13,7 +13,8 @@ internal static class DragAndDropHandling
     /// </summary>
     internal static void Update()
     {
-        if (IsDragging && _stopRequested)
+        var cancelled = IsDragging && _stopRequested;
+        if (cancelled)
         {
             FreeData();
             _stopRequested = false;
@@ -68,12 +69,19 @@ internal static class DragAndDropHandling
     }
 
     /// <summary>
-    /// Checks if data is valid for the passed DragId
+    /// Can be called after a dropzone.
+    /// 
+    /// Checks if data matches <see cref="DragTypes"/>, adds an ImGuiDropDropTarget onto
+    /// the current ImGui item and show a drop target indicator.
+    ///
+    /// It's also responsible for cancelling the drag action for events like Escape key presses or focus loss.
     /// </summary>
     /// <returns>
     /// True if dropped
     /// </returns>
-    internal static bool TryHandleItemDrop(DragTypes dragType, out string? data, out DragInteractionResult result, Action? drawTooltip = null)
+    internal static bool TryHandleDropOnItem(DragTypes dragType, out string? data, 
+                                             out DragInteractionResult result, 
+                                             Action? drawTooltip = null)
     {
         data = string.Empty;
         result = DragInteractionResult.None;
@@ -198,7 +206,6 @@ internal static class DragAndDropHandling
     private static string? _dataString = null;
     private static bool _stopRequested;
 
-    // TODO: Should be an enumeration
     internal enum DragTypes
     {
         None,
@@ -206,6 +213,4 @@ internal static class DragAndDropHandling
         FileAsset,
         ExternalFile,
     }
-    // internal const string SymbolDraggingId = "symbol";
-    // internal const string AssetDraggingId = "fileAsset";
 }

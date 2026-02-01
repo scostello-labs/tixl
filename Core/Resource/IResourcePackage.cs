@@ -10,7 +10,7 @@ public interface IResourcePackage
     string DisplayName { get; }
     string? Name { get; }
     Guid Id { get; }
-    string ResourcesFolder { get; }
+    string AssetsFolder { get; }
     string? RootNamespace { get; }
     ResourceFileWatcher? FileWatcher { get; }
     bool IsReadOnly { get; }

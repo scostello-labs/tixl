@@ -386,7 +386,7 @@ internal sealed class SymbolLibrary : Window
     /// </summary>
     private static void HandleDropTarget(NamespaceTreeNode subtree)
     {
-        DragAndDropHandling.TryHandleItemDrop(DragAndDropHandling.DragTypes.Symbol, out var data, out var result);
+        DragAndDropHandling.TryHandleDropOnItem(DragAndDropHandling.DragTypes.Symbol, out var data, out var result);
         
         if(result != DragAndDropHandling.DragInteractionResult.Dropped)
             return;
