@@ -219,7 +219,7 @@ public static class AssetRegistry
                             FileSystemInfo = info,
                             AssetType = assetType,
                             IsDirectory = isDirectory,
-                            PathParts = pathParts,
+                            PathParts = pathParts.ToArray(),
                             ExtensionId = extensionId,
                         };
 
