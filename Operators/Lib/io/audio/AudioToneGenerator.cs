@@ -2,6 +2,7 @@
 using ManagedBass;
 using ManagedBass.Mix;
 using T3.Core.Audio;
+using T3.Core.Logging;
 // ReSharper disable UnusedMember.Local
 // ReSharper disable MemberCanBePrivate.Global
 
@@ -72,7 +73,7 @@ namespace Lib.io.audio
             if (_operatorId == Guid.Empty)
             {
                 _operatorId = AudioPlayerUtils.ComputeInstanceGuid(InstancePath);
-                AudioConfig.LogAudioDebug($"[TestToneGenerator] Initialized: {_operatorId}");
+                Log.Gated.Audio($"[TestToneGenerator] Initialized: {_operatorId}");
             }
 
             var trigger = Trigger.GetValue(context);
@@ -122,12 +123,12 @@ namespace Lib.io.audio
             if (risingEdge)
             {
                 _toneStream.Adsr.TriggerAttack();
-                AudioConfig.LogAudioDebug($"[TestToneGenerator] ▶ Triggered @ {frequency}Hz");
+                Log.Gated.Audio($"[TestToneGenerator] ▶ Triggered @ {frequency}Hz");
             }
             else if (fallingEdge && triggerMode == AdsrCalculator.TriggerMode.Gate)
             {
                 _toneStream.Adsr.TriggerRelease();
-                AudioConfig.LogAudioDebug($"[TestToneGenerator] ~ Release triggered");
+                Log.Gated.Audio($"[TestToneGenerator] ~ Release triggered");
             }
 
             bool isActive = _toneStream.Adsr.IsActive;
@@ -157,7 +158,7 @@ namespace Lib.io.audio
 
             _toneStream = ProceduralToneStream.Create(AudioMixerManager.OperatorMixerHandle);
             if (_toneStream != null)
-                AudioConfig.LogAudioDebug($"[TestToneGenerator] Created procedural tone stream");
+                Log.Gated.Audio($"[TestToneGenerator] Created procedural tone stream");
         }
         
         private bool _mixerWarningLogged;

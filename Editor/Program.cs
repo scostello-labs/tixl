@@ -7,6 +7,7 @@ using System.IO;
 using System.Reflection;
 using T3.Core.Compilation;
 using T3.Core.IO;
+using T3.Core.Logging;
 using T3.Core.Resource;
 using T3.Core.SystemUi;
 using T3.Core.UserData;
@@ -143,8 +144,11 @@ internal static class Program
         // ReSharper disable once UnusedVariable
         var projectSettings = new ProjectSettings(saveOnQuit: true);
         
-        // Initialize audio system configuration from project settings
-        AudioConfig.Initialize(ProjectSettings.Config.ShowAudioDebugLogs, ProjectSettings.Config.ShowAudioRenderingDebugLogs);
+        // Initialize debug logging configuration from project settings
+        Log.Gated.Initialize(
+            ProjectSettings.Config.ShowAudioDebugLogs,
+            ProjectSettings.Config.ShowAudioRenderingDebugLogs,
+            ProjectSettings.Config.ShowVideoRenderingDebugLogs);
 
         if (UserSettings.Config.ProjectDirectories.Count == 0)
         {

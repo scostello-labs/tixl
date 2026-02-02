@@ -61,7 +61,7 @@ public static class AudioRendering
         WaveFormProcessing.ResetExportBuffer();
 
         Bass.ChannelPause(AudioMixerManager.GlobalMixerHandle);
-        AudioConfig.LogAudioRenderDebug("[AudioRendering] GlobalMixer PAUSED for export");
+        Log.Gated.AudioRender("[AudioRendering] GlobalMixer PAUSED for export");
 
         AudioEngine.ResetAllOperatorStreamsForExport();
 
@@ -80,7 +80,7 @@ public static class AudioRendering
         else
         {
             _exportMixerInitialized = true;
-            AudioConfig.LogAudioRenderDebug($"[AudioRendering] Export mixer created: Handle={_exportMixerHandle}, Freq={AudioConfig.MixerFrequency}Hz");
+            Log.Gated.AudioRender($"[AudioRendering] Export mixer created: Handle={_exportMixerHandle}, Freq={AudioConfig.MixerFrequency}Hz");
         }
 
         // Remove soundtrack streams from live mixer and add to export mixer
@@ -103,12 +103,12 @@ public static class AudioRendering
                 }
                 else
                 {
-                    AudioConfig.LogAudioRenderDebug($"[AudioRendering] Soundtrack '{handle.Clip.FilePath}' added to export mixer");
+                    Log.Gated.AudioRender($"[AudioRendering] Soundtrack '{handle.Clip.FilePath}' added to export mixer");
                 }
             }
         }
 
-        AudioConfig.LogAudioRenderDebug($"[AudioRendering] PrepareRecording: fps={fps}");
+        Log.Gated.AudioRender($"[AudioRendering] PrepareRecording: fps={fps}");
     }
 
     public static void EndRecording(Playback playback, double fps)
@@ -116,7 +116,7 @@ public static class AudioRendering
         if (!_isRecording) return;
 
         _isRecording = false;
-        AudioConfig.LogAudioRenderDebug($"[AudioRendering] EndRecording: Exported {_frameCount} frames");
+        Log.Gated.AudioRender($"[AudioRendering] EndRecording: Exported {_frameCount} frames");
 
         // Remove soundtrack streams from export mixer and re-add to live mixer
         foreach (var (handle, clipStream) in AudioEngine.SoundtrackClipStreams)
@@ -139,7 +139,7 @@ public static class AudioRendering
             Bass.StreamFree(_exportMixerHandle);
             _exportMixerHandle = 0;
             _exportMixerInitialized = false;
-            AudioConfig.LogAudioRenderDebug("[AudioRendering] Export mixer freed");
+            Log.Gated.AudioRender("[AudioRendering] Export mixer freed");
         }        _exportState.RestoreState();
         AudioEngine.RestoreOperatorAudioStreams();
     }
@@ -234,7 +234,7 @@ public static class AudioRendering
             var error = Bass.LastError;
             if (error != Errors.OK && error != Errors.Ended)
             {
-                AudioConfig.LogAudioRenderDebug($"[AudioRendering] Export mixer read error: {error}");
+                Log.Gated.AudioRender($"[AudioRendering] Export mixer read error: {error}");
             }
         }
     }
@@ -328,7 +328,7 @@ public static class AudioRendering
                 if (!float.IsNaN(mixBuffer[i]))
                     peak = Math.Max(peak, Math.Abs(mixBuffer[i]));
 
-            AudioConfig.LogAudioRenderDebug($"[AudioRendering] Frame {_frameCount}: peak={peak:F4}, time={currentTime:F3}s");
+            Log.Gated.AudioRender($"[AudioRendering] Frame {_frameCount}: peak={peak:F4}, time={currentTime:F3}s");
         }
     }
 
@@ -397,7 +397,7 @@ public static class AudioRendering
                 try { output.Update(context); }
                 catch (Exception ex)
                 {
-                    AudioConfig.LogAudioRenderDebug($"Failed to evaluate output: {ex.Message}");
+                    Log.Gated.AudioRender($"Failed to evaluate output: {ex.Message}");
                 }
             }
         }
@@ -421,7 +421,7 @@ public static class AudioRendering
             if (_wasPlaying)
             {
                 Bass.ChannelPlay(AudioMixerManager.GlobalMixerHandle, false);
-                AudioConfig.LogAudioRenderDebug("[AudioRendering] GlobalMixer RESUMED");
+                Log.Gated.AudioRender("[AudioRendering] GlobalMixer RESUMED");
             }
         }
     }

@@ -320,7 +320,7 @@ public static class AudioEngine
         {
             Initialize3DAudio();
             _3dInitialized = true;
-            AudioConfig.LogAudioInfo($"[AudioEngine] 3D audio initialized | Pos: {position}");
+            Log.Gated.Audio($"[AudioEngine] 3D audio initialized | Pos: {position}");
         }
     }
 
@@ -626,7 +626,7 @@ public static class AudioEngine
     {
         if (AudioMixerManager.IsInitialized) return true;
 
-        AudioConfig.LogAudioDebug("[AudioEngine] Mixer not initialized, initializing...");
+        Log.Gated.Audio("[AudioEngine] Mixer not initialized, initializing...");
         AudioMixerManager.Initialize();
 
         if (AudioMixerManager.OperatorMixerHandle == 0)
@@ -644,7 +644,7 @@ public static class AudioEngine
         {
             state = new OperatorAudioState<T>();
             states[operatorId] = state;
-            AudioConfig.LogAudioDebug($"[AudioEngine] Created audio state for operator: {operatorId}");
+            Log.Gated.Audio($"[AudioEngine] Created audio state for operator: {operatorId}");
         }
         return state;
     }
@@ -660,7 +660,7 @@ public static class AudioEngine
         }
         else
         {
-            AudioConfig.LogAudioDebug($"[AudioEngine] Resolved: {filePath} → {absolutePath}");
+            Log.Gated.Audio($"[AudioEngine] Resolved: {filePath} → {absolutePath}");
             return absolutePath;
         }
 
@@ -672,7 +672,7 @@ public static class AudioEngine
     {
         if (state.CurrentFilePath == resolvedPath) return true;
 
-        AudioConfig.LogAudioDebug($"[AudioEngine] File changed for {operatorId}: '{state.CurrentFilePath}' → '{resolvedPath}'");
+        Log.Gated.Audio($"[AudioEngine] File changed for {operatorId}: '{state.CurrentFilePath}' → '{resolvedPath}'");
 
         state.Stream?.Dispose();
         state.Stream = null;
@@ -693,7 +693,7 @@ public static class AudioEngine
         
         state.IsStale = true;
         state.Stream.SetStaleMuted(true);
-        AudioConfig.LogAudioDebug($"[AudioEngine] New stream during export - marking stale: {resolvedPath}");
+        Log.Gated.Audio($"[AudioEngine] New stream during export - marking stale: {resolvedPath}");
         return false;
 
     }
@@ -734,7 +734,7 @@ public static class AudioEngine
             var seekTime = (float)(seek * state.Stream!.Duration);
             state.Stream.Seek(seekTime);
             state.PreviousSeek = seek;
-            AudioConfig.LogAudioDebug($"[AudioEngine] Seek to {seek:F3} ({seekTime:F3}s) for {operatorId}");
+            Log.Gated.Audio($"[AudioEngine] Seek to {seek:F3} ({seekTime:F3}s) for {operatorId}");
         }
     }
 
@@ -793,7 +793,7 @@ public static class AudioEngine
         {
             state = new SpatialOperatorState();
             _spatialOperatorStates[operatorId] = state;
-            AudioConfig.LogAudioDebug($"[AudioEngine] Created spatial audio state for operator: {operatorId}");
+            Log.Gated.Audio($"[AudioEngine] Created spatial audio state for operator: {operatorId}");
         }
         return state;
     }
@@ -802,7 +802,7 @@ public static class AudioEngine
     {
         if (state.CurrentFilePath == resolvedPath) return true;
 
-        AudioConfig.LogAudioDebug($"[AudioEngine] File changed for spatial {operatorId}: '{state.CurrentFilePath}' → '{resolvedPath}'");
+        Log.Gated.Audio($"[AudioEngine] File changed for spatial {operatorId}: '{state.CurrentFilePath}' → '{resolvedPath}'");
 
         state.Stream?.Dispose();
         state.Stream = null;
@@ -829,7 +829,7 @@ public static class AudioEngine
         
         state.IsStale = true;
         state.Stream.SetStaleMuted(true);
-        AudioConfig.LogAudioDebug($"[AudioEngine] New spatial stream during export - marking stale: {resolvedPath}");
+        Log.Gated.Audio($"[AudioEngine] New spatial stream during export - marking stale: {resolvedPath}");
         return false;
     }
 
@@ -867,7 +867,7 @@ public static class AudioEngine
             var seekTime = (float)(seek * state.Stream!.Duration);
             state.Stream.Seek(seekTime);
             state.PreviousSeek = seek;
-            AudioConfig.LogAudioDebug($"[AudioEngine] Seek to {seek:F3} ({seekTime:F3}s) for spatial {operatorId}");
+            Log.Gated.Audio($"[AudioEngine] Seek to {seek:F3} ({seekTime:F3}s) for spatial {operatorId}");
         }
     }
 
@@ -1048,7 +1048,7 @@ public static class AudioEngine
         _bassInitFailed = false;  // Reset failure flag to allow retry
         AudioMixerManager.Initialize();
 
-        AudioConfig.LogAudioInfo("[AudioEngine] Audio device changed: reinitialized.");
+        Log.Gated.Audio("[AudioEngine] Audio device changed: reinitialized.");
     }
 
     private static void DisposeAllOperatorStreams<T>(Dictionary<Guid, OperatorAudioState<T>> states)

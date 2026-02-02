@@ -4,6 +4,7 @@ using T3.Core.Animation;
 using T3.Core.Audio;
 using T3.Core.DataTypes;
 using T3.Core.DataTypes.Vector;
+using T3.Core.Logging;
 using T3.Core.Utils;
 using T3.Editor.Gui.Interaction;
 using T3.Editor.Gui.Interaction.Keyboard;
@@ -125,11 +126,8 @@ internal static class RenderProcess
         {
             // Use the new full mixdown buffer for audio export
             double localFxTime = _frameIndex / _renderSettings.Fps;
-            if (ProjectSettings.Config.ShowVideoRenderingDebugLogs)
-            {
-                Log.Debug($"Requested recording from {0.0000:F4} to {(_activeSession.FrameCount / _renderSettings.Fps):F4} seconds");
-                Log.Debug($"Actually recording from {(_frameIndex / _renderSettings.Fps):F4} to {((_frameIndex + 1) / _renderSettings.Fps):F4} seconds due to frame raster");
-            }
+            Log.Gated.VideoRender($"Requested recording from {0.0000:F4} to {(_activeSession.FrameCount / _renderSettings.Fps):F4} seconds");
+            Log.Gated.VideoRender($"Actually recording from {(_frameIndex / _renderSettings.Fps):F4} to {((_frameIndex + 1) / _renderSettings.Fps):F4} seconds due to frame raster");
             var audioFrameFloat = AudioRendering.GetFullMixDownBuffer(1.0 / _renderSettings.Fps);
             // Safety: ensure audioFrameFloat is valid and sized
             if (audioFrameFloat == null || audioFrameFloat.Length == 0)
@@ -292,10 +290,7 @@ internal static class RenderProcess
         if (_activeSession.Settings.RenderMode == RenderSettings.RenderModes.Video)
         {
             // Log all relevant parameters before initializing video writer
-            if (ProjectSettings.Config.ShowVideoRenderingDebugLogs)
-            {
-                Log.Debug($"Initializing Mp4VideoWriter with: path={targetFilePath}, size={MainOutputOriginalSize.Width}x{MainOutputOriginalSize.Height}, renderedSize={MainOutputRenderedSize.Width}x{MainOutputRenderedSize.Height}, bitrate={_renderSettings.Bitrate}, framerate={_renderSettings.Fps}, audio={_renderSettings.ExportAudio}, channels={RenderAudioInfo.SoundtrackChannels()}, sampleRate={RenderAudioInfo.SoundtrackSampleRate()}, codec=H.264 (default for Mp4VideoWriter)");
-            }
+            Log.Gated.VideoRender($"Initializing Mp4VideoWriter with: path={targetFilePath}, size={MainOutputOriginalSize.Width}x{MainOutputOriginalSize.Height}, renderedSize={MainOutputRenderedSize.Width}x{MainOutputRenderedSize.Height}, bitrate={_renderSettings.Bitrate}, framerate={_renderSettings.Fps}, audio={_renderSettings.ExportAudio}, channels={RenderAudioInfo.SoundtrackChannels()}, sampleRate={RenderAudioInfo.SoundtrackSampleRate()}, codec=H.264 (default for Mp4VideoWriter)");
             try
             {
                 _activeSession.VideoWriter = new Mp4VideoWriter(targetFilePath, MainOutputOriginalSize, MainOutputRenderedSize, _activeSession.Settings.ExportAudio)
@@ -303,10 +298,7 @@ internal static class RenderProcess
                     Bitrate = _activeSession.Settings.Bitrate,
                     Framerate = (int)_activeSession.Settings.Fps
                 };
-                if (ProjectSettings.Config.ShowVideoRenderingDebugLogs)
-                {
-                    Log.Debug($"Mp4VideoWriter initialized: Codec=H.264, FileFormat=mp4, Bitrate={_activeSession.VideoWriter.Bitrate}, Framerate={_activeSession.VideoWriter.Framerate}, AudioEnabled={_activeSession.Settings.ExportAudio}, Channels={RenderAudioInfo.SoundtrackChannels()}, SampleRate={RenderAudioInfo.SoundtrackSampleRate()}");
-                }
+                Log.Gated.VideoRender($"Mp4VideoWriter initialized: Codec=H.264, FileFormat=mp4, Bitrate={_activeSession.VideoWriter.Bitrate}, Framerate={_activeSession.VideoWriter.Framerate}, AudioEnabled={_activeSession.Settings.ExportAudio}, Channels={RenderAudioInfo.SoundtrackChannels()}, SampleRate={RenderAudioInfo.SoundtrackSampleRate()}");
             }
             catch (Exception ex)
             {

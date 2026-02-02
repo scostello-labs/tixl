@@ -54,7 +54,7 @@ public static class AudioMixerManager
         {
             if (_initialized)
             {
-                AudioConfig.LogAudioDebug("[AudioMixer] Already initialized, skipping.");
+                Log.Gated.Audio("[AudioMixer] Already initialized, skipping.");
                 return;
             }
 
@@ -64,7 +64,7 @@ public static class AudioMixerManager
                 return;
             }
 
-            AudioConfig.LogAudioDebug("[AudioMixer] Starting initialization...");
+            Log.Gated.Audio("[AudioMixer] Starting initialization...");
 
         // Check if BASS is already initialized by checking the default output device
         // Note: Bass.CurrentDevice returns -1 when not initialized, so we check device 1 (default output)
@@ -92,11 +92,11 @@ public static class AudioMixerManager
             
             // Set the mixer frequency to the device's actual sample rate
             AudioConfig.MixerFrequency = info.SampleRate;
-            AudioConfig.LogAudioInfo($"[AudioMixer] Existing BASS - SampleRate: {info.SampleRate}Hz, MinBuffer: {info.MinBufferLength}ms, Latency: {info.Latency}ms");
+            Log.Gated.Audio($"[AudioMixer] Existing BASS - SampleRate: {info.SampleRate}Hz, MinBuffer: {info.MinBufferLength}ms, Latency: {info.Latency}ms");
         }
         else
         {
-            AudioConfig.LogAudioDebug("[AudioMixer] BASS not initialized, configuring for low latency...");
+            Log.Gated.Audio("[AudioMixer] BASS not initialized, configuring for low latency...");
             
             // Query the default output device's sample rate from WASAPI before BASS init
             // WASAPI loopback devices represent the output and have the correct MixFrequency
@@ -108,7 +108,7 @@ public static class AudioMixerManager
             Bass.Configure(Configuration.PlaybackBufferLength, AudioConfig.PlaybackBufferLengthMs);
             Bass.Configure(Configuration.DeviceBufferLength, AudioConfig.DeviceBufferLengthMs);
             
-            AudioConfig.LogAudioDebug($"[AudioMixer] Config - UpdatePeriod: {AudioConfig.UpdatePeriodMs}ms, UpdateThreads: {AudioConfig.UpdateThreads}, PlaybackBuffer: {AudioConfig.PlaybackBufferLengthMs}ms, DeviceBuffer: {AudioConfig.DeviceBufferLengthMs}ms");
+            Log.Gated.Audio($"[AudioMixer] Config - UpdatePeriod: {AudioConfig.UpdatePeriodMs}ms, UpdateThreads: {AudioConfig.UpdateThreads}, PlaybackBuffer: {AudioConfig.PlaybackBufferLengthMs}ms, DeviceBuffer: {AudioConfig.DeviceBufferLengthMs}ms");
             
             // Try to initialize BASS with the device's actual sample rate first,
             // then fall back to common sample rates if that fails
@@ -134,11 +134,11 @@ public static class AudioMixerManager
             {
                 bool isDeviceRate = (freq == deviceSampleRate && deviceSampleRate > 0);
                 var freqDesc = isDeviceRate ? $"{freq}Hz (device)" : $"{freq}Hz (fallback)";
-                AudioConfig.LogAudioDebug($"[AudioMixer] Attempting BASS.Init with Latency+Stereo at {freqDesc}...");
+                Log.Gated.Audio($"[AudioMixer] Attempting BASS.Init with Latency+Stereo at {freqDesc}...");
                 
                 if (Bass.Init(-1, freq, initFlags, IntPtr.Zero))
                 {
-                    AudioConfig.LogAudioDebug($"[AudioMixer] BASS initialized with LATENCY flag at {freqDesc}");
+                    Log.Gated.Audio($"[AudioMixer] BASS initialized with LATENCY flag at {freqDesc}");
                     initialized = true;
                     usedFrequency = freq;
                     usedDeviceDefault = isDeviceRate;
@@ -150,14 +150,14 @@ public static class AudioMixerManager
                 // If already initialized, that's fine - continue with existing init
                 if (error1 == Errors.Already)
                 {
-                    AudioConfig.LogAudioDebug("[AudioMixer] BASS already initialized");
+                    Log.Gated.Audio("[AudioMixer] BASS already initialized");
                     initialized = true;
                     usedDeviceDefault = true; // Assume existing init used device default
                     initMethod = "EXISTING";
                     break;
                 }
                 
-                AudioConfig.LogAudioDebug($"{error1} [AudioMixer] Init at {freqDesc} failed, trying next...");
+                Log.Gated.Audio($"{error1} [AudioMixer] Init at {freqDesc} failed, trying next...");
             }
             
             // If all frequencies failed with Latency flag, try without it
@@ -241,11 +241,11 @@ public static class AudioMixerManager
         }
         else
         {
-            AudioConfig.LogAudioDebug($"[AudioMixer] BASS FLAC plugin loaded successfully: Handle={_flacPluginHandle}");
+            Log.Gated.Audio($"[AudioMixer] BASS FLAC plugin loaded successfully: Handle={_flacPluginHandle}");
         }
 
         // Create global mixer (stereo output to soundcard)
-        AudioConfig.LogAudioDebug("[AudioMixer] Creating global mixer stream...");
+        Log.Gated.Audio("[AudioMixer] Creating global mixer stream...");
         _globalMixerHandle = BassMix.CreateMixerStream(AudioConfig.MixerFrequency, 2, BassFlags.Float | BassFlags.MixerNonStop);
         if (_globalMixerHandle == 0)
         {
@@ -253,10 +253,10 @@ public static class AudioMixerManager
             _initializationFailed = true;
             return;
         }
-        AudioConfig.LogAudioDebug($"[AudioMixer] Global mixer created: Handle={_globalMixerHandle}");
+        Log.Gated.Audio($"[AudioMixer] Global mixer created: Handle={_globalMixerHandle}");
 
         // Create operator mixer (decode stream that feeds into global mixer)
-        AudioConfig.LogAudioDebug("[AudioMixer] Creating operator mixer stream...");
+        Log.Gated.Audio("[AudioMixer] Creating operator mixer stream...");
         _operatorMixerHandle = BassMix.CreateMixerStream(AudioConfig.MixerFrequency, 2, BassFlags.MixerNonStop | BassFlags.Decode | BassFlags.Float);
         if (_operatorMixerHandle == 0)
         {
@@ -264,10 +264,10 @@ public static class AudioMixerManager
             _initializationFailed = true;
             return;
         }
-        AudioConfig.LogAudioDebug($"[AudioMixer] Operator mixer created: Handle={_operatorMixerHandle}");
+        Log.Gated.Audio($"[AudioMixer] Operator mixer created: Handle={_operatorMixerHandle}");
 
         // Create soundtrack mixer (decode stream that feeds into global mixer)
-        AudioConfig.LogAudioDebug("[AudioMixer] Creating soundtrack mixer stream...");
+        Log.Gated.Audio("[AudioMixer] Creating soundtrack mixer stream...");
         _soundtrackMixerHandle = BassMix.CreateMixerStream(AudioConfig.MixerFrequency, 2, BassFlags.MixerNonStop | BassFlags.Decode | BassFlags.Float);
         if (_soundtrackMixerHandle == 0)
         {
@@ -275,10 +275,10 @@ public static class AudioMixerManager
             _initializationFailed = true;
             return;
         }
-        AudioConfig.LogAudioDebug($"[AudioMixer] Soundtrack mixer created: Handle={_soundtrackMixerHandle}");
+        Log.Gated.Audio($"[AudioMixer] Soundtrack mixer created: Handle={_soundtrackMixerHandle}");
 
         // Create offline mixer for analysis (decode only, no output to soundcard)
-        AudioConfig.LogAudioDebug("[AudioMixer] Creating offline analysis mixer stream...");
+        Log.Gated.Audio("[AudioMixer] Creating offline analysis mixer stream...");
         _offlineMixerHandle = BassMix.CreateMixerStream(AudioConfig.MixerFrequency, 2, BassFlags.Decode | BassFlags.Float);
         if (_offlineMixerHandle == 0)
         {
@@ -286,36 +286,36 @@ public static class AudioMixerManager
         }
         else
         {
-            AudioConfig.LogAudioDebug($"[AudioMixer] Offline analysis mixer created: Handle={_offlineMixerHandle}");
+            Log.Gated.Audio($"[AudioMixer] Offline analysis mixer created: Handle={_offlineMixerHandle}");
         }
 
         // Add operator mixer to global mixer with buffer flag for smooth mixing
-        AudioConfig.LogAudioDebug("[AudioMixer] Adding operator mixer to global mixer...");
+        Log.Gated.Audio("[AudioMixer] Adding operator mixer to global mixer...");
         if (!BassMix.MixerAddChannel(_globalMixerHandle, _operatorMixerHandle, BassFlags.MixerChanBuffer))
         {
             Log.Error($"[AudioMixer] Failed to add operator mixer to global mixer: {Bass.LastError}");
         }
         else
         {
-            AudioConfig.LogAudioDebug("[AudioMixer] Operator mixer added to global mixer successfully");
+            Log.Gated.Audio("[AudioMixer] Operator mixer added to global mixer successfully");
         }
 
         // Add soundtrack mixer to global mixer
         // Use MixerChanBuffer to enable level metering via BassMix.ChannelGetLevel
-        AudioConfig.LogAudioDebug("[AudioMixer] Adding soundtrack mixer to global mixer...");
+        Log.Gated.Audio("[AudioMixer] Adding soundtrack mixer to global mixer...");
         if (!BassMix.MixerAddChannel(_globalMixerHandle, _soundtrackMixerHandle, BassFlags.MixerChanBuffer))
         {
             Log.Error($"[AudioMixer] Failed to add soundtrack mixer to global mixer: {Bass.LastError}");
         }
         else
         {
-            AudioConfig.LogAudioDebug("[AudioMixer] Soundtrack mixer added to global mixer successfully");
+            Log.Gated.Audio("[AudioMixer] Soundtrack mixer added to global mixer successfully");
         }
 
         // Note: Offline mixer is NOT added to global mixer - it's completely isolated
 
         // Start the global mixer playing (outputs to soundcard)
-        AudioConfig.LogAudioDebug("[AudioMixer] Starting global mixer playback...");
+        Log.Gated.Audio("[AudioMixer] Starting global mixer playback...");
         if (!Bass.ChannelPlay(_globalMixerHandle, false))
         {
             Log.Error($"[AudioMixer] Failed to start global mixer: {Bass.LastError}");
@@ -323,11 +323,11 @@ public static class AudioMixerManager
         else
         {
             var playbackState = Bass.ChannelIsActive(_globalMixerHandle);
-            AudioConfig.LogAudioDebug($"[AudioMixer] Global mixer started, State: {playbackState}");
+            Log.Gated.Audio($"[AudioMixer] Global mixer started, State: {playbackState}");
         }
 
         _initialized = true;
-        AudioConfig.LogAudioInfo("[AudioMixer] ✓ Audio mixer system initialized successfully with low-latency settings.");
+        Log.Gated.Audio("[AudioMixer] ✓ Audio mixer system initialized successfully with low-latency settings.");
         } // end lock
     }
 
@@ -338,7 +338,7 @@ public static class AudioMixerManager
             if (!_initialized && !_initializationFailed)
                 return;
 
-            AudioConfig.LogAudioDebug("[AudioMixer] Shutting down...");
+            Log.Gated.Audio("[AudioMixer] Shutting down...");
             
             Bass.StreamFree(_operatorMixerHandle);
             Bass.StreamFree(_soundtrackMixerHandle);
@@ -361,7 +361,7 @@ public static class AudioMixerManager
 
             _initialized = false;
             _initializationFailed = false; // Reset so initialization can be retried after device change
-            AudioConfig.LogAudioDebug("[AudioMixer] Audio mixer system shut down.");
+            Log.Gated.Audio("[AudioMixer] Audio mixer system shut down.");
         }
     }
 
@@ -464,7 +464,7 @@ public static class AudioMixerManager
                 return 0;
             }
 
-            AudioConfig.LogAudioDebug($"[AudioMixer] Created offline analysis stream: Handle={stream} for '{filePath}'");
+            Log.Gated.Audio($"[AudioMixer] Created offline analysis stream: Handle={stream} for '{filePath}'");
             return stream;
         }
     }
@@ -480,7 +480,7 @@ public static class AudioMixerManager
         lock (_offlineMixerLock)
         {
             Bass.StreamFree(streamHandle);
-            AudioConfig.LogAudioDebug($"[AudioMixer] Freed offline analysis stream: Handle={streamHandle}");
+            Log.Gated.Audio($"[AudioMixer] Freed offline analysis stream: Handle={streamHandle}");
         }
     }
 

@@ -3,6 +3,7 @@ using ImGuiNET;
 using Operators.Utils;
 using T3.Core.Audio;
 using T3.Core.IO;
+using T3.Core.Logging;
 using T3.Core.UserData;
 using T3.Core.Utils;
 using T3.Editor.Gui.Input;
@@ -494,7 +495,7 @@ internal sealed partial class SettingsWindow : Window
                         ProjectSettings.Defaults.ShowAudioDebugLogs);
                     if (audioDebugChanged)
                     {
-                        T3.Core.Audio.AudioConfig.ShowAudioLogs = ProjectSettings.Config.ShowAudioDebugLogs;
+                        Log.Gated.AudioEnabled = ProjectSettings.Config.ShowAudioDebugLogs;
                         changed = true;
                     }
                     changed |= FormInputs.AddCheckBox("Profile Beat Syncing",
@@ -544,9 +545,11 @@ internal sealed partial class SettingsWindow : Window
                         ProjectSettings.Defaults.ShowAudioRenderingDebugLogs);
                     if (audioRenderingDebugChanged)
                     {
-                        T3.Core.Audio.AudioConfig.ShowAudioRenderLogs = ProjectSettings.Config.ShowAudioRenderingDebugLogs;
+                        Log.Gated.AudioRenderEnabled = ProjectSettings.Config.ShowAudioRenderingDebugLogs;
                         changed = true;
                     }
+                    
+                    
                     // Change label for video rendering logs
                     var videoRenderingDebugChanged = FormInputs.AddCheckBox("Show Video Render Logs",
                         ref ProjectSettings.Config.ShowVideoRenderingDebugLogs,
@@ -554,6 +557,7 @@ internal sealed partial class SettingsWindow : Window
                         ProjectSettings.Defaults.ShowVideoRenderingDebugLogs);
                     if (videoRenderingDebugChanged)
                     {
+                        Log.Gated.VideoRenderEnabled = ProjectSettings.Config.ShowVideoRenderingDebugLogs;
                         changed = true;
                     }
                     FormInputs.AddVerticalSpace();

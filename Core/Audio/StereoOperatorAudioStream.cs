@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using ManagedBass;
+using T3.Core.Logging;
 
 namespace T3.Core.Audio;
 
@@ -46,7 +47,7 @@ public sealed class StereoOperatorAudioStream : OperatorAudioStreamBase
             IsStaleMuted = true
         };
 
-        AudioConfig.LogAudioDebug($"[AudioPlayer] Loaded: '{Path.GetFileName(filePath)}' ({info.Channels}ch, {info.Frequency}Hz, {duration:F2}s)");
+        Log.Gated.Audio($"[AudioPlayer] Loaded: '{Path.GetFileName(filePath)}' ({info.Channels}ch, {info.Frequency}Hz, {duration:F2}s)");
         return true;
     }
 

@@ -128,7 +128,7 @@ public sealed class SoundtrackClipStream
             }
             else
             {
-                AudioConfig.LogAudioDebug($"[SoundtrackClipStream] Added '{handle.Clip.FilePath}' to SoundtrackMixer");
+                Log.Gated.Audio($"[SoundtrackClipStream] Added '{handle.Clip.FilePath}' to SoundtrackMixer");
             }
         }
 

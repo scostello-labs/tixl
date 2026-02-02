@@ -1,5 +1,6 @@
 using ManagedBass;
 using T3.Core.Audio;
+using T3.Core.Logging;
 using T3.Core.Operator.Interfaces;
 using T3.Core.Operator.Slots;
 // ReSharper disable MemberCanBePrivate.Global
@@ -149,7 +150,7 @@ namespace Lib.io.audio
             if (_operatorId == Guid.Empty)
             {
                 _operatorId = AudioPlayerUtils.ComputeInstanceGuid(InstancePath);
-                AudioConfig.LogAudioDebug($"[SpatialAudioPlayer] Initialized: {_operatorId}");
+                Log.Gated.Audio($"[SpatialAudioPlayer] Initialized: {_operatorId}");
             }
 
             string filePath = AudioFile.GetValue(context);

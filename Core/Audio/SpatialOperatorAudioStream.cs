@@ -223,7 +223,7 @@ public sealed class SpatialOperatorAudioStream
         // Initialize 3D attributes
         stream.Initialize3DAudio();
 
-        AudioConfig.LogAudioDebug($"[SpatialAudio] Loaded: '{Path.GetFileName(filePath)}' ({info.Channels}ch, {info.Frequency}Hz, {duration:F2}s) [Native 3D]");
+        Log.Gated.Audio($"[SpatialAudio] Loaded: '{Path.GetFileName(filePath)}' ({info.Channels}ch, {info.Frequency}Hz, {duration:F2}s) [Native 3D]");
         return true;
     }
 

@@ -1,4 +1,5 @@
 using T3.Core.Audio;
+using T3.Core.Logging;
 // ReSharper disable MemberCanBePrivate.Global
 
 namespace Lib.io.audio
@@ -73,7 +74,7 @@ namespace Lib.io.audio
             if (_operatorId == Guid.Empty)
             {
                 _operatorId = AudioPlayerUtils.ComputeInstanceGuid(InstancePath);
-                AudioConfig.LogAudioDebug($"[AudioPlayer] Initialized: {_operatorId}");
+                Log.Gated.Audio($"[AudioPlayer] Initialized: {_operatorId}");
             }
 
             string filePath = AudioFile.GetValue(context);
