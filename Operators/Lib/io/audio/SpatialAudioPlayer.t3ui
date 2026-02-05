@@ -24,9 +24,9 @@
         "X": -200.0,
         "Y": 0.0
       },
+      "Description": "Path to the audio file to play",
       "Usage": "FilePath",
-      "FileFilter": "mp3, wav, ogg, flac",
-      "Description": "Path to the audio file to play"
+      "FileFilter": "mp3, wav, ogg, flac"
     },
     {
       "InputId": "3cf1b579-a1f2-4e9f-a54a-0e9e3580a6bf"/*SourceRotation*/,
@@ -159,35 +159,13 @@
       "Description": "The 3D position of the audio source in world space"
     }
   ],
-  "SymbolChildUis": [
-    {
-      "ChildId": "0b459c75-9edc-4f8c-8748-26a701380436"/*SpatialAudioPlayerGizmo*/,
-      "Position": {
-        "X": 99.99999,
-        "Y": 195.55374
-      }
-    },
-    {
-      "ChildId": "66e4e93c-4731-4d1a-8930-31ef127de8ee"/*VisibleGizmos*/,
-      "Position": {
-        "X": 250.0,
-        "Y": 195.55374
-      }
-    }
-  ],
+  "SymbolChildUis": [],
   "OutputUis": [
     {
       "OutputId": "117c0d2e-c14b-471a-8a6d-a9f983e48908"/*Result*/,
       "Position": {
         "X": 300.0,
         "Y": 200.0
-      }
-    },
-    {
-      "OutputId": "f8a7c3e1-5b2d-4f9a-8c6e-1d3b5a7f9e2c"/*GizmoOutput*/,
-      "Position": {
-        "X": 300.0,
-        "Y": 250.0
       }
     },
     {

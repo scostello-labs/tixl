@@ -53,13 +53,6 @@
       }
     },
     {
-      "ChildId": "178a62d3-f119-4310-ba61-e27c21d5e09d"/*AudioPlayer*/,
-      "Position": {
-        "X": 759.2588,
-        "Y": 1573.9563
-      }
-    },
-    {
       "ChildId": "27374ba9-2136-4833-8c52-a24a27068def"/*AudioPlayer*/,
       "Position": {
         "X": 1276.0958,
@@ -165,6 +158,13 @@
       }
     },
     {
+      "ChildId": "54241077-2833-41c8-81df-f86ac1cd3824"/*DrawSpatialAudioGizmos*/,
+      "Position": {
+        "X": 1695.2926,
+        "Y": 1295.0176
+      }
+    },
+    {
       "ChildId": "59bb6354-ea28-4f23-b53c-d7d52f640181"/*AnimVec3*/,
       "Position": {
         "X": 1555.2924,
@@ -223,8 +223,8 @@
     {
       "ChildId": "6f2d5ad4-80ed-43ef-a5db-b41513d8f044"/*ConeGizmo*/,
       "Position": {
-        "X": 751.146,
-        "Y": 2057.454
+        "X": 751.1461,
+        "Y": 2013.5731
       }
     },
     {
@@ -258,8 +258,8 @@
     {
       "ChildId": "838d3e08-f5f6-4706-a7b3-57056af98c50"/*Camera*/,
       "Position": {
-        "X": 2201.35,
-        "Y": 1842.1547
+        "X": 2264.4958,
+        "Y": 1703.0195
       }
     },
     {
@@ -302,13 +302,6 @@
       "Position": {
         "X": 1539.7299,
         "Y": 1618.2865
-      }
-    },
-    {
-      "ChildId": "b0a07edf-9aec-4cca-924f-6c52a4d08012"/*DirectionArrowGizmo*/,
-      "Position": {
-        "X": 751.146,
-        "Y": 2007.8586
       }
     },
     {
@@ -396,24 +389,10 @@
       }
     },
     {
-      "ChildId": "f482ad87-a53c-4bbd-b6d3-c30886bca68f"/*SpatialAudioPlayer*/,
-      "Position": {
-        "X": 751.146,
-        "Y": 1704.4534
-      }
-    },
-    {
       "ChildId": "f7cc7951-60ab-4a71-aa7b-6094483d7e45"/*Transform*/,
       "Position": {
         "X": 1539.7299,
         "Y": 1951.9622
-      }
-    },
-    {
-      "ChildId": "fc835ac8-23ae-43d6-a710-bc87cba8f186"/*AudioToneGenerator*/,
-      "Position": {
-        "X": 751.146,
-        "Y": 1827.7561
       }
     }
   ],
