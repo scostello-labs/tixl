@@ -187,20 +187,7 @@ Below are the remaining prioritized recommendations grouped and ordered by prior
 
 #### Low priority
 
-1. Cache failed operator file loads or mark invalid paths
-
-- **Goals**: reduce repeated error logging and load attempts.
-
-- **Steps**:
-  1. Extend `OperatorAudioState<T>` with a `LastLoadError` field.
-  2. When `loadFunc(resolvedPath)` returns null, store the error and avoid retrying until the path changes.
-  3. Optionally provide a helper to clear the error when the user retries.
-
-- **Benefits**:
-  - Cleaner logs when users experiment with invalid files.
-  - Less redundant work.
-
-2. Clarify and refine seek semantics for operators
+1. Clarify and refine seek semantics for operators
 
 - **Goals**: avoid unnecessary seeks and clarify API usage.
 
@@ -212,7 +199,7 @@ Below are the remaining prioritized recommendations grouped and ordered by prior
 - **Benefits**:
   - More predictable operator behaviour when upstream controls seek via UI or automation.
 
-3. Either use `_offlineMixerHandle` for multi-stream analysis or simplify the abstraction
+2. Either use `_offlineMixerHandle` for multi-stream analysis or simplify the abstraction
 
 - **Goals**: reduce conceptual unused complexity.
 

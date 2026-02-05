@@ -82,6 +82,18 @@ public static class AudioEngine
         /// the operator is considered stale.
         /// </summary>
         public long LastUpdatedFrameId = -1;
+        
+        /// <summary>
+        /// The file path that previously failed to load, if any.
+        /// Used to avoid repeated load attempts and error logging for the same invalid file.
+        /// </summary>
+        public string? FailedFilePath;
+        
+        /// <summary>
+        /// The error message from the last failed load attempt.
+        /// Cleared when a new file path is set or when explicitly cleared.
+        /// </summary>
+        public string? LastLoadError;
     }
 
     /// <summary>
@@ -103,6 +115,18 @@ public static class AudioEngine
         /// the operator is considered stale.
         /// </summary>
         public long LastUpdatedFrameId = -1;
+        
+        /// <summary>
+        /// The file path that previously failed to load, if any.
+        /// Used to avoid repeated load attempts and error logging for the same invalid file.
+        /// </summary>
+        public string? FailedFilePath;
+        
+        /// <summary>
+        /// The error message from the last failed load attempt.
+        /// Cleared when a new file path is set or when explicitly cleared.
+        /// </summary>
+        public string? LastLoadError;
     }
 
     #region Soundtrack Management
@@ -696,23 +720,28 @@ public static class AudioEngine
         if (string.IsNullOrEmpty(filePath) || System.IO.File.Exists(filePath)) 
             return filePath;
 
-        if (!AssetRegistry.TryResolveAddress(filePath, null, out var absolutePath, out _))
-        {
-            Log.Error($"[AudioEngine] Could not resolve file path: {filePath}");
-        }
-        else
+        if (AssetRegistry.TryResolveAddress(filePath, null, out var absolutePath, out _))
         {
             Log.Gated.Audio($"[AudioEngine] Resolved: {filePath} → {absolutePath}");
             return absolutePath;
         }
 
+        // Return original path - HandleFileChange will log an error once if the file doesn't exist
+        // and cache the failure to avoid repeated logging
         return filePath;
     }
 
     private static bool HandleFileChange<T>(OperatorAudioState<T> state, string? resolvedPath, Guid operatorId,
         Func<string, T?> loadFunc) where T : OperatorAudioStreamBase
     {
-        if (state.CurrentFilePath == resolvedPath) return true;
+        // If the path hasn't changed, check if this is a previously failed path
+        if (state.CurrentFilePath == resolvedPath)
+        {
+            // If we have a cached error for this path, skip loading without logging again
+            if (state.FailedFilePath == resolvedPath && state.LastLoadError != null)
+                return true;
+            return true;
+        }
 
         Log.Gated.Audio($"[AudioEngine] File changed for {operatorId}: '{state.CurrentFilePath}' → '{resolvedPath}'");
 
@@ -721,13 +750,20 @@ public static class AudioEngine
         state.CurrentFilePath = resolvedPath ?? string.Empty;
         state.PreviousPlay = false;
         state.PreviousStop = false;
+        
+        // Clear previous load error when path changes
+        state.FailedFilePath = null;
+        state.LastLoadError = null;
 
         if (!string.IsNullOrEmpty(resolvedPath))
         {
             // Check file existence before attempting to load
             if (!System.IO.File.Exists(resolvedPath))
             {
-                Log.Error($"[AudioEngine] Failed to load stream for {operatorId}: File does not exist: {resolvedPath}");
+                var error = $"File does not exist: {resolvedPath}";
+                Log.Error($"[AudioEngine] Failed to load stream for {operatorId}: {error}");
+                state.FailedFilePath = resolvedPath;
+                state.LastLoadError = error;
             }
             else
             {
@@ -735,7 +771,10 @@ public static class AudioEngine
                 if (state.Stream == null)
                 {
                     var bassError = ManagedBass.Bass.LastError;
-                    Log.Error($"[AudioEngine] Failed to load stream for {operatorId}: {resolvedPath} (BASS error: {bassError})");
+                    var error = $"{resolvedPath} (BASS error: {bassError})";
+                    Log.Error($"[AudioEngine] Failed to load stream for {operatorId}: {error}");
+                    state.FailedFilePath = resolvedPath;
+                    state.LastLoadError = error;
                 }
             }
         }
@@ -853,7 +892,14 @@ public static class AudioEngine
 
     private static bool HandleSpatialFileChange(SpatialOperatorState state, string? resolvedPath, Guid operatorId)
     {
-        if (state.CurrentFilePath == resolvedPath) return true;
+        // If the path hasn't changed, check if this is a previously failed path
+        if (state.CurrentFilePath == resolvedPath)
+        {
+            // If we have a cached error for this path, skip loading without logging again
+            if (state.FailedFilePath == resolvedPath && state.LastLoadError != null)
+                return true;
+            return true;
+        }
 
         Log.Gated.Audio($"[AudioEngine] File changed for spatial {operatorId}: '{state.CurrentFilePath}' → '{resolvedPath}'");
 
@@ -862,13 +908,29 @@ public static class AudioEngine
         state.CurrentFilePath = resolvedPath ?? string.Empty;
         state.PreviousPlay = false;
         state.PreviousStop = false;
+        
+        // Clear previous load error when path changes
+        state.FailedFilePath = null;
+        state.LastLoadError = null;
 
         if (!string.IsNullOrEmpty(resolvedPath))
         {
-            // Note: mixerHandle parameter is ignored for spatial streams - they play directly to BASS
-            if (!SpatialOperatorAudioStream.TryLoadStream(resolvedPath, 0, out var stream))
+            // Check file existence before attempting to load
+            if (!System.IO.File.Exists(resolvedPath))
             {
-                Log.Error($"[AudioEngine] Failed to load spatial stream for {operatorId}: {resolvedPath}");
+                var error = $"File does not exist: {resolvedPath}";
+                Log.Error($"[AudioEngine] Failed to load spatial stream for {operatorId}: {error}");
+                state.FailedFilePath = resolvedPath;
+                state.LastLoadError = error;
+            }
+            // Note: mixerHandle parameter is ignored for spatial streams - they play directly to BASS
+            else if (!SpatialOperatorAudioStream.TryLoadStream(resolvedPath, 0, out var stream))
+            {
+                var bassError = ManagedBass.Bass.LastError;
+                var error = $"{resolvedPath} (BASS error: {bassError})";
+                Log.Error($"[AudioEngine] Failed to load spatial stream for {operatorId}: {error}");
+                state.FailedFilePath = resolvedPath;
+                state.LastLoadError = error;
             }
             else
             {
@@ -944,6 +1006,46 @@ public static class AudioEngine
             spatialState.Stream?.Dispose();
             _spatialOperatorStates.Remove(operatorId);
         }
+    }
+
+    /// <summary>
+    /// Clears the cached load error for an operator, allowing it to retry loading the same file.
+    /// Call this when the user explicitly requests a reload or when the underlying file may have changed.
+    /// </summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    public static void ClearOperatorLoadError(Guid operatorId)
+    {
+        if (_stereoOperatorStates.TryGetValue(operatorId, out var stereoState))
+        {
+            stereoState.FailedFilePath = null;
+            stereoState.LastLoadError = null;
+            // Also clear the current file path to force a reload attempt
+            stereoState.CurrentFilePath = string.Empty;
+        }
+
+        if (_spatialOperatorStates.TryGetValue(operatorId, out var spatialState))
+        {
+            spatialState.FailedFilePath = null;
+            spatialState.LastLoadError = null;
+            // Also clear the current file path to force a reload attempt
+            spatialState.CurrentFilePath = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Gets the last load error for an operator, if any.
+    /// </summary>
+    /// <param name="operatorId">The unique identifier of the operator.</param>
+    /// <returns>The error message if a load failed, null otherwise.</returns>
+    public static string? GetOperatorLoadError(Guid operatorId)
+    {
+        if (_stereoOperatorStates.TryGetValue(operatorId, out var stereoState) && stereoState.LastLoadError != null)
+            return stereoState.LastLoadError;
+
+        if (_spatialOperatorStates.TryGetValue(operatorId, out var spatialState) && spatialState.LastLoadError != null)
+            return spatialState.LastLoadError;
+
+        return null;
     }
 
     #region Stale Detection & Export
