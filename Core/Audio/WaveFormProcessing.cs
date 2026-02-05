@@ -7,75 +7,123 @@ using T3.Core.Operator;
 namespace T3.Core.Audio;
 
 /// <summary>
-/// Converts sample data from BASS into a list of buffers that can then be used by Operators like [AudioWaveform].  
+/// Converts sample data from BASS into a list of buffers that can then be used by Operators like [AudioWaveform].
+/// 
+/// <para><b>Note:</b> This static class delegates to <see cref="AudioAnalysisContext.Default"/>.
+/// For multi-threaded analysis, create separate <see cref="AudioAnalysisContext"/> instances.</para>
 /// </summary>
 public static class WaveFormProcessing
 {
-    /// <summary>
-    /// This will be set when updating channel audio data from Soundtrack or Wasapi inputs 
-    /// </summary>
-    internal static readonly float[] InterleavenSampleBuffer = new float[AudioConfig.WaveformSampleCount << 1];
+    private static AudioAnalysisContext Context => AudioAnalysisContext.Default;
 
-    internal static int LastFetchResultCode;
+    #region Buffer Accessors (delegate to default context)
 
     /// <summary>
-    /// To avoid unnecessary processing we only fetch wave data from BASS when requested once from an Operator. 
+    /// Interleaved stereo sample buffer from BASS.
+    /// Delegates to <see cref="AudioAnalysisContext.Default"/>.
     /// </summary>
-    internal static bool RequestedOnce;
+    internal static float[] InterleavenSampleBuffer => Context.InterleavedSampleBuffer;
 
     /// <summary>
-    /// Results of the waveform analysis
+    /// Result code from last BASS waveform data fetch.
     /// </summary>
-    public static readonly float[] WaveformLeftBuffer = new float[AudioConfig.WaveformSampleCount];
+    internal static int LastFetchResultCode
+    {
+        get => Context.LastWaveformFetchResult;
+        set => Context.LastWaveformFetchResult = value;
+    }
 
-    public static readonly float[] WaveformRightBuffer = new float[AudioConfig.WaveformSampleCount];
-    public static readonly float[] WaveformLowBuffer = new float[AudioConfig.WaveformSampleCount];
-    public static readonly float[] WaveformMidBuffer = new float[AudioConfig.WaveformSampleCount];
-    public static readonly float[] WaveformHighBuffer = new float[AudioConfig.WaveformSampleCount];
+    /// <summary>
+    /// To avoid unnecessary processing we only fetch wave data from BASS when requested once from an Operator.
+    /// </summary>
+    internal static bool RequestedOnce
+    {
+        get => Context.WaveformRequested;
+        set => Context.WaveformRequested = value;
+    }
 
-    private static int _lastUpdateFrame = -1;
+    /// <summary>
+    /// Left channel waveform samples.
+    /// Delegates to <see cref="AudioAnalysisContext.Default"/>.
+    /// </summary>
+    public static float[] WaveformLeftBuffer => Context.WaveformLeftBuffer;
+
+    /// <summary>
+    /// Right channel waveform samples.
+    /// Delegates to <see cref="AudioAnalysisContext.Default"/>.
+    /// </summary>
+    public static float[] WaveformRightBuffer => Context.WaveformRightBuffer;
+
+    /// <summary>
+    /// Low frequency waveform (filtered).
+    /// Delegates to <see cref="AudioAnalysisContext.Default"/>.
+    /// </summary>
+    public static float[] WaveformLowBuffer => Context.WaveformLowBuffer;
+
+    /// <summary>
+    /// Mid frequency waveform (filtered).
+    /// Delegates to <see cref="AudioAnalysisContext.Default"/>.
+    /// </summary>
+    public static float[] WaveformMidBuffer => Context.WaveformMidBuffer;
+
+    /// <summary>
+    /// High frequency waveform (filtered).
+    /// Delegates to <see cref="AudioAnalysisContext.Default"/>.
+    /// </summary>
+    public static float[] WaveformHighBuffer => Context.WaveformHighBuffer;
+
+    #endregion
 
     /// <summary>
     /// Needs to be called from Operators that want to access Waveform Data.
     /// It will prevent multiple updates per frame.
+    /// Uses the default context.
     /// </summary>
     public static void UpdateWaveformData()
     {
-        RequestedOnce = true;
+        UpdateWaveformData(Context);
+    }
+
+    /// <summary>
+    /// Updates waveform data for a specific context.
+    /// </summary>
+    /// <param name="context">The analysis context to update</param>
+    public static void UpdateWaveformData(AudioAnalysisContext context)
+    {
+        context.WaveformRequested = true;
 
         // Prevent multiple updates
-        if (Playback.FrameCount == _lastUpdateFrame)
+        if (Playback.FrameCount == context.LastWaveformUpdateFrame)
             return;
 
-        _lastUpdateFrame = Playback.FrameCount;
+        context.LastWaveformUpdateFrame = Playback.FrameCount;
 
-        //
-        if (LastFetchResultCode <= 0)
+        if (context.LastWaveformFetchResult <= 0)
             return;
 
         // Check if we're exporting with external audio - can't monitor external audio during export
-        if (Playback.Current.IsRenderingToFile && 
-            Playback.Current.Settings?.AudioSource == Operator.PlaybackSettings.AudioSources.ExternalDevice)
+        if (Playback.Current.IsRenderingToFile &&
+            Playback.Current.Settings?.AudioSource == PlaybackSettings.AudioSources.ExternalDevice)
         {
             // Clear buffers - external audio cannot be monitored during export
-            Array.Clear(WaveformLeftBuffer, 0, WaveformLeftBuffer.Length);
-            Array.Clear(WaveformRightBuffer, 0, WaveformRightBuffer.Length);
-            Array.Clear(WaveformLowBuffer, 0, WaveformLowBuffer.Length);
-            Array.Clear(WaveformMidBuffer, 0, WaveformMidBuffer.Length);
-            Array.Clear(WaveformHighBuffer, 0, WaveformHighBuffer.Length);
+            Array.Clear(context.WaveformLeftBuffer, 0, context.WaveformLeftBuffer.Length);
+            Array.Clear(context.WaveformRightBuffer, 0, context.WaveformRightBuffer.Length);
+            Array.Clear(context.WaveformLowBuffer, 0, context.WaveformLowBuffer.Length);
+            Array.Clear(context.WaveformMidBuffer, 0, context.WaveformMidBuffer.Length);
+            Array.Clear(context.WaveformHighBuffer, 0, context.WaveformHighBuffer.Length);
             return;
         }
 
         var idx = 0;
-        for (var it = 0; it < InterleavenSampleBuffer.Length;)
+        for (var it = 0; it < context.InterleavedSampleBuffer.Length;)
         {
-            WaveformLeftBuffer[idx] = InterleavenSampleBuffer[it++];
-            WaveformRightBuffer[idx] = InterleavenSampleBuffer[it++];
+            context.WaveformLeftBuffer[idx] = context.InterleavedSampleBuffer[it++];
+            context.WaveformRightBuffer[idx] = context.InterleavedSampleBuffer[it++];
             idx += 1;
         }
 
         // Apply improved filters to create frequency-separated waveforms
-        ProcessFilteredWaveformsImproved();
+        ProcessFilteredWaveformsImproved(context);
     }
 
     private struct FilterCoefficients(float a, float b)
@@ -102,7 +150,6 @@ public static class WaveFormProcessing
         return new FilterCoefficients(alpha, alpha);
     }
 
-    // More efficient single-pole IIR filters with state preservation
     private static void ApplyLowPassFilterImproved(float[] input, float[] output, FilterCoefficients coeffs, ref float y1)
     {
         for (int i = 0; i < input.Length; i++)
@@ -122,53 +169,50 @@ public static class WaveFormProcessing
         }
     }
 
-    private static void ProcessFilteredWaveformsImproved()
+    private static void ProcessFilteredWaveformsImproved(AudioAnalysisContext context)
     {
         // Create mono mix for filtering (reuse temp buffer)
         for (int i = 0; i < AudioConfig.WaveformSampleCount; i++)
         {
-            _tempBuffer[i] = (WaveformLeftBuffer[i] + WaveformRightBuffer[i]) * 0.5f;
+            context.TempBuffer[i] = (context.WaveformLeftBuffer[i] + context.WaveformRightBuffer[i]) * 0.5f;
         }
 
         // Apply filters with state preservation for better continuity
         // Low frequencies: Pure low-pass at 250Hz
-        ApplyLowPassFilterImproved(_tempBuffer, WaveformLowBuffer, _lowPassCoeffs, ref _lowFilterY1);
+        ApplyLowPassFilterImproved(context.TempBuffer, context.WaveformLowBuffer, _lowPassCoeffs, ref context.LowFilterY1);
 
         // High frequencies: Pure high-pass at 2000Hz
-        ApplyHighPassFilterImproved(_tempBuffer, WaveformHighBuffer, _highPassCoeffs, ref _highFilterY1, ref _highFilterX1);
+        ApplyHighPassFilterImproved(context.TempBuffer, context.WaveformHighBuffer, _highPassCoeffs, ref context.HighFilterY1, ref context.HighFilterX1);
 
         // Mid-frequencies: High-pass at 250Hz, then low-pass at 2000Hz (band-pass)
-        ApplyHighPassFilterImproved(_tempBuffer, _midFilterBuffer, _midHighPassCoeffs, ref _midHighPassY1, ref _midHighPassX1);
-        ApplyLowPassFilterImproved(_midFilterBuffer, WaveformMidBuffer, _midLowPassCoeffs, ref _midLowPassY1);
+        ApplyHighPassFilterImproved(context.TempBuffer, context.MidFilterBuffer, _midHighPassCoeffs, ref context.MidHighPassY1, ref context.MidHighPassX1);
+        ApplyLowPassFilterImproved(context.MidFilterBuffer, context.WaveformMidBuffer, _midLowPassCoeffs, ref context.MidLowPassY1);
     }
 
-    // Filter state variables for IIR filters (maintains continuity between frames)
-    private static float _lowFilterY1;
-    private static float _midHighPassY1;
-    private static float _midHighPassX1;
-    private static float _midLowPassY1;
-    private static float _highFilterY1;
-    private static float _highFilterX1;
-
-    // Improved filter coefficients (calculated once)
+    // Improved filter coefficients (calculated once, shared across all contexts)
     private static readonly FilterCoefficients _lowPassCoeffs = CalculateLowPassCoeffs(AudioConfig.LowPassCutoffFrequency);
     private static readonly FilterCoefficients _midHighPassCoeffs = CalculateHighPassCoeffs(AudioConfig.LowPassCutoffFrequency);
     private static readonly FilterCoefficients _midLowPassCoeffs = CalculateLowPassCoeffs(AudioConfig.HighPassCutoffFrequency);
     private static readonly FilterCoefficients _highPassCoeffs = CalculateHighPassCoeffs(AudioConfig.HighPassCutoffFrequency);
 
-    private static readonly float[] _midFilterBuffer = new float[AudioConfig.WaveformSampleCount];
-    private static readonly float[] _tempBuffer = new float[AudioConfig.WaveformSampleCount]; // Reusable temp buffer
-
-    // Export buffer accumulation for proper waveform display during rendering
-    private static readonly float[] _exportAccumulationBuffer = new float[AudioConfig.WaveformSampleCount * 2];
-
     /// <summary>
     /// Populates the waveform buffers from an export mixdown buffer.
     /// Accumulates samples across frames to provide a rolling window of audio data.
     /// Called during export to provide waveform data to AudioWaveform operator.
+    /// Uses the default context.
     /// </summary>
     /// <param name="mixBuffer">Interleaved stereo float buffer from export mixdown</param>
     public static void PopulateFromExportBuffer(float[] mixBuffer)
+    {
+        PopulateFromExportBuffer(mixBuffer, Context);
+    }
+
+    /// <summary>
+    /// Populates the waveform buffers from an export mixdown buffer for a specific context.
+    /// </summary>
+    /// <param name="mixBuffer">Interleaved stereo float buffer from export mixdown</param>
+    /// <param name="context">The analysis context to populate</param>
+    public static void PopulateFromExportBuffer(float[] mixBuffer, AudioAnalysisContext context)
     {
         if (mixBuffer == null || mixBuffer.Length < 2)
             return;
@@ -182,24 +226,35 @@ public static class WaveFormProcessing
         if (samplesToShift > 0)
         {
             // Shift old data left
-            Array.Copy(_exportAccumulationBuffer, samplesToAdd, _exportAccumulationBuffer, 0, samplesToShift);
+            Array.Copy(context.ExportAccumulationBuffer, samplesToAdd, context.ExportAccumulationBuffer, 0, samplesToShift);
         }
 
         // Add new samples at the end
         int sourceStartIndex = Math.Max(0, mixBuffer.Length - samplesToAdd);
-        Array.Copy(mixBuffer, sourceStartIndex, _exportAccumulationBuffer, samplesToShift, samplesToAdd);
+        Array.Copy(mixBuffer, sourceStartIndex, context.ExportAccumulationBuffer, samplesToShift, samplesToAdd);
 
         // Copy to the interleaved sample buffer
-        Array.Copy(_exportAccumulationBuffer, 0, InterleavenSampleBuffer, 0, interleavedSampleCount);
+        Array.Copy(context.ExportAccumulationBuffer, 0, context.InterleavedSampleBuffer, 0, interleavedSampleCount);
 
-        LastFetchResultCode = interleavedSampleCount;
+        context.LastWaveformFetchResult = interleavedSampleCount;
     }
 
     /// <summary>
     /// Resets the export accumulation buffer. Should be called when starting a new export.
+    /// Uses the default context.
     /// </summary>
     public static void ResetExportBuffer()
     {
-        Array.Clear(_exportAccumulationBuffer, 0, _exportAccumulationBuffer.Length);
+        ResetExportBuffer(Context);
+    }
+
+    /// <summary>
+    /// Resets the export accumulation buffer for a specific context.
+    /// </summary>
+    /// <param name="context">The analysis context to reset</param>
+    public static void ResetExportBuffer(AudioAnalysisContext context)
+    {
+        Array.Clear(context.ExportAccumulationBuffer, 0, context.ExportAccumulationBuffer.Length);
     }
 }
+

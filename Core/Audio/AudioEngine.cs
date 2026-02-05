@@ -267,6 +267,16 @@ public static class AudioEngine
 
     internal static void UpdateFftBufferFromSoundtrack(Playback playback)
     {
+        UpdateFftBufferFromSoundtrack(playback, AudioAnalysisContext.Default);
+    }
+
+    /// <summary>
+    /// Updates FFT and waveform buffers from the soundtrack mixer.
+    /// </summary>
+    /// <param name="playback">The current playback state</param>
+    /// <param name="context">The analysis context to write data into</param>
+    internal static void UpdateFftBufferFromSoundtrack(Playback playback, AudioAnalysisContext context)
+    {
         if (playback.Settings is not { AudioSource: PlaybackSettings.AudioSources.ProjectSoundTrack })
             return;
 
@@ -283,14 +293,14 @@ public static class AudioEngine
             return;
 
         const int dataFlags = (int)DataFlags.FFT2048;
-        _ = Bass.ChannelGetData(mixerHandle, AudioAnalysis.FftGainBuffer, dataFlags);
+        _ = Bass.ChannelGetData(mixerHandle, context.FftGainBuffer, dataFlags);
 
-        if (!WaveFormProcessing.RequestedOnce)
+        if (!context.WaveformRequested)
             return;
 
         int lengthInBytes = AudioConfig.WaveformSampleCount << 2 << 1;
-        WaveFormProcessing.LastFetchResultCode = Bass.ChannelGetData(mixerHandle,
-            WaveFormProcessing.InterleavenSampleBuffer, lengthInBytes);
+        context.LastWaveformFetchResult = Bass.ChannelGetData(mixerHandle,
+            context.InterleavedSampleBuffer, lengthInBytes);
     }
 
     /// <summary>
