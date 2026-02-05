@@ -724,9 +724,20 @@ public static class AudioEngine
 
         if (!string.IsNullOrEmpty(resolvedPath))
         {
-            state.Stream = loadFunc(resolvedPath);
-            if (state.Stream == null)
-                Log.Error($"[AudioEngine] Failed to load stream for {operatorId}: {resolvedPath}");
+            // Check file existence before attempting to load
+            if (!System.IO.File.Exists(resolvedPath))
+            {
+                Log.Error($"[AudioEngine] Failed to load stream for {operatorId}: File does not exist: {resolvedPath}");
+            }
+            else
+            {
+                state.Stream = loadFunc(resolvedPath);
+                if (state.Stream == null)
+                {
+                    var bassError = ManagedBass.Bass.LastError;
+                    Log.Error($"[AudioEngine] Failed to load stream for {operatorId}: {resolvedPath} (BASS error: {bassError})");
+                }
+            }
         }
 
         // During export, mark new streams as stale

@@ -149,7 +149,7 @@ public static class AudioRendering
         }
         catch (Exception ex)
         {
-            Log.Error($"ExportAudioFrame error: {ex.Message}", typeof(AudioRendering));
+            Log.Error($"ExportAudioFrame error: {ex}", typeof(AudioRendering));
         }
     }
 

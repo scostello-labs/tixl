@@ -220,6 +220,7 @@ public static class AudioMixerManager
             {
                 var lastError = Bass.LastError;
                 Log.Error($"[AudioMixer] Failed to initialize BASS with all methods: {lastError}");
+                LogEnvironmentInfo();
                 _initializationFailed = true;
                 return;
             }
@@ -591,5 +592,50 @@ public static class AudioMixerManager
         }
         
         return 0; // Couldn't determine
+    }
+
+    /// <summary>
+    /// Logs environment info to help diagnose BASS initialization failures.
+    /// </summary>
+    private static void LogEnvironmentInfo()
+    {
+        Log.Error("[AudioMixer] Environment info for diagnosis:");
+        Log.Error($"  OS: {Environment.OSVersion}");
+        Log.Error($"  64-bit OS: {Environment.Is64BitOperatingSystem}, 64-bit Process: {Environment.Is64BitProcess}");
+        Log.Error($"  Current Directory: {Environment.CurrentDirectory}");
+        
+        try
+        {
+            // Log available audio devices
+            int deviceCount = Bass.DeviceCount;
+            Log.Error($"  BASS Device Count: {deviceCount}");
+            for (int i = 0; i < deviceCount; i++)
+            {
+                if (Bass.GetDeviceInfo(i, out var deviceInfo))
+                {
+                    Log.Error($"    Device[{i}]: '{deviceInfo.Name}' Type={deviceInfo.Type} Enabled={deviceInfo.IsEnabled} Default={deviceInfo.IsDefault}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"  Failed to enumerate BASS devices: {ex.Message}");
+        }
+        
+        try
+        {
+            // Check for bass.dll
+            var bassDllPath = System.IO.Path.Combine(Environment.CurrentDirectory, "bass.dll");
+            var bassDllExists = System.IO.File.Exists(bassDllPath);
+            Log.Error($"  bass.dll exists in current dir: {bassDllExists}");
+            
+            var bassMixDllPath = System.IO.Path.Combine(Environment.CurrentDirectory, "bassmix.dll");
+            var bassMixDllExists = System.IO.File.Exists(bassMixDllPath);
+            Log.Error($"  bassmix.dll exists in current dir: {bassMixDllExists}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"  Failed to check DLL existence: {ex.Message}");
+        }
     }
 }

@@ -183,25 +183,11 @@ Overall, the design is clear and reasonably modular: mixer management is central
 
 ### (c) Prioritized Recommendations (implementation-oriented)
 
-Below are the remaining prioritized recommendations grouped and ordered by priority (Medium → Low).
-
-#### Medium priority
-
-1. Improve error and logging detail in key areas
-
-- **Goals**: easier troubleshooting of audio issues.
-
-- **Targets**:
-  - `AudioRendering.ExportAudioFrame`: log full exception (`{ex}`) to keep stack trace.
-  - `AudioMixerManager.Initialize`: log environment info on full failure.
-  - `HandleFileChange` (AudioEngine): when failing to load, also log file existence and loader errors.
-
-- **Benefits**:
-  - Faster diagnosis of missing plugins, unsupported formats, and invalid states.
+Below are the remaining prioritized recommendations grouped and ordered by priority (Low).
 
 #### Low priority
 
-2. Cache failed operator file loads or mark invalid paths
+1. Cache failed operator file loads or mark invalid paths
 
 - **Goals**: reduce repeated error logging and load attempts.
 
@@ -214,7 +200,7 @@ Below are the remaining prioritized recommendations grouped and ordered by prior
   - Cleaner logs when users experiment with invalid files.
   - Less redundant work.
 
-3. Clarify and refine seek semantics for operators
+2. Clarify and refine seek semantics for operators
 
 - **Goals**: avoid unnecessary seeks and clarify API usage.
 
@@ -226,7 +212,7 @@ Below are the remaining prioritized recommendations grouped and ordered by prior
 - **Benefits**:
   - More predictable operator behaviour when upstream controls seek via UI or automation.
 
-4. Either use `_offlineMixerHandle` for multi-stream analysis or simplify the abstraction
+3. Either use `_offlineMixerHandle` for multi-stream analysis or simplify the abstraction
 
 - **Goals**: reduce conceptual unused complexity.
 
