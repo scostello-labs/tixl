@@ -1,7 +1,7 @@
 # Audio System Architecture
 
-**Version:** 2.2  
-**Last Updated:** 2026-01-30
+**Version:** 2.3  
+**Last Updated:** 2026-02-05
 **Status:** Production Ready
 
 ---
@@ -200,6 +200,7 @@ AudioEngine (static)
 ├── 3D Listener: _listenerPosition, _listenerForward, _listenerUp, Set3DListenerPosition
 ├── 3D Batching: Mark3DApplyNeeded(), Apply3DChanges() (called once per frame)
 ├── Stale Detection: _audioFrameToken (monotonic), LastUpdatedFrameId per operator, StopStaleOperators
+│   ├── EnsureFrameTokenCurrent() called in CompleteFrame() after stale check
 │   └── See STALE_DETECTION.md for detailed documentation
 ├── Export: ResetAllOperatorStreamsForExport, RestoreOperatorAudioStreams, UpdateStaleStatesForExport
 └── Device: OnAudioDeviceChanged, SetGlobalVolume, SetGlobalMute, SetOperatorMute
@@ -656,6 +657,7 @@ Each `AudioAnalysisContext` contains:
 - ✅ **Device-native sample rate** - Automatic WASAPI query before BASS init
 - ✅ **FLAC support** - Native BASS FLAC plugin integration
 - ✅ **Export with operator audio** - Both stereo and spatial streams included in export
+- ✅ **Hardened export state transitions** - `ExportState` class, `_isRecording` guard, proper mixer management
 
 ### Environmental Audio (Not Started)
 - EAX effects integration (reverb, echo, chorus) - BASS supports, not yet exposed
@@ -677,7 +679,6 @@ Each `AudioAnalysisContext` contains:
 - Stream pooling and recycling (not implemented)
 
 ### Robustness Improvements (From TODO.md)
-- Harden export state transitions (`PrepareRecording`/`EndRecording`)
 - Improve error handling and logging detail
 - Cache failed operator file loads
 - Handle device changes more gracefully
@@ -699,7 +700,6 @@ See **[TODO.md](TODO.md)** for detailed technical review items and prioritized r
 - Add unit tests for AudioEngine methods
 
 ### Medium Priority  
-- Harden export state transitions
 - Improve error/logging detail in key areas
 - Re-evaluate seek logic
 

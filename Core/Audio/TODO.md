@@ -1,5 +1,7 @@
 ## Audio Engine Technical Review (tixl / T3.Core.Audio)
 
+**Last Updated:** 2026-02-05
+
 ---
 
 ### (a) Overview of Current Audio Engine Design
@@ -35,7 +37,9 @@ The audio engine in is built around ManagedBass / BassMix and a mixer-centric ar
 - **Stale / Lifetime Management** (`AudioEngine.cs`, `STALE_DETECTION.md`)
   - Uses internal monotonic frame token (`_audioFrameToken`) for stale detection.
   - Each operator state tracks `LastUpdatedFrameId` to determine if it was updated this frame.
-  - Each frame: `StopStaleOperators` marks operator streams as stale (stopped) if no update.
+  - `StopStaleOperators()` runs in `CompleteFrame()` before operators are evaluated, marking operators that weren't updated in the previous frame as stale.
+  - `EnsureFrameTokenCurrent()` is called in `CompleteFrame()` **after** stale checking to ensure the token increments even when no audio operators are updated.
+  - This guarantees stale detection works correctly when navigating away from audio operators.
   - During export, special export/reset functions mark streams stale and restore after export.
 
 - **Audio Rendering / Export Path** (`AudioRendering.cs`)
@@ -57,35 +61,7 @@ Overall, the design is clear and reasonably modular: mixer management is central
 
 ### (b) Specific Findings (with impact)
 
-1. ~~Shared static buffers for FFT / waveform introduce hidden coupling and potential race issues~~ **RESOLVED**
-
-- **Status**: Resolved via `AudioAnalysisContext` class
-- **Solution**: All FFT and waveform buffers are now owned by `AudioAnalysisContext` instances. A default singleton (`AudioAnalysisContext.Default`) maintains backwards compatibility. See `AudioAnalysisContext.cs` for the implementation and multi-threading migration guide.
-
-2. `AudioRendering.PrepareRecording` / `EndRecording` manipulate BASS state with limited error handling
-
-- **Location**: `Core\Audio\AudioRendering.cs`
-  - `PrepareRecording`, `EndRecording`.
-- **Code Patterns**:
-  ```csharp
-  Bass.ChannelPause(AudioMixerManager.GlobalMixerHandle);
-  ...
-  BassMix.MixerRemoveChannel(clipStream.StreamHandle);
-  ...
-  if (!BassMix.MixerAddChannel(AudioMixerManager.SoundtrackMixerHandle, clipStream.StreamHandle, BassFlags.MixerChanPause))
-  {
-      Log.Warning($"[AudioRendering] Failed to re-add soundtrack: {Bass.LastError}");
-  }
-  ```
-- **Issues**:
-  1. If calls like `MixerRemoveChannel` or `ChannelPause` fail, there is no rollback logic; the system continues assuming the desired state.
-  2. `PrepareRecording` modifies channel attributes (frequency, volume, `NoRamp`, `ReverseDirection`) on soundtrack streams; `EndRecording` only calls `clipStream.UpdateTimeWhileRecording(...)` and re-adds them, but does not explicitly restore attributes.
-  3. If export is aborted unexpectedly or if multiple overlapping `PrepareRecording` / `EndRecording` are triggered by UI, engine state may become inconsistent.
-- **Impact / Risk**:
-  - **Glitch / state corruption**: after export, soundtrack streams might have unexpected attributes or be missing from mixers if error conditions were hit.
-  - **Debugging difficulty**: distortions or silence after export could be hard to trace.
-
-3. `AudioMixerManager.Initialize` uses `Bass.ChannelGetLevel` for levels in `GetGlobalMixerLevel`
+1. `AudioMixerManager.Initialize` uses `Bass.ChannelGetLevel` for levels in `GetGlobalMixerLevel`
 
 - **Location**: `Core\Audio\AudioMixerManager.cs`
   - `GetGlobalMixerLevel()`
@@ -100,7 +76,7 @@ Overall, the design is clear and reasonably modular: mixer management is central
 - **Impact / Risk**:
   - Low, but any mismatch in BASS version or flags could produce incorrect metering.
 
-4. `AudioMixerManager.CreateOfflineAnalysisStream` does not use the `OfflineMixerHandle`
+2. `AudioMixerManager.CreateOfflineAnalysisStream` does not use the `OfflineMixerHandle`
 
 - **Location**: `Core\Audio\AudioMixerManager.cs`
   - `CreateOfflineAnalysisStream`, `OfflineMixerHandle` property.
@@ -113,7 +89,7 @@ Overall, the design is clear and reasonably modular: mixer management is central
 - **Impact / Risk**:
   - **Maintainability / clarity**: future contributors may assume offline analysis uses `_offlineMixerHandle` for mixing multiple streams and could mis-use it.
 
-5. Operator file path resolution lacks caching of failures and clearer error semantics
+3. Operator file path resolution lacks caching of failures and clearer error semantics
 
 - **Location**: `Core\Audio\AudioEngine.cs`
   - `ResolveFilePath`, `HandleFileChange`.
@@ -142,7 +118,7 @@ Overall, the design is clear and reasonably modular: mixer management is central
   - **CPU / logging overhead**: repeated load attempts and logging for missing files.
   - **UX**: noisy logs for users experimenting with paths.
 
-6. Operator seek handling is edge-triggered but state only tracks last normalized seek value
+4. Operator seek handling is edge-triggered but state only tracks last normalized seek value
 
 - **Location**: `Core\Audio\AudioEngine.cs`
   - `HandleSeek`.
@@ -163,7 +139,7 @@ Overall, the design is clear and reasonably modular: mixer management is central
   - **Performance**: repeated seek operations (which may be expensive) if upstream code is noisy.
   - **Clarity**: semantics of `seek` parameter (edge-trigger vs absolute desire) may not be obvious from the interface.
 
-7. Exception handling in `AudioRendering.ExportAudioFrame` is too coarse and hides error details
+5. Exception handling in `AudioRendering.ExportAudioFrame` is too coarse and hides error details
 
 - **Location**: `Core\Audio\AudioRendering.cs`
   - `ExportAudioFrame`.
@@ -184,7 +160,7 @@ Overall, the design is clear and reasonably modular: mixer management is central
 - **Impact / Risk**:
   - **Debuggability**: less context makes it harder to diagnose issues in FFT/export path.
 
-8. `AudioMixerManager.Shutdown` frees all streams and calls `Bass.Free` without notifying higher layers
+6. `AudioMixerManager.Shutdown` frees all streams and calls `Bass.Free` without notifying higher layers
 
 - **Location**: `Core\Audio\AudioMixerManager.cs`
   - `Shutdown()`.
@@ -207,30 +183,11 @@ Overall, the design is clear and reasonably modular: mixer management is central
 
 ### (c) Prioritized Recommendations (implementation-oriented)
 
-Below are the remaining prioritized recommendations grouped and ordered by priority (High → Medium → Low).
+Below are the remaining prioritized recommendations grouped and ordered by priority (Medium → Low).
 
-Medium priority
+#### Medium priority
 
-1. ~~Make FFT / waveform buffers explicitly owned and avoid global static coupling~~ **COMPLETED**
-
-- **Implementation**: See `AudioAnalysisContext.cs`
-- **Migration Path for Multi-Threading**: See documentation in `AudioAnalysisContext` class header
-
-2. Harden export state transitions in `AudioRendering.PrepareRecording` / `EndRecording`
-
-- **Goals**: robustness against errors and double-calls, easier debugging.
-
-- **Steps**:
-  1. Guard against nested calls with a simple state machine (e.g., `_recordingNesting`).
-  2. Add checks for critical BASS calls and log detailed errors.
-  3. When changing attributes on soundtrack streams, store original values and restore them in `EndRecording`.
-  4. Log more context in errors (clip path, handle, device) to simplify debugging.
-
-- **Benefits**:
-  - Fewer surprises after export.
-  - Safer integration with UI or scripting where export commands may be spammed.
-
-3. Improve error and logging detail in key areas
+1. Improve error and logging detail in key areas
 
 - **Goals**: easier troubleshooting of audio issues.
 
@@ -242,9 +199,9 @@ Medium priority
 - **Benefits**:
   - Faster diagnosis of missing plugins, unsupported formats, and invalid states.
 
-Low priority
+#### Low priority
 
-4. Cache failed operator file loads or mark invalid paths
+2. Cache failed operator file loads or mark invalid paths
 
 - **Goals**: reduce repeated error logging and load attempts.
 
@@ -257,7 +214,7 @@ Low priority
   - Cleaner logs when users experiment with invalid files.
   - Less redundant work.
 
-5. Clarify and refine seek semantics for operators
+3. Clarify and refine seek semantics for operators
 
 - **Goals**: avoid unnecessary seeks and clarify API usage.
 
@@ -269,7 +226,7 @@ Low priority
 - **Benefits**:
   - More predictable operator behaviour when upstream controls seek via UI or automation.
 
-6. Either use `_offlineMixerHandle` for multi-stream analysis or simplify the abstraction
+4. Either use `_offlineMixerHandle` for multi-stream analysis or simplify the abstraction
 
 - **Goals**: reduce conceptual unused complexity.
 

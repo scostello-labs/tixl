@@ -74,13 +74,24 @@ The stale detection uses an **internal monotonic frame token** (`_audioFrameToke
 
 ### Automatic Frame Detection
 
-The audio engine automatically detects when a new frame has started by tracking changes to `Playback.FrameCount`. When an operator calls its update method:
+The audio engine automatically detects when a new frame has started by tracking changes to `Playback.FrameCount`. The frame token is updated in two places:
 
-1. **`EnsureFrameTokenCurrent()`** is called internally
-2. If `Playback.FrameCount` has changed since the last check, `_audioFrameToken` is incremented
-3. The operator's `LastUpdatedFrameId` is set to the current `_audioFrameToken`
+1. **In operator update methods**: When an operator calls `UpdateStereoOperatorPlayback` or `UpdateSpatialOperatorPlayback`, `EnsureFrameTokenCurrent()` is called internally. If `Playback.FrameCount` has changed, `_audioFrameToken` is incremented and the operator's `LastUpdatedFrameId` is set to the new token.
 
-At the end of the frame, `StopStaleOperators()` compares each operator's `LastUpdatedFrameId` against `_audioFrameToken` to determine which operators are stale.
+2. **In `CompleteFrame()`**: After `StopStaleOperators()` runs, `EnsureFrameTokenCurrent()` is called to ensure the token increments even when no audio operators are updated in a frame. This is critical for detecting stale operators when navigating away from them.
+
+### Stale Detection Timing
+
+The stale check runs in `CompleteFrame()` which is called **before** operators are evaluated each frame. This means:
+
+1. `CompleteFrame()` is called at the start of the frame
+2. `StopStaleOperators()` checks which operators have `LastUpdatedFrameId != _audioFrameToken`
+3. Operators that weren't updated in the **previous** frame are marked stale
+4. `EnsureFrameTokenCurrent()` increments the token for the new frame
+5. Operators update and set their `LastUpdatedFrameId` to the new token
+6. Next frame, the cycle repeats
+
+This one-frame delay is intentional - it gives operators a full frame to update before being marked stale.
 
 ### Per-Operator Tracking
 
