@@ -152,6 +152,11 @@ public static class AudioEngine
 
         StopStaleOperators();
         
+        // Ensure the frame token is incremented even when no audio operators update.
+        // This must be called AFTER StopStaleOperators() so stale detection compares
+        // against the previous frame's token, not the current one.
+        EnsureFrameTokenCurrent();
+        
         // Apply all 3D audio changes once per frame (batched for performance)
         Apply3DChanges();
 
