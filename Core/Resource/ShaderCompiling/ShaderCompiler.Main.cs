@@ -11,7 +11,7 @@ using T3.Core.Model;
 using T3.Core.Resource.Assets;
 using T3.Core.Utils;
 
-namespace T3.Core.Resource;
+namespace T3.Core.Resource.ShaderCompiling;
 
 public abstract partial class ShaderCompiler
 {
@@ -182,27 +182,26 @@ public abstract partial class ShaderCompiler
     public sealed class ShaderResourcePackage : IResourcePackage
     {
         public string DisplayName => AssetsFolder;
-        public Guid Id => StringUtils.GenerateGuidFromString(AssetsFolder); 
-        public string? Name => null;
+        public Guid Id => AssetsFolder.GenerateGuidFromString(); 
+        public string Name => string.Empty;
         public string AssetsFolder { get; }
         public string Folder => ".";
         public ResourceFileWatcher? FileWatcher => _resourceConsumer?.Package?.FileWatcher;
         public string? RootNamespace => _resourceConsumer?.Package?.RootNamespace;
         public bool IsReadOnly => true;
         public IReadOnlyCollection<DependencyCounter> Dependencies => _resourceConsumer?.Package?.Dependencies ?? Array.Empty<DependencyCounter>();
-        public IReadOnlyList<IResourcePackage> AvailableResourcePackages { get; }
         private readonly IResourceConsumer? _resourceConsumer = null;
 
         public ShaderResourcePackage(FileInfo shaderFile)
         {
             AssetsFolder = shaderFile.DirectoryName!;
-            AvailableResourcePackages = new List<IResourcePackage> { this };
+            new List<IResourcePackage> { this };
         }
 
-        public ShaderResourcePackage(DirectoryInfo directoryInfo)
+        internal ShaderResourcePackage(DirectoryInfo directoryInfo)
         {
             AssetsFolder = directoryInfo.FullName;
-            AvailableResourcePackages = new List<IResourcePackage> { this };
+            new List<IResourcePackage> { this };
         }
 
         // public ShaderResourcePackage(IResourceConsumer resourceConsumer)

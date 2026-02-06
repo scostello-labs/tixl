@@ -6,18 +6,22 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using T3.Core.Logging;
+using T3.Core.Resource.Assets;
 using T3.Core.UserData;
 using T3.Core.Utils;
 
 namespace T3.Core.Resource;
 
+/// <summary>
+/// Handles events for loaded resources files and forwards them to 
+/// </summary>
 public sealed class ResourceFileWatcher : IDisposable
 {
     public ResourceFileWatcher(string watchedFolder)
     {
         Directory.CreateDirectory(watchedFolder);
-        _watchedDirectory = watchedFolder.ToForwardSlashes();
-        ResourceManager.RegisterWatcher(this);
+        _watchedDirectory = watchedFolder; 
+        ResourcePackageManager.RegisterWatcher(this);
     }
 
     public void Dispose()
@@ -25,7 +29,7 @@ public sealed class ResourceFileWatcher : IDisposable
         DisposeFileWatcher(ref _fsWatcher);
 
         _fileChangeActions.Clear();
-        ResourceManager.UnregisterWatcher(this);
+        ResourcePackageManager.UnregisterWatcher(this);
     }
 
     internal void AddFileHook(string filepath, FileWatcherAction action)
@@ -35,7 +39,7 @@ public sealed class ResourceFileWatcher : IDisposable
 
         ArgumentNullException.ThrowIfNull(action);
 
-        if (!filepath.StartsWith(_watchedDirectory))
+        if (!FilepathStartsWith(filepath,_watchedDirectory))
         {
             Log.Error($"Cannot watch file outside of watched directory: \"{filepath}\" is not in \"{_watchedDirectory}\"");
             return;
@@ -65,16 +69,37 @@ public sealed class ResourceFileWatcher : IDisposable
         _fsWatcher.Error += OnError;
     }
 
-    internal void RemoveFileHook(string absolutePath, FileWatcherAction onResourceChanged)
+    private bool FilepathStartsWith(string path, string start)
     {
-        if (!_fileChangeActions.TryGetValue(absolutePath, out var actions))
+        if (path.Length < start.Length)
+            return false;
+
+        for (var index = 0; index < start.Length; index++)
+        {
+            var cA = path[index];
+            var cB = start[index];
+            if (cA == cB)
+                continue;
+
+            if ((cA == '/' || cA == '\\') && (cB == '/' || cB == '\\'))
+                continue;
+
+            return false;
+        }
+
+        return true;
+    }
+
+    internal void RemoveFileHook(string absolutePathFs, FileWatcherAction onResourceChanged)
+    {
+        if (!_fileChangeActions.TryGetValue(absolutePathFs, out var actions))
             return;
 
         actions.Remove(onResourceChanged);
         if (actions.Count != 0)
             return;
 
-        _fileChangeActions.Remove(absolutePath, out _);
+        _fileChangeActions.Remove(absolutePathFs, out _);
 
         if (_fileChangeActions.Count == 0)
         {
@@ -106,13 +131,25 @@ public sealed class ResourceFileWatcher : IDisposable
                     continue;
 
                 previous = fileKey;
-                var path = details.Args.FullPath;
+                var path = details.Args.FullPath.ToForwardSlashes();
 
                 // 1. Synchronize the AssetRegistry
                 if (fileKey.IsRename && details.Args is RenamedEventArgs renamedArgs)
                 {
-                    HandleRename(renamedArgs); // Update internal hooks
-                    FileRenamed?.Invoke(renamedArgs.OldFullPath, renamedArgs.FullPath);
+                    var renamedArgsOldFullPath = renamedArgs.OldFullPath.ToForwardSlashes();
+                    if (_fileChangeActions.Remove(renamedArgsOldFullPath, out var actions1))
+                    {
+                        if (_fileChangeActions.TryGetValue(path, out var previousActions))
+                        {
+                            previousActions.AddRange(actions1);
+                        }
+                        else
+                        {
+                            _fileChangeActions.TryAdd(path, actions1);
+                        }
+                    }
+
+                    FileRenamed?.Invoke(renamedArgsOldFullPath, renamedArgs.FullPath);
                     FileStateChangeCounter++;
                 }
                 else if (fileKey.ChangeType == WatcherChangeTypes.Deleted)
@@ -125,6 +162,7 @@ public sealed class ResourceFileWatcher : IDisposable
                     // Only register if it's a file we care about
                     if (!FileLocations.IgnoredFiles.Contains(Path.GetFileName(path)))
                     {
+                        // This will invoke an AssetRegistry Update for editable projects
                         FileCreated?.Invoke(this, path);
                     }
                     FileStateChangeCounter++;
@@ -135,7 +173,7 @@ public sealed class ResourceFileWatcher : IDisposable
                 {
                     foreach (var action in actions)
                     {
-                        _queuedActions.Enqueue(new FileWatchQueuedAction(details.Args, action));
+                        _queuedActions.Enqueue(new FileWatchQueuedAction(details.Args.ChangeType, path, action));
                     }
                     FileStateChangeCounter++;
                 }
@@ -147,29 +185,12 @@ public sealed class ResourceFileWatcher : IDisposable
         {
             try
             {
-                queuedAction.Action(queuedAction.Args.ChangeType, queuedAction.Args.FullPath);
+                queuedAction.Action(queuedAction.ChangeType, queuedAction.FullPath);
             }
             catch (Exception exception)
             {
                 Log.Error($"Error in file change action: {exception}");
             }
-        }
-
-        return;
-
-        void HandleRename(RenamedEventArgs e)
-        {
-            if (!_fileChangeActions.Remove(e.OldFullPath, out var actions))
-                return;
-
-            var newPath = e.FullPath;
-            if (_fileChangeActions.TryGetValue(newPath, out var previousActions))
-            {
-                previousActions.AddRange(actions);
-                return;
-            }
-
-            _fileChangeActions.TryAdd(newPath, actions);
         }
     }
 
@@ -182,6 +203,7 @@ public sealed class ResourceFileWatcher : IDisposable
 
     private void OnFileChanged(object sender, FileSystemEventArgs e)
     {
+        Log.Debug($"FileEvent(change) [{e.ChangeType}] {e.FullPath}");
         e.FullPath.ToForwardSlashesUnsafe();
         var isRenamed = false;
 
@@ -230,7 +252,7 @@ public sealed class ResourceFileWatcher : IDisposable
 
     private record struct FileWatchDetails(long TimeTicks, FileSystemEventArgs Args);
 
-    private record struct FileWatchQueuedAction(FileSystemEventArgs Args, FileWatcherAction Action);
+    private record struct FileWatchQueuedAction(WatcherChangeTypes ChangeType, string FullPath, FileWatcherAction Action);
 
     private readonly Dictionary<FileKey, FileWatchDetails> _newFileEvents = new();
     private readonly Lock _eventLock = new();

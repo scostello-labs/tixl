@@ -148,6 +148,7 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
         public bool EnableFrameProfiling = true;
         public bool KeepTraceForLogMessages = false;
         public bool EnableGCProfiling = false;
+        public bool EnableMidiDebugLogging = false;
         public bool ShowOperatorStats = false;
 
         public CompilerOptions.Verbosity CompileCsVerbosity = CompilerOptions.Verbosity.Normal;
@@ -208,6 +209,7 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
         public static bool EnableFrameProfiling = true;
         public static bool KeepTraceForLogMessages = false;
         public static bool EnableGCProfiling = false;
+        public static bool EnableMidiDebugLogging = false;
         public static CompilerOptions.Verbosity CompileCsVerbosity = CompilerOptions.Verbosity.Normal;
         public static bool ShowOperatorStats = false;
         public static float CameraSpeed = 1;

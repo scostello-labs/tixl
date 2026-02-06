@@ -306,6 +306,12 @@ internal class EditorSymbolPackage : SymbolPackage
 
             if (Symbols.ContainsKey(HomeSymbolId)) 
                 return true;
+
+            if (Symbols.Count == 0)
+            {
+                error = $"Package {Name} has no Symbols definition.";
+                return false;
+            }
             
             error = $"Home symbol {HomeSymbolId} not found";
             return false;
