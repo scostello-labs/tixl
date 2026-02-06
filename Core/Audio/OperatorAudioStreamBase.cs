@@ -406,17 +406,19 @@ public abstract class OperatorAudioStreamBase
     }
 
     /// <summary>
-    /// Prepares the stream for export by resetting position for sync.
-    /// Note: We do NOT pause or mute the stream because:
-    /// 1. The OperatorMixer is a decode-only mixer (no soundcard output)
-    /// 2. The GlobalMixer is already paused during export
-    /// 3. We still need to read audio from streams via ChannelGetData on the OperatorMixer
+    /// Prepares the stream for export by resetting position and playback state.
+    /// The stream will require an explicit play trigger to start during export.
     /// </summary>
     internal virtual void PrepareForExport()
     {
         // Reset position to beginning for consistent export
         var resetPosition = Bass.ChannelSeconds2Bytes(StreamHandle, 0);
         BassMix.ChannelSetPosition(StreamHandle, resetPosition, PositionFlags.Bytes | PositionFlags.MixerReset);
+
+        // Reset playback state so streams don't auto-play when un-staled during export.
+        // Audio should only play when explicitly triggered during the export.
+        IsPlaying = false;
+        IsPaused = false;
 
         ClearExportMetering();
     }
