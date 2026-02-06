@@ -42,7 +42,8 @@ internal sealed partial class SettingsWindow : Window
     protected override void DrawContent()
     {
         var changed = false;
-
+        var projectSettingsChanged = false;
+        
         ImGui.BeginChild("categories", new Vector2(120 * T3Ui.UiScaleFactor, -1),
                          true,
                          ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoBackground);
@@ -272,7 +273,6 @@ internal sealed partial class SettingsWindow : Window
 
                 case Categories.Project:
                 {
-                    bool projectSettingsChanged = false;
                     FormInputs.AddSectionHeader("Project specific settings");
                     FormInputs.AddVerticalSpace();
 
@@ -372,8 +372,7 @@ internal sealed partial class SettingsWindow : Window
                                                                      "Users can use cursor left/right to skip through time\nand space key to pause playback\nof exported executable.",
                                                                      ProjectSettings.Defaults.EnablePlaybackControlWithKeyboard);
 
-                    if (projectSettingsChanged)
-                        ProjectSettings.Save();
+
 
                     FormInputs.SetIndentToParameters();
 
@@ -511,6 +510,12 @@ internal sealed partial class SettingsWindow : Window
                         ProjectSettings.Defaults.EnableBeatSyncProfiling);
                     FormInputs.AddVerticalSpace();
 
+                    changed |= FormInputs.AddCheckBox("Log Asset File Events",
+                        ref ProjectSettings.Config.LogFileEvents,
+                        "Logs events related to changing and updating assets files.",
+                        ProjectSettings.Defaults.LogFileEvents);
+                    FormInputs.AddVerticalSpace();
+
                     // Compilation group
                     FormInputs.SetIndentToLeft();
                     FormInputs.AddSectionSubHeader("Compilation");
@@ -574,6 +579,9 @@ internal sealed partial class SettingsWindow : Window
 
             if (changed)
                 UserSettings.Save();
+            
+            if (projectSettingsChanged)
+                ProjectSettings.Save();
         }
         ImGui.EndChild();
         ImGui.PopStyleVar();

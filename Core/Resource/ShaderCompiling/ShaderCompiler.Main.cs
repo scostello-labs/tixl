@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using T3.Core.DataTypes;
+using T3.Core.IO;
 using T3.Core.Logging;
 using T3.Core.Model;
 using T3.Core.Resource.Assets;
@@ -94,7 +95,10 @@ public abstract partial class ShaderCompiler
             if (_shaderBytecodeCache.TryGetValue(hash, out compiledBlob))
             {
                 reason = string.Empty;
-                reason = "Shader already compiled.";
+                
+                if(ProjectSettings.Config.LogFileEvents)
+                    reason = "Shader already compiled.";
+                
                 return true;
             }
 
@@ -102,7 +106,10 @@ public abstract partial class ShaderCompiler
             {
                 reason = string.Empty;
                 CacheShaderInMemory(compiledBlob, hash, compiledBlob);
-                reason = $"Loaded cached shader from disk ({hash}).";
+                
+                if(ProjectSettings.Config.LogFileEvents)
+                    reason = $"Loaded cached shader from disk ({hash}).";
+                
                 return true;
             }
 

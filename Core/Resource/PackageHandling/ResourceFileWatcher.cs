@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using T3.Core.IO;
 using T3.Core.Logging;
 using T3.Core.Resource.Assets;
 using T3.Core.UserData;
@@ -196,14 +197,18 @@ public sealed class ResourceFileWatcher : IDisposable
 
     private void OnFileCreated(object sender, FileSystemEventArgs e)
     {
-        Log.Debug($"FileEvent(create): {e.FullPath}");
+        if(ProjectSettings.Config.LogFileEvents)
+            Log.Debug($"FileEvent(create): {e.FullPath}");
+        
         FileCreated?.Invoke(this, e.FullPath);
         OnFileChanged(this, e);
     }
 
     private void OnFileChanged(object sender, FileSystemEventArgs e)
     {
-        Log.Debug($"FileEvent(change) [{e.ChangeType}] {e.FullPath}");
+        if(ProjectSettings.Config.LogFileEvents)
+            Log.Debug($"FileEvent(change) [{e.ChangeType}] {e.FullPath}");
+        
         e.FullPath.ToForwardSlashesUnsafe();
         var isRenamed = false;
 
@@ -223,7 +228,9 @@ public sealed class ResourceFileWatcher : IDisposable
 
     private void OnError(object sender, ErrorEventArgs e)
     {
-        Log.Error($"FileEvent(error): {e.GetException()}");
+        if(ProjectSettings.Config.LogFileEvents)
+            Log.Error($"FileEvent(error): {e.GetException()}");
+        
         _fsWatcher?.Dispose();
         _fsWatcher = new FileSystemWatcher(_watchedDirectory)
                          {
@@ -235,7 +242,8 @@ public sealed class ResourceFileWatcher : IDisposable
     private void OnFileDeleted(object sender, FileSystemEventArgs e)
     {
         OnFileChanged(sender, e);
-        Log.Debug($"FileEvent(delete): {e.FullPath}");
+        if(ProjectSettings.Config.LogFileEvents)
+            Log.Debug($"FileEvent(delete): {e.FullPath}");
     }
 
     private static void DisposeFileWatcher(ref FileSystemWatcher? watcher)

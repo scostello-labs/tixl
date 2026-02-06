@@ -289,7 +289,7 @@ internal static class AppMenuBar
             {
                 if (currentProject != null && RenderProcess.MainOutputTexture != null)
                 {
-                    ThumbnailManager.SaveThumbnail(currentProject.Id, currentProject, RenderProcess.MainOutputTexture);
+                    ThumbnailManager.SaveThumbnail(currentProject.Id, currentProject, RenderProcess.MainOutputTexture, ThumbnailManager.Categories.PackageMeta);
                 }
             }
             
