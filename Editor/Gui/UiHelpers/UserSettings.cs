@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using T3.Core.Animation;
 using T3.Core.IO;
+using T3.Core.Logging;
 using T3.Core.UserData;
 using T3.Editor.Compilation;
 using T3.Editor.Gui.Windows;
@@ -18,6 +19,17 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
 {
     internal UserSettings(bool saveOnQuit) : base("userSettings.json", saveOnQuit: saveOnQuit)
     {
+    }
+
+    /// <summary>
+    /// Initializes gated debug logging based on current user settings configuration.
+    /// </summary>
+    public static void InitializeGatedLogging()
+    {
+        Log.Gated.Initialize(
+            Config.LogAudioDetails,
+            Config.LogAudioRenderingDetails,
+            Config.LogVideoRenderingDetails);
     }
 
     public sealed class ConfigData
@@ -122,7 +134,6 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
         public string UserName = UndefinedUserName;
         public bool EnableAutoBackup = true;
 
-        // Other settings
         public float GizmoSize = 100;
 
         // Fullscreen settings
@@ -138,7 +149,6 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
         public float SpaceMouseRotationSpeedFactor = 1f;
         public float SpaceMouseMoveSpeedFactor = 1f;
         public float SpaceMouseDamping = 0.5f;
-
         // Rendering (controlled from render windows)
         public string RenderVideoFilePath = "./Render/render-v01.mp4";
         public string RenderSequenceFilePath = "./ImageSequence/";
@@ -152,6 +162,11 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
         public bool EnableGCProfiling = false;
         public bool EnableMidiDebugLogging = false;
         public bool ShowOperatorStats = false;
+        
+        // Gated Debug Logging
+        public bool LogAudioDetails = false;
+        public bool LogAudioRenderingDetails = false;
+        public bool LogVideoRenderingDetails = false;
 
         public CompilerOptions.Verbosity CompileCsVerbosity = CompilerOptions.Verbosity.Minimal;
 
@@ -168,11 +183,58 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
 
         public bool ExpandSpectrumVisualizerVertically = true;
         public int GridOutputColumnCount = 16;
-
         //private string _defaultNewProjectDirectory = _defaultProjectFolder;
         //public string DefaultNewProjectDirectory => _defaultNewProjectDirectory ??= _defaultProjectFolder;
 
+        // Rendering Profiling
+        public bool ShowRenderProfilingLogs = false;
+
         private static readonly string _defaultProjectFolder = FileLocations.DefaultProjectFolder;
+    }
+
+    public static class Defaults
+    {
+        public static bool ShowThumbnails = true;
+        public static float UiScaleFactor = 1;
+        public static int ValueEditSmoothing = 6;
+        public static GraphStyles GraphStyle = GraphStyles.Magnetic;
+        public static bool EnableHorizontalSnapping = true;
+        public static float MaxCurveRadius = 350;
+        public static int MaxSegmentCount = 32;
+        public static bool UseArcConnections = true;
+        public static bool SmartGroupDragging = false;
+        public static bool EditorHoverPreview = true;
+        public static float ScrollSmoothing = 0.06f;
+        public static float ClickThreshold = 5;
+        public static float GizmoSize = 100;
+        public static bool EnableKeyboardShortCuts = true;
+        public static bool AddSpacesToParameterNames = true;
+        public static bool UseTouchPadPanning = false;
+        public static float TimeRasterDensity = 1f;
+        public static float SnapStrength = 5;
+        public static FrameStepAmount FrameStepAmount = FrameStepAmount.FrameAt30Fps;
+        public static bool ResetTimeAfterPlayback = false;
+        public static bool ShowSkillQuestInHub = true;
+        public static bool MouseWheelEditsNeedCtrlKey = true;
+        public static bool AdjustCameraSpeedWithMouseWheel = false;
+        public static bool MirrorUiOnSecondView = false;
+        public static bool ExpandSpectrumVisualizerVertically = true;
+        public static bool MiddleMouseButtonZooms = false;
+        public static bool WarnBeforeLibEdit = true;
+        public static bool SuspendRenderingWhenHidden = true;
+        public static bool EnableAutoBackup = true;
+        public static bool EnableFrameProfiling = true;
+        public static bool KeepTraceForLogMessages = false;
+        public static bool EnableGCProfiling = false;
+        public static bool EnableMidiDebugLogging = false;
+        public static CompilerOptions.Verbosity CompileCsVerbosity = CompilerOptions.Verbosity.Normal;
+        public static bool ShowOperatorStats = false;
+        public static float CameraSpeed = 1;
+        
+        // Gated Debug Logging
+        public static bool ShowAudioDebugLogs = false;
+        public static bool LogAudioRenderingDetails = false;
+        public static bool ShowVideoRenderingDebugLogs = false;
     }
 
     public enum ValueEditMethods
@@ -212,4 +274,5 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
     {
         Config.LastOpsForWindows[title] = opInstanceId;
     }
+    // Rendering Profiling
 }

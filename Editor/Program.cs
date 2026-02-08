@@ -7,6 +7,7 @@ using System.IO;
 using System.Reflection;
 using T3.Core.Compilation;
 using T3.Core.IO;
+using T3.Core.Logging;
 using T3.Core.Resource;
 using T3.Core.Resource.ShaderCompiling;
 using T3.Core.SystemUi;
@@ -27,6 +28,7 @@ using T3.Editor.UiContentDrawing;
 using T3.Editor.UiModel.Helpers;
 using T3.MsForms;
 using T3.SystemUi;
+using T3.Core.Audio;
 using ShaderCompiler = T3.Core.Resource.ShaderCompiling.ShaderCompiler;
 
 namespace T3.Editor;
@@ -141,13 +143,16 @@ internal static class Program
         // ReSharper disable once UnusedVariable
         var userSettings = new UserSettings(saveOnQuit: true);
         
+        // Initialize debug logging configuration from user settings
+        UserSettings.InitializeGatedLogging();
+        
+        // ReSharper disable once UnusedVariable
+        var projectSettings = new ProjectSettings(saveOnQuit: true);
+
         if (UserSettings.Config.ProjectDirectories.Count == 0)
         {
             UserSettings.Config.ProjectDirectories.Add(FileLocations.DefaultProjectFolder);
         }
-
-        // ReSharper disable once UnusedVariable
-        var projectSettings = new ProjectSettings(saveOnQuit: true);
 
         Log.Debug("Initializing ProgramWindows...");
         ProgramWindows.InitializeMainWindow(FormattedEditorVersion, out var device);

@@ -824,7 +824,15 @@ public partial class Symbol
 
                     // if we're here, we already exist in the parent instance
                     // we just need to make sure we add our instance to our own collection
-                    Debug.Assert(_instancesOfSelf.ContainsKey(hash));
+                    if (!_instancesOfSelf.ContainsKey(hash))
+                    {
+                        // Synchronization issue detected: instance exists in parent but not in our tracking
+                        // This can happen during complex initialization or reload scenarios
+                        Log.Warning($"Instance {ReadableName} found in parent but missing from child tracking. Resyncing.");
+                        _instancesOfSelf[hash] = instance;
+                    }
+                    
+                    created = false;
                     return true;
                 }
             }

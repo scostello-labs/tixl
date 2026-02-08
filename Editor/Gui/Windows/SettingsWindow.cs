@@ -2,20 +2,18 @@ using System.IO;
 using ImGuiNET;
 using Operators.Utils;
 using T3.Core.IO;
-using T3.Core.UserData;
 using T3.Core.Utils;
 using T3.Editor.Gui.Input;
 using T3.Editor.Gui.Interaction.Keyboard;
 using T3.Editor.Gui.Interaction.Midi;
 using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.UiHelpers;
-using T3.Editor.Skills.Data;
 using T3.Editor.Skills.Training;
 using T3.Editor.UiModel.Helpers;
 
 namespace T3.Editor.Gui.Windows;
 
-internal sealed class SettingsWindow : Window
+internal sealed partial class SettingsWindow : Window
 {
     internal SettingsWindow()
     {
@@ -27,6 +25,7 @@ internal sealed class SettingsWindow : Window
         Interface,
         Theme,
         Project,
+        Audio,
         Midi,
         OSC,
         SpaceMouse,
@@ -98,14 +97,6 @@ internal sealed class SettingsWindow : Window
 
                     if (UserSettings.Config.GraphStyle == UserSettings.GraphStyles.Magnetic)
                     {
-                        // changed |= FormInputs.AddCheckBox("Disconnect on unsnap",
-                        //                                   ref UserSettings.Config.DisconnectOnUnsnap,
-                        //                                   """
-                        //                                   Defines if unsnapping operators from a block will automatically disconnect them.
-                        //                                   Ops dragged out between snapped blocks will always be disconnected.
-                        //                                   """,
-                        //                                   UserSettings.Defaults.DisconnectOnUnsnap);
-
                         changed |= FormInputs.AddCheckBox("Snap horizontally",
                                                           ref UserSettings.Config.EnableHorizontalSnapping,
                                                           """
@@ -201,22 +192,11 @@ internal sealed class SettingsWindow : Window
                                                    0.0f, 0.2f, 0.01f, true, true,
                                                    "Controls the distance until items such as keyframes snap in the timeline",
                                                    UserSettings.Defaults.SnapStrength);
-
-                    changed |= FormInputs.AddFloat("Audio Volume",
-                                                   ref ProjectSettings.Config.PlaybackVolume,
-                                                   0.0f, 10f, 0.01f, true, true,
-                                                   "Limit the audio playback volume",
-                                                   ProjectSettings.Defaults.PlaybackVolume);
-
-                    changed |= FormInputs.AddEnumDropdown(ref UserSettings.Config.FrameStepAmount,
-                                                          "Frame step amount",
-                                                          "Controls the next rounding and step amount when jumping between frames.\nDefault shortcut is Shift+Cursor Left/Right"
-                                                        , UserSettings.Defaults.FrameStepAmount);
-
                     changed |= FormInputs.AddCheckBox("Reset time after playback",
                                                       ref UserSettings.Config.ResetTimeAfterPlayback,
                                                       "After the playback is halted, the time will reset to the moment when the playback began. This feature proves beneficial for iteratively reviewing animations without requiring manual rewinding.",
                                                       UserSettings.Defaults.ResetTimeAfterPlayback);
+
 
                     FormInputs.AddVerticalSpace();
                     FormInputs.AddSectionSubHeader("Skill Quest");
@@ -289,7 +269,6 @@ internal sealed class SettingsWindow : Window
 
                 case Categories.Project:
                 {
-                    
                     FormInputs.AddSectionHeader("Project specific settings");
                     FormInputs.AddVerticalSpace();
 
@@ -395,6 +374,11 @@ internal sealed class SettingsWindow : Window
 
                     break;
                 }
+                case Categories.Audio:
+                {
+                    DrawAudioPanel(ref changed);
+                    break;
+                }
                 case Categories.Midi:
                 {
                     FormInputs.AddSectionHeader("Midi");
@@ -402,7 +386,6 @@ internal sealed class SettingsWindow : Window
                     if (ImGui.Button("Rescan devices"))
                     {
                         MidiConnectionManager.Rescan();
-                        //MidiOutConnectionManager.Init();
                         CompatibleMidiDeviceHandling.InitializeConnectedDevices();
                     }
 
@@ -472,101 +455,119 @@ internal sealed class SettingsWindow : Window
                 case Categories.Keyboard:
                     FormInputs.AddSectionHeader("Keyboard Shortcuts");
                     CustomComponents.HelpText("The keyboard layout can't be edited yet. Working on it");
-
                     KeyMapEditor.DrawEditor();
-
                     break;
-
                 case Categories.Profiling:
                 {
                     FormInputs.AddSectionHeader("Profiling and debugging");
-
-                    CustomComponents.HelpText("Enabling this will add slight performance overhead.\nChanges will require a restart of Tooll.");
                     FormInputs.AddVerticalSpace();
 
-                    FormInputs.SetIndentToParameters();
-                    FormInputs.AddSectionSubHeader("Log events");
+                    // Profiling group
                     FormInputs.SetIndentToLeft();
-                    changed |= FormInputs.AddCheckBox("Enable Frame Profiling",
-                                                      ref UserSettings.Config.EnableFrameProfiling,
-                                                      "A basic frame profile for the duration of frame processing. Overhead is minimal.",
-                                                      UserSettings.Defaults.EnableFrameProfiling);
-
-                    changed |= FormInputs.AddCheckBox("Keep Log Messages",
-                                                      ref UserSettings.Config.KeepTraceForLogMessages,
-                                                      "Store log messages in the profiling data. This can be useful to see correlation between frame drops and log messages.",
-                                                      UserSettings.Defaults.KeepTraceForLogMessages);
-
-                    changed |= FormInputs.AddCheckBox("Log GC Profiling",
-                                                      ref UserSettings.Config.EnableGCProfiling,
-                                                      "Log garbage collection information. This can be useful to see correlation between frame drops and GC activity.",
-                                                      UserSettings.Defaults.EnableGCProfiling);
-
-                    changed |= FormInputs.AddCheckBox("MIDI Controller Debug Logging",
-                                                      ref UserSettings.Config.EnableMidiDebugLogging,
-                                                      "Log detailed MIDI controller messages including button mappings and mode switches. Useful for debugging custom controller implementations.",
-                                                      UserSettings.Defaults.EnableMidiDebugLogging);
-
-                    projectSettingsChanged |= FormInputs.AddCheckBox("Profile Beat Syncing",
-                                                      ref ProjectSettings.Config.EnableBeatSyncProfiling,
-                                                      "Logs beat sync timing to IO Window",
-                                                      ProjectSettings.Defaults.EnableBeatSyncProfiling);
-
+                    FormInputs.AddSectionSubHeader("Profiling");
                     FormInputs.AddVerticalSpace();
-                    
-                    projectSettingsChanged |= FormInputs.AddCheckBox("Log Asset File Events",
-                                                                     ref ProjectSettings.Config.LogFileEvents,
-                                                                     "Logs events related to changing and updating assets files.",
-                                                                     ProjectSettings.Defaults.LogFileEvents);
+                    changed |= FormInputs.AddCheckBox("Enable Frame Profiling",
+                        ref UserSettings.Config.EnableFrameProfiling,
+                        "A basic frame profile for the duration of frame processing. Overhead is minimal.",
+                        UserSettings.Defaults.EnableFrameProfiling);
+                    changed |= FormInputs.AddCheckBox("Keep Log Messages",
+                        ref UserSettings.Config.KeepTraceForLogMessages,
+                        "Store log messages in the profiling data. This can be useful to see correlation between frame drops and log messages.",
+                        UserSettings.Defaults.KeepTraceForLogMessages);
+                    changed |= FormInputs.AddCheckBox("Log GC Profiling",
+                        ref UserSettings.Config.EnableGCProfiling,
+                        "Log garbage collection information. This can be useful to see correlation between frame drops and GC activity.",
+                        UserSettings.Defaults.EnableGCProfiling);
+                    FormInputs.AddVerticalSpace();
 
-                    
-                    FormInputs.AddSectionSubHeader("Compilation");
+                    // MIDI Controller Debug Logging (from origin/main)
+                    changed |= FormInputs.AddCheckBox("MIDI Controller Debug Logging",
+                        ref UserSettings.Config.EnableMidiDebugLogging,
+                        "Log detailed MIDI controller messages including button mappings and mode switches. Useful for debugging custom controller implementations.",
+                        UserSettings.Defaults.EnableMidiDebugLogging);
+                    FormInputs.AddVerticalSpace();
 
-                    // Compilation details
+                    // Audio System group
+                    FormInputs.SetIndentToLeft();
+                    FormInputs.AddSectionSubHeader("Audio System");
+                    FormInputs.AddVerticalSpace();
+                    if (FormInputs.AddCheckBox("Show Audio Logs",
+                            ref UserSettings.Config.LogAudioDetails,
+                            "Shows Debug and Info log messages from audio system classes. Warning and Error messages will still be logged.",
+                            UserSettings.Defaults.ShowAudioDebugLogs))
                     {
-                        changed |= FormInputs.AddCheckBox("Log Assembly Version mismatches",
-                                                          ref ProjectSettings.Config.LogAssemblyVersionMismatches,
-                                                          """
-                                                          Version mismatches are frequently caused by slightly outdated 3rd party library that we depend on.
-                                                          These are only relevant in situations where you need to debug or analyse assembly loading problems. 
-                                                          """,
-                                                          ProjectSettings.Defaults.LogAssemblyVersionMismatches);
+                        Log.Gated.AudioEnabled = UserSettings.Config.LogAudioDetails;
+                        changed = true;
+                    }
+                    changed |= FormInputs.AddCheckBox("Profile Beat Syncing",
+                        ref ProjectSettings.Config.EnableBeatSyncProfiling,
+                        "Logs beat sync timing to IO Window",
+                        ProjectSettings.Defaults.EnableBeatSyncProfiling);
+                    FormInputs.AddVerticalSpace();
 
-                        changed |= FormInputs.AddCheckBox("Log Loading Details",
-                                                          ref ProjectSettings.Config.LogAssemblyLoadingDetails,
-                                                          """
-                                                          Logs additional details about resolving and identifying assemblies and other resources.
-                                                          This can be useful to debug issues related to loading projects.
-                                                          """,
-                                                          ProjectSettings.Defaults.LogAssemblyLoadingDetails);
+                    changed |= FormInputs.AddCheckBox("Log Asset File Events",
+                        ref ProjectSettings.Config.LogFileEvents,
+                        "Logs events related to changing and updating assets files.",
+                        ProjectSettings.Defaults.LogFileEvents);
+                    FormInputs.AddVerticalSpace();
 
-                        changed |= FormInputs.AddCheckBox("Log C# Compilation Details",
-                                                          ref ProjectSettings.Config.LogCompilationDetails,
-                                                          "Logs additional compilation details with the given severity",
-                                                          ProjectSettings.Defaults.LogCompilationDetails);
-
-                        if (ProjectSettings.Config.LogCompilationDetails)
-                        {
-                            FormInputs.SetIndentToParameters();
-                            changed |= FormInputs.AddEnumDropdown(ref UserSettings.Config.CompileCsVerbosity,
-                                                                  "C# compiler logs",
-                                                                  null,
-                                                                  UserSettings.Defaults.CompileCsVerbosity
-                                                                 );
-                        }
+                    // Compilation group
+                    FormInputs.SetIndentToLeft();
+                    FormInputs.AddSectionSubHeader("Compilation");
+                    FormInputs.AddVerticalSpace();
+                    changed |= FormInputs.AddCheckBox("Log Assembly Version mismatches",
+                        ref ProjectSettings.Config.LogAssemblyVersionMismatches,
+                        "Version mismatches are frequently caused by slightly outdated 3rd party library that we depend on.\nThese are only relevant in situations where you need to debug or analyse assembly loading problems.",
+                        ProjectSettings.Defaults.LogAssemblyVersionMismatches);
+                    changed |= FormInputs.AddCheckBox("Log Loading Details",
+                        ref ProjectSettings.Config.LogAssemblyLoadingDetails,
+                        "Logs additional details about resolving and identifying assemblies and other resources.\nThis can be useful to debug issues related to loading projects.",
+                        ProjectSettings.Defaults.LogAssemblyLoadingDetails);
+                    changed |= FormInputs.AddCheckBox("Log C# Compilation Details",
+                        ref ProjectSettings.Config.LogCompilationDetails,
+                        "Logs additional compilation details with the given severity",
+                        ProjectSettings.Defaults.LogCompilationDetails);
+                    if (ProjectSettings.Config.LogCompilationDetails)
+                    {
+                        changed |= FormInputs.AddEnumDropdown(ref UserSettings.Config.CompileCsVerbosity,
+                            "C# compiler logs",
+                            null,
+                            UserSettings.Defaults.CompileCsVerbosity);
                     }
                     FormInputs.AddVerticalSpace();
+
+                    // Operator status indicator
                     FormInputs.SetIndentToLeft();
-
                     changed |= FormInputs.AddCheckBox("Show Operator status indicators",
-                                                      ref UserSettings.Config.ShowOperatorStats,
-                                                      """
-                                                      Draws an context overlay with various operator stats. 
-                                                      """,
-                                                      UserSettings.Defaults.ShowOperatorStats);
-
+                        ref UserSettings.Config.ShowOperatorStats,
+                        "Draws an context overlay with various operator stats.",
+                        UserSettings.Defaults.ShowOperatorStats);
                     FormInputs.AddVerticalSpace();
-
+                    FormInputs.SetIndentToLeft();
+                    FormInputs.AddSectionSubHeader("Rendering");
+                    // Add Show Audio Render Logs here
+                    var audioRenderingDebugChanged = FormInputs.AddCheckBox("Show Audio Render Logs",
+                        ref UserSettings.Config.LogAudioRenderingDetails,
+                        "Shows Debug and Info log messages from audio rendering classes (e.g., export, offline rendering).",
+                        UserSettings.Defaults.LogAudioRenderingDetails);
+                    if (audioRenderingDebugChanged)
+                    {
+                        Log.Gated.AudioRenderEnabled = UserSettings.Config.LogAudioRenderingDetails;
+                        changed = true;
+                    }
+                    
+                    
+                    // Change label for video rendering logs
+                    var videoRenderingDebugChanged = FormInputs.AddCheckBox("Show Video Render Logs",
+                        ref UserSettings.Config.LogVideoRenderingDetails,
+                        "Shows Debug and Info log messages from video rendering/export (e.g., Mp4VideoWriter, RenderProcess).",
+                        UserSettings.Defaults.ShowVideoRenderingDebugLogs);
+                    if (videoRenderingDebugChanged)
+                    {
+                        Log.Gated.VideoRenderEnabled = UserSettings.Config.LogVideoRenderingDetails;
+                        changed = true;
+                    }
+                    FormInputs.AddVerticalSpace();
                     break;
                 }
             }
@@ -586,3 +587,4 @@ internal sealed class SettingsWindow : Window
         return new List<Window>();
     }
 }
+

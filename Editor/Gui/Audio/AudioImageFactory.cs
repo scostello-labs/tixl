@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
@@ -67,6 +67,6 @@ internal static class AudioImageFactory
 
     
     // TODO: should be a hashset, but there is no ConcurrentHashset -_-
-    private static readonly ConcurrentDictionary<AudioClipDefinition, bool> _loadingClips = new();
-    private static readonly ConcurrentDictionary<AudioClipDefinition, string> _imageForAudioFiles = new();
+    private static readonly ConcurrentDictionary<SoundtrackClipDefinition, bool> _loadingClips = new();
+    private static readonly ConcurrentDictionary<SoundtrackClipDefinition, string> _imageForAudioFiles = new();
 }

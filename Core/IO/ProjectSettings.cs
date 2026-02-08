@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace T3.Core.IO;
 
@@ -15,8 +15,6 @@ public class ProjectSettings : Settings<ProjectSettings.ConfigData>
     {
         public bool TimeClipSuspending = true;
         public float AudioResyncThreshold = 0.04f;
-        public float PlaybackVolume = 1;
-        public bool AudioMuted;
 
         public bool EnablePlaybackControlWithKeyboard = true;
 
@@ -37,6 +35,40 @@ public class ProjectSettings : Settings<ProjectSettings.ConfigData>
         
         // Profiling
         public bool EnableBeatSyncProfiling = false;
+
+        // Audio
+        public bool GlobalMute = false;
+        public float GlobalPlaybackVolume = 1;
+        public bool SoundtrackMute = false;
+        public float SoundtrackPlaybackVolume = 0.5f;
+        public bool OperatorMute = false;
+        public float OperatorPlaybackVolume = 1;
+    }
+
+    public static class Defaults
+    {
+        public static bool TimeClipSuspending = true;
+        public static float AudioResyncThreshold = 0.04f;
+        public static bool EnablePlaybackControlWithKeyboard = true;
+        public static bool SkipOptimization;
+        public static bool EnableDirectXDebug;
+        public static bool LogAssemblyVersionMismatches = false;
+        public static string LimitMidiDeviceCapture = null;
+        public static bool EnableMidiSnapshotIndication = false;
+        public static WindowMode DefaultWindowMode = WindowMode.Fullscreen;
+        public static int DefaultOscPort = 8000;
+        public static bool LogCompilationDetails = false;
+        public static bool LogAssemblyLoadingDetails = false;
+        public static bool LogFileEvents = false;
+        public static bool EnableBeatSyncProfiling = false;
+        
+        // Audio
+        public static bool GlobalMute = false;
+        public static float GlobalPlaybackVolume = 1;
+        public static bool SoundtrackMute = false;
+        public static float SoundtrackPlaybackVolume = 0.5f;
+        public static bool OperatorMute = false;
+        public static float OperatorPlaybackVolume = 1;
     }
 }
 
