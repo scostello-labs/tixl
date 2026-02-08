@@ -395,7 +395,7 @@ internal static class GraphContextMenu
 
                 ImGui.Separator();
                 if (ImGui.MenuItem("Set Thumbnail", null, false,
-                                   !selectedChildUis[0].SymbolChild.Symbol.SymbolPackage.IsReadOnly &&
+                                   oneOpSelected && !selectedChildUis[0].SymbolChild.Symbol.SymbolPackage.IsReadOnly &&
                                    RenderProcess.MainOutputTexture != null))
                 {
                     ThumbnailManager.SaveThumbnail(selectedChildUis[0].SymbolChild.Symbol.Id,
