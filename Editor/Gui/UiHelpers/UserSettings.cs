@@ -168,7 +168,7 @@ public sealed class UserSettings : Settings<UserSettings.ConfigData>
         public bool LogAudioRenderingDetails = false;
         public bool LogVideoRenderingDetails = false;
 
-        public CompilerOptions.Verbosity CompileCsVerbosity = CompilerOptions.Verbosity.Normal;
+        public CompilerOptions.Verbosity CompileCsVerbosity = CompilerOptions.Verbosity.Minimal;
 
         [JsonConverter(typeof(StringEnumConverter))]
         public TimeFormat.TimeDisplayModes TimeDisplayMode = TimeFormat.TimeDisplayModes.Bars;

@@ -114,7 +114,7 @@ internal static partial class Program
             Icon icon;
             if (!gotIcon)
             {
-                Log.Warning("Failed to load icon");
+                Log.Warning("Failed to load icon from " + iconPath);
                 icon = null;
             }
             else
