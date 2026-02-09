@@ -20,7 +20,7 @@ namespace T3.Editor.Gui.InputUi.SimpleInputUis;
 
 public sealed class StringInputUi : InputValueUi<string>
 {
-    private const int MaxStringLength = 4000;
+    private const int MaxStringLength = 32000;
 
     public enum UsageType
     {
