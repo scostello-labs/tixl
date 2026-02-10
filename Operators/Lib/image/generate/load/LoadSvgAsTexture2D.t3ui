@@ -33,7 +33,7 @@
         "Y": 46.995968
       },
       "Usage": "FilePath",
-      "FileFilter": ".svg"
+      "FileFilter": "svg"
     }
   ],
   "SymbolChildUis": [],

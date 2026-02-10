@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System.IO;
 using ImGuiNET;
 using Newtonsoft.Json;
@@ -214,12 +214,12 @@ public sealed class StringInputUi : InputValueUi<string>
             FormInputs.DrawFieldSetHeader("File Filter");
             
             var tmp = FileFilter;
-            var warning = !string.IsNullOrEmpty(tmp) && !tmp.Contains('|')
+            /*var warning = !string.IsNullOrEmpty(tmp) && !tmp.Contains('|')
                               ? "Filter must include at least one | symbol.\nPlease read tooltip for examples"
-                              : null;
+                              : null;*/
 
-            if (FormInputs.AddStringInput("##File Filter", ref tmp, null, warning,
-                                          "This will only work for file FilePath-Mode.\nThe filter has to be in following format:\n\n Your Description (*.ext)|*.ext"))
+            if (FormInputs.AddStringInput("##File Filter", ref tmp, null, null,
+                                          "This will only work for file FilePath-Mode.\nSeparate multiple extensions by a comma.(example: png, jpg, dds)"))
             {
                 modified = true;
                 FileFilter = tmp;
