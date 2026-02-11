@@ -281,7 +281,9 @@ internal sealed partial class SettingsWindow : Window
                                                              Directory.Exists,
                                                              "Folder does not exist",
                                                              """
-                                                             List of top-level directories to look for projects in
+                                                             List of top-level directories that are scanned for projects.
+                                                             
+                                                             This can be useful to manage your projects on multiple external drivers or repositories. 
                                                              """
                                                             );
                     
