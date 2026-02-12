@@ -60,13 +60,18 @@ internal static class FileImport
             subfolder = assetType.Subfolders[0];
         }
         
-        destFilepath = string.IsNullOrEmpty(subfolder)
-                           ? Path.Combine(package.AssetsFolder, fileName)
-                           : Path.Combine(package.AssetsFolder, subfolder, fileName);
+        var destFolder = 
+          string.IsNullOrEmpty(subfolder)
+                           ? Path.Combine(package.AssetsFolder)
+                           : Path.Combine(package.AssetsFolder, subfolder);
 
+
+        destFilepath = Path.Combine(destFolder, fileName);
+        
         // Copy to project first...
         try
         {
+            Directory.CreateDirectory(destFolder);
             File.Copy(sourcePath, destFilepath);
         }
         catch (Exception)
