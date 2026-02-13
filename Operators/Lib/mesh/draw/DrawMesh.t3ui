@@ -106,9 +106,8 @@
       },
       "Description": "This reduces specular aliasing on silhouettes and high-frequency normalmap regions.",
       "Min": 0.0,
-      "Max": 2.0,
-      "ClampMin": true,
-      "ClampMax": true
+      "Max": 20.0,
+      "ClampMin": true
     },
     {
       "InputId": "d1db33ea-1739-4323-9105-7b236a0e240f"/*WrapMode*/,
