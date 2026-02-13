@@ -4,6 +4,9 @@
 // This implementation is based on "Real Shading in Unreal Engine 4" SIGGRAPH 2013 course notes by Epic Games.
 // See: http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf
 
+#ifndef __pbr
+#define __pbr
+
 #ifndef PI
 #define PI 3.141592
 #endif
@@ -84,4 +87,6 @@ struct FragmentMaterial
 
 static FragmentMaterial frag;
 #define __frag_static
+#endif
+
 #endif

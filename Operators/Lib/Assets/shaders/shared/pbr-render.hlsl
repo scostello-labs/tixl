@@ -1,3 +1,26 @@
+#include "shared/pbr.hlsl"
+
+
+#ifndef __AdjustRoughnessForSpecularAA
+#define __AdjustRoughnessForSpecularAA
+
+inline float3 AdjustRoughnessForSpecularAA(float baseRoughness, float specularAA)
+{
+ // --- Specular anti-aliasing ---
+    // Compute normal variance using screen-space derivatives and increase roughness accordingly.
+    // This reduces specular aliasing on silhouettes and high-frequency normalmap regions.
+    float3 Nx = ddx(frag.N);
+    float3 Ny = ddy(frag.N);
+    float normalVar = max(0.0, max(dot(Nx, Nx), dot(Ny, Ny)));
+    normalVar *= specularAA;
+    // convert roughness -> alpha (energy-preserving), combine variance, then convert back
+    float baseR = saturate(baseRoughness);
+    float baseR2 = baseR * baseR;
+    float adjustedR = sqrt(baseR2 + normalVar);    
+    return saturate(adjustedR);
+}
+#endif
+
 
 
 // based on https://github.com/Nadrin/PBR/blob/master/data/shaders/hlsl/pbr.hlsl

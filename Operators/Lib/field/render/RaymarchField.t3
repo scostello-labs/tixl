@@ -34,6 +34,10 @@
       "DefaultValue": 1.0
     },
     {
+      "Id": "8fc6f727-1eac-42f4-9c4f-525cba1f4bb1"/*SpecularAA*/,
+      "DefaultValue": 0.5
+    },
+    {
       "Id": "9715075b-b02b-4290-9332-9bbfe67933f2"/*Color*/,
       "DefaultValue": {
         "X": 1.0,
@@ -616,6 +620,12 @@
     {
       "SourceParentOrChildId": "00000000-0000-0000-0000-000000000000",
       "SourceSlotId": "1251368b-f8f4-4210-be1e-4d05223caf21",
+      "TargetParentOrChildId": "a1c062cb-6c68-43c5-9169-610bb57773eb",
+      "TargetSlotId": "49556d12-4cd1-4341-b9d8-c356668d296c"
+    },
+    {
+      "SourceParentOrChildId": "00000000-0000-0000-0000-000000000000",
+      "SourceSlotId": "8fc6f727-1eac-42f4-9c4f-525cba1f4bb1",
       "TargetParentOrChildId": "a1c062cb-6c68-43c5-9169-610bb57773eb",
       "TargetSlotId": "49556d12-4cd1-4341-b9d8-c356668d296c"
     },

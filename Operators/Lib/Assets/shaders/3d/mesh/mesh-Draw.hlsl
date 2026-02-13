@@ -215,7 +215,8 @@ psOutput psMain(psInput pin) : SV_TARGET
     frag.uv = pin.texCoord;
     frag.N = ComputeNormal(pin, pin.tbnToWorld);
 
-    frag.Roughness = AdjustRoughnessForSpecularAA(roughnessMetallicOcclusion.x + Roughness);
+    frag.Roughness = AdjustRoughnessForSpecularAA(roughnessMetallicOcclusion.x + Roughness, SpecularAA);
+
     frag.fog = pin.fog;
     frag.worldPosition = pin.worldPosition;
 

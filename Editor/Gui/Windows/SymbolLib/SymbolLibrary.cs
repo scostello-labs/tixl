@@ -10,6 +10,7 @@ using T3.Editor.Gui.Input;
 using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.Gui.UiHelpers.Thumbnails;
+using T3.Editor.Gui.Windows.AssetLib;
 using T3.Editor.UiModel;
 using T3.Editor.UiModel.Helpers;
 using T3.Editor.UiModel.InputsAndTypes;
@@ -75,13 +76,17 @@ internal sealed class SymbolLibrary : Window
 
     // Indicates if a refresh of the symbol library is needed
     private static bool _refreshTriggered;
+    
+    private static readonly TreeHandler _treeHandler = new();
 
     /// <summary>
     /// Draws the main symbol library view, including search bar, filters, and the result tree.
     /// </summary>
     private void DrawView()
     {
-        var iconCount = 1;
+        _treeHandler.Update();        
+        
+        var iconCount = 2;
         if (_wasScanned)
             iconCount++;
 
@@ -89,8 +94,23 @@ internal sealed class SymbolLibrary : Window
         CustomComponents.DrawInputFieldWithPlaceholder(
                                                        "Search symbols...",
                                                        ref _filter.SearchString,
-                                                       -ImGui.GetFrameHeight() * iconCount + 16);
+                                                       - ImGui.GetFrameHeight() * iconCount + 16);
 
+        
+        // Collapse icon
+        {
+            ImGui.SameLine();
+            var collapseIconState = _treeHandler.NoFolderOpen
+                                        ? CustomComponents.ButtonStates.Dimmed
+                                        : CustomComponents.ButtonStates.Normal;
+
+            if (CustomComponents.IconButton(Icon.TreeCollapse, Vector2.Zero, collapseIconState))
+            {
+                _treeHandler.CollapseAll();
+            }
+        }
+        
+        
         ImGui.SameLine();
         // Draw refresh button and handle refresh logic
         if (CustomComponents.IconButton(Icon.Refresh, Vector2.Zero, CustomComponents.ButtonStates.Dimmed) || _refreshTriggered)
@@ -140,6 +160,7 @@ internal sealed class SymbolLibrary : Window
     /// </summary>
     private void UpdateSymbolLibraryState()
     {
+        _treeHandler.Reset();
         _treeNode.PopulateCompleteTree();
         ExampleSymbolLinking.UpdateExampleLinks();
         SymbolAnalysis.UpdateDetails();
@@ -248,7 +269,7 @@ internal sealed class SymbolLibrary : Window
         }
         else
         {
-            ImGui.PushID(subtree.Name);
+            ImGui.PushID(subtree.Id);
             ImGui.SetNextItemWidth(10);
             if (subtree.Name == "Lib" && !_openedLibFolderOnce)
             {
@@ -269,6 +290,8 @@ internal sealed class SymbolLibrary : Window
                 }
             }
 
+            _treeHandler.UpdateForNode(subtree.Id);
+            
             var isOpen = ImGui.TreeNode(subtree.Name);
 
             // Draw aim icon if this node contains the selected symbol and is not open
@@ -315,8 +338,14 @@ internal sealed class SymbolLibrary : Window
                                                     }
                                                 });
 
+            
+            
             if (isOpen)
             {
+                _treeHandler.NoFolderOpen = false;
+                
+                
+                
                 // Reset expand trigger after expanding and target is visible
                 if (_expandToSymbolTriggered && _expandToSymbolTargetId.HasValue && ContainsSymbolRecursive(subtree, _expandToSymbolTargetId.Value))
                 {
@@ -554,6 +583,8 @@ internal sealed class SymbolLibrary : Window
 
         ImGui.PushID(symbol.Id.GetHashCode());
         {
+            
+            
             var color = symbol.OutputDefinitions.Count > 0
                             ? TypeUiRegistry.GetPropertiesForType(symbol.OutputDefinitions[0]?.ValueType).Color
                             : UiColors.Gray;

@@ -22,6 +22,8 @@ cbuffer ParamConstants : register(b1)
     float AODistance;
     float NormalSamplingDistance;
     float DistToColor;
+
+    float SpecularAA;
 }
 
 cbuffer Transforms : register(b2)
@@ -452,7 +454,10 @@ PSOutput psMain(vsOutput input)
 
     uv += 0.5;
     float4 roughnessMetallicOcclusion = RSMOMap.Sample(WrappedSampler, uv);
-    frag.Roughness = saturate(roughnessMetallicOcclusion.x + Roughness);
+
+    //frag.Roughness = SpecularAA;
+    //frag.Roughness = saturate(roughnessMetallicOcclusion.x + Roughness);
+
     frag.Metalness = saturate(roughnessMetallicOcclusion.y + Metal);
     frag.Occlusion = roughnessMetallicOcclusion.z;
     frag.albedo = BaseColorMap.Sample(WrappedSampler, uv);
@@ -461,6 +466,8 @@ PSOutput psMain(vsOutput input)
     frag.Lo = -dp;
     frag.worldPosition = mul(float4(p, 1), ObjectToWorld);
 
+    frag.Roughness = AdjustRoughnessForSpecularAA(roughnessMetallicOcclusion.x + Roughness, SpecularAA);
+    
     float4 litColor = ComputePbr();
     litColor *= fieldColor;
 

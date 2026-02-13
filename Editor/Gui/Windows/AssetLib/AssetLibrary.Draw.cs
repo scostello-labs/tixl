@@ -451,13 +451,13 @@ internal sealed partial class AssetLibrary
 
                 CustomComponents.StylizedText($"{StringUtils.GetReadableFileSize(asset.FileSize)}  / {asset.FileSystemInfo?.LastWriteTime}",
                                               Fonts.FontSmall, UiColors.TextMuted);
-                FormInputs.AddVerticalSpace(2);
-                CustomComponents.StylizedText($"in {path}", Fonts.FontSmall, UiColors.TextMuted);
+                // FormInputs.AddVerticalSpace(2);
+                // CustomComponents.StylizedText($"in {path}", Fonts.FontSmall, UiColors.TextMuted);
 
                 FormInputs.AddVerticalSpace();
                 if (hasUses && uses != null)
                 {
-                    CustomComponents.StylizedText("Used in...", Fonts.FontSmall, UiColors.TextMuted);
+                    CustomComponents.StylizedText("Symbols using this...", Fonts.FontSmall, UiColors.TextMuted);
                     foreach (var reference in uses)
                     {
                         DrawAssetReference(reference);
@@ -465,10 +465,10 @@ internal sealed partial class AssetLibrary
                 }
                 else
                 {
-                    ImGui.TextUnformatted("""
-                                          Not directly used in any parameter. 
-                                          (Other users are possible...)
-                                          """);
+                    CustomComponents.StylizedText("""
+                                                  Not directly used in any parameter. 
+                                                  (Other users are possible...)
+                                                  """, Fonts.FontSmall, UiColors.TextMuted);
                 }
             }
             ImGui.EndGroup();
