@@ -21,6 +21,8 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
         Data.UpdateAction += Update;
     }
 
+    
+
     private void Update(EvaluationContext context)
     {
         try
@@ -43,31 +45,60 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
 
             var originalPointArray = typedPointList.TypedElements;
 
-            // Filter out points with NaN values
-            var validPoints = new List<Point>();
-            int invalidCount = 0;
+            // Calculate hash of the boundary points array for cache invalidation
+            int currentHash = CalculateBoundaryPointsHash(originalPointArray);
+            
 
-            for (int i = 0; i < originalPointArray.Length; i++)
+            // Get fill density parameter
+            // Note: Inverted so that 1 means full fill and 0 means no fill for the user
+            var fillDensity = 1 - FillDensity.GetValue(context);
+
+           // Determine if we need to reprocess the boundary points
+            bool needsReprocessing = !_hasProcessedOnce ||                       // First evaluation after load (CRITICAL!)
+                                      _cachedFilteredBoundaryPoints == null ||   // Cache empty                              
+                                      currentHash != _cachedBoundaryPointsHash;  // Hash changed
+
+            Point[] pointArray;
+
+            if (needsReprocessing)
             {
-                var point = originalPointArray[i];
-                var scaleNaN = point.Scale;
+                // Filter out points with NaN values
+                var validPoints = new List<Point>();
+                int invalidCount = 0;
 
-                // Check for NaN in Scale
-                if (float.IsNaN(scaleNaN.X) || float.IsNaN(scaleNaN.Y) || float.IsNaN(scaleNaN.Z))
+                for (int i = 0; i < originalPointArray.Length; i++)
                 {
-                    invalidCount++;
-                    continue;
+                    var point = originalPointArray[i];
+                    var scaleNaN = point.Scale;
+
+                    // Check for NaN in Scale
+                    if (float.IsNaN(scaleNaN.X) || float.IsNaN(scaleNaN.Y) || float.IsNaN(scaleNaN.Z))
+                    {
+                        invalidCount++;
+                        continue;
+                    }
+
+                    validPoints.Add(point);
                 }
 
-                validPoints.Add(point);
-            }
+                if (invalidCount > 0)
+                {
+                    Log.Debug($"DelaunayMesh: Filtered out {invalidCount} points with NaN Scale values");
+                }
 
-            if (invalidCount > 0)
+                pointArray = [.. validPoints];
+
+                // Update cache
+                _cachedFilteredBoundaryPoints = pointArray;
+                _cachedBoundaryPointsHash = currentHash;
+                _hasProcessedOnce = true;
+            }
+            else
             {
-                Log.Debug($"DelaunayMesh: Filtered out {invalidCount} points with NaN Scale values");
+                // Use cached filtered points
+                pointArray = _cachedFilteredBoundaryPoints;
+                // Removed the debug log that was spamming the console
             }
-
-            var pointArray = validPoints.ToArray();
 
             if (pointArray.Length < 3)
             {
@@ -75,8 +106,8 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
                 return;
             }
 
-            // Get fill density parameter
-            var fillDensity = 1 - FillDensity.GetValue(context);
+            
+
             var tweak = Tweak.GetValue(context);
             var seed = Seed.GetValue(context);
             var subdivideLongEdges = SubdivideLongEdges.GetValue(context);
@@ -84,9 +115,9 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
             // Subdivide long boundary edges for better triangulation
             var subdividedPoints = new List<Point>();
             var maxEdgeSubdivisionLength = 0f;
-            if (subdivideLongEdges)
+            if (subdivideLongEdges > 0)
             {
-                maxEdgeSubdivisionLength = fillDensity * 1.5f; // Subdivide edges longer than 1.5x the fill density
+                maxEdgeSubdivisionLength = 1 - subdivideLongEdges; // Subdivide edges longer than 1.5x the fill density
             }
 
 
@@ -139,13 +170,22 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
             var allPoints = new List<Point>(pointArray);
 
             // FIXED: Changed condition to check if fillDensity is above minimum threshold
-            if (fillDensity < 0.9999f )
+            if (fillDensity < 0.9999f)
             {
-                // Calculate bounds for the boundary
-                var minXb = pointArray.Min(p => p.Position.X);
-                var maxXb = pointArray.Max(p => p.Position.X);
-                var minYb = pointArray.Min(p => p.Position.Y);
-                var maxYb = pointArray.Max(p => p.Position.Y);
+                // Calculate bounds for the boundary using a single loop (more efficient than LINQ)
+                var minXb = float.MaxValue;
+                var maxXb = float.MinValue;
+                var minYb = float.MaxValue;
+                var maxYb = float.MinValue;
+
+                for (int i = 0; i < pointArray.Length; i++)
+                {
+                    var pos = pointArray[i].Position;
+                    if (pos.X < minXb) minXb = pos.X;
+                    if (pos.X > maxXb) maxXb = pos.X;
+                    if (pos.Y < minYb) minYb = pos.Y;
+                    if (pos.Y > maxYb) maxYb = pos.Y;
+                }
 
 
                 // Generate Poisson disc samples with seed
@@ -231,19 +271,6 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
             // Use the combined point array for triangulation
             pointArray = allPoints.ToArray();
 
-            // Get transformation parameters
-            var scale = Scale.GetValue(context);
-            var stretch = Stretch.GetValue(context);
-            var pivot = Pivot.GetValue(context);
-            var rotation = Rotation.GetValue(context);
-            var center = Center.GetValue(context);
-
-            float yaw = rotation.Y.ToRadians();
-            float pitch = rotation.X.ToRadians();
-            float roll = rotation.Z.ToRadians();
-
-            var rotationMatrix = Matrix4x4.CreateFromYawPitchRoll(yaw, pitch, roll);
-            var center2 = new Vector3(center.X, center.Y, center.Z);
 
             // Convert Point array to IPoint array for Delaunator (only x,y coordinates)
             var delaunatorPoints = pointArray.Select(p => new DelaunatorSharp.Point(p.Position.X, p.Position.Y) as IPoint).ToArray();
@@ -255,21 +282,25 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
             var verticesCount = pointArray.Length;
             var triangleCount = delaunay.Triangles.Length / 3;
 
-            // Get filtering parameters
-            var maxEdgeLength = MaxEdgeLength.GetValue(context);
-
-            // Calculate normals, tangent, bitangent for the mesh
-            var normal = Vector3.TransformNormal(VectorT3.ForwardLH, rotationMatrix);
-            var tangent = Vector3.TransformNormal(VectorT3.Right, rotationMatrix);
-            var binormal = Vector3.TransformNormal(VectorT3.Up, rotationMatrix);
-
             // Calculate bounds for UV mapping
-            var minX = pointArray.Min(p => p.Position.X);
-            var maxX = pointArray.Max(p => p.Position.X);
-            var minY = pointArray.Min(p => p.Position.Y);
-            var maxY = pointArray.Max(p => p.Position.Y);
-            var rangeX = maxX - minX;
-            var rangeY = maxY - minY;
+            float minX = float.MaxValue;
+            float maxX = float.MinValue;
+            float minY = float.MaxValue;
+            float maxY = float.MinValue;
+
+            foreach (var point in pointArray)
+            {
+                float x = point.Position.X;
+                float y = point.Position.Y;
+
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+
+            float rangeX = maxX - minX;
+            float rangeY = maxY - minY;
 
             // Avoid division by zero for UV calculation
             if (rangeX < 0.0001f) rangeX = 1.0f;
@@ -286,17 +317,6 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
                 var point = pointArray[i];
                 var pos = point.Position;
 
-                // Apply stretch and pivot
-                var localPos = new Vector3(
-                    (pos.X - pivot.X) * stretch.X,
-                    (pos.Y - pivot.Y) * stretch.Y,
-                    pos.Z
-                );
-
-                // Apply rotation and scale
-                var transformedPos = Vector3.Transform(localPos, rotationMatrix) * scale + center2;
-
-
                 // Calculate UV coordinates (normalized 0-1 based on point positions)
                 var u = (pos.X - minX) / rangeX;
                 var v = (pos.Y - minY) / rangeY;
@@ -304,7 +324,7 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
 
                 _vertexBufferData[i] = new PbrVertex
                 {
-                    Position = transformedPos,
+                    Position = pos,
                     Normal = new Vector3(0, 0, 1),
                     Tangent = new Vector3(1, 0, 0),
                     Bitangent = new Vector3(0, 1, 0),
@@ -315,7 +335,7 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
 
             // Filter triangles based on edge length and boundary
             var validTriangles = new List<Int3>();
-            var useAlphaShape = maxEdgeLength > 0.0001f;
+           
 
             for (int i = 0; i < triangleCount; i++)
             {
@@ -329,18 +349,7 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
 
                 bool keepTriangle = true;
 
-                // Alpha shape filtering - check edge lengths
-                if (useAlphaShape)
-                {
-                    var edge01Length = Vector2.Distance(new Vector2(p0.X, p0.Y), new Vector2(p1.X, p1.Y));
-                    var edge12Length = Vector2.Distance(new Vector2(p1.X, p1.Y), new Vector2(p2.X, p2.Y));
-                    var edge20Length = Vector2.Distance(new Vector2(p2.X, p2.Y), new Vector2(p0.X, p0.Y));
-
-                    if (edge01Length > maxEdgeLength || edge12Length > maxEdgeLength || edge20Length > maxEdgeLength)
-                    {
-                        keepTriangle = false;
-                    }
-                }
+               
 
                 // Boundary filtering - check if triangle centroid is inside boundary polygon
                 if (keepTriangle)
@@ -419,7 +428,7 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
 
     // Generate Poisson disc samples inside the boundary polygon
     // MODIFIED: Added seed parameter for deterministic results
-    private List<Vector2> GeneratePoissonDiscSamples(float minX, float maxX, float minY, float maxY, float radius, int seed)
+    private static List<Vector2> GeneratePoissonDiscSamples(float minX, float maxX, float minY, float maxY, float radius, int seed)
     {
         var samples = new List<Vector2>();
         var activeList = new List<Vector2>();
@@ -493,8 +502,6 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
                 if (newX < minX || newX >= maxX || newY < minY || newY >= maxY)
                     continue;
 
-
-
                 // Check if point is far enough from all other points
                 int newGridIdx = GetGridIndex(newX, newY);
                 if (newGridIdx < 0)
@@ -551,6 +558,48 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
         return samples;
     }
 
+    // Calculate a simple hash of the boundary points array for cache invalidation
+    private static int CalculateBoundaryPointsHash(Point[] points)
+    {
+        if (points == null || points.Length == 0)
+            return 0;
+
+        unchecked
+        {
+            int hash = 17;
+            hash = hash * 31 + points.Length;
+
+            // Sample points for hash calculation to avoid performance issues with large arrays
+            // Hash first, middle, and last points, plus array length
+            if (points.Length > 0)
+            {
+                hash = hash * 31 + HashPoint(points[0]);
+            }
+            if (points.Length > 1)
+            {
+                hash = hash * 31 + HashPoint(points[points.Length - 1]);
+            }
+            if (points.Length > 2)
+            {
+                hash = hash * 31 + HashPoint(points[points.Length / 2]);
+            }
+
+            return hash;
+        }
+    }
+
+    // Helper to hash a single Point's key properties
+    private static int HashPoint(Point point)
+    {
+        unchecked
+        {
+            int hash = 17;
+            hash = hash * 31 + point.Position.GetHashCode();
+            hash = hash * 31 + point.Scale.GetHashCode();
+            return hash;
+        }
+    }
+
     private Buffer _vertexBuffer;
     private PbrVertex[] _vertexBufferData = new PbrVertex[0];
     private readonly BufferWithViews _vertexBufferWithViews = new();
@@ -561,40 +610,27 @@ internal sealed class DelaunayMesh : Instance<DelaunayMesh>
 
     private readonly MeshBuffers _data = new();
 
-        [Input(Guid = "18FDDD63-DB79-4EE6-9A32-B90A5CEFF582")]
-        public readonly InputSlot<T3.Core.DataTypes.StructuredList> BoundaryPoints = new InputSlot<T3.Core.DataTypes.StructuredList>();
+    // Caching for NaN-filtered boundary points
+    private Point[] _cachedFilteredBoundaryPoints = null;
+    private int _cachedBoundaryPointsHash = 0;
+    private bool _hasProcessedOnce = false;
 
-        [Input(Guid = "DB3C69B1-403B-485B-94E8-FC7E8B566947")]
-        public readonly InputSlot<T3.Core.DataTypes.StructuredList> ExtraPoints = new InputSlot<T3.Core.DataTypes.StructuredList>();
-    
-        [Input(Guid = "ABA31520-065F-40C7-A4A6-A4470F1E0CDF")]
-        public readonly InputSlot<bool> SubdivideLongEdges = new();
+    [Input(Guid = "18FDDD63-DB79-4EE6-9A32-B90A5CEFF582")]
+    public readonly InputSlot<StructuredList> BoundaryPoints = new();
 
-        [Input(Guid = "e00e4b12-8576-4a78-b773-17630b102a70")]
-        public readonly InputSlot<float> FillDensity = new InputSlot<float>();
+    [Input(Guid = "DB3C69B1-403B-485B-94E8-FC7E8B566947")]
+    public readonly InputSlot<StructuredList> ExtraPoints = new();
 
-        [Input(Guid = "3236E937-9DBE-41E8-AAFA-C0C13C56BCDF")]
-        public readonly InputSlot<int> Seed = new InputSlot<int>();
+    [Input(Guid = "ABA31520-065F-40C7-A4A6-A4470F1E0CDF")]
+    public readonly InputSlot<float> SubdivideLongEdges = new();
 
-        [Input(Guid = "0B30E8F2-44D7-41DB-B38B-E6A053B1AEBA")]
-        public readonly InputSlot<float> Tweak = new InputSlot<float>();
+    [Input(Guid = "e00e4b12-8576-4a78-b773-17630b102a70")]
+    public readonly InputSlot<float> FillDensity = new();
 
-        [Input(Guid = "a5c4c31e-7b3c-4f3e-9d1f-8e2b4d5c6a7b")]
-        public readonly InputSlot<float> MaxEdgeLength = new InputSlot<float>();
+    [Input(Guid = "3236E937-9DBE-41E8-AAFA-C0C13C56BCDF")]
+    public readonly InputSlot<int> Seed = new();
 
-        [Input(Guid = "4784908f-ac12-47a0-9542-d65242acace3")]
-        public readonly InputSlot<System.Numerics.Vector2> Stretch = new InputSlot<System.Numerics.Vector2>();
-
-        [Input(Guid = "f3c23e04-240c-46b0-8581-db682f49c898")]
-        public readonly InputSlot<float> Scale = new InputSlot<float>();
-
-        [Input(Guid = "58164bef-0da2-4d2f-b086-392b48826f6b")]
-        public readonly InputSlot<System.Numerics.Vector2> Pivot = new InputSlot<System.Numerics.Vector2>();
-
-        [Input(Guid = "df51a336-a11e-466b-a312-0cecb9db08f1")]
-        public readonly InputSlot<System.Numerics.Vector3> Center = new InputSlot<System.Numerics.Vector3>();
-
-        [Input(Guid = "50c16e0b-6f5a-408d-b3d1-5f402e4f402e")]
-        public readonly InputSlot<System.Numerics.Vector3> Rotation = new InputSlot<System.Numerics.Vector3>();
+    [Input(Guid = "0B30E8F2-44D7-41DB-B38B-E6A053B1AEBA")]
+    public readonly InputSlot<float> Tweak = new();
 
 }
