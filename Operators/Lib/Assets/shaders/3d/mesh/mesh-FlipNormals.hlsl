@@ -24,5 +24,6 @@ void main(uint3 i : SV_DispatchThreadID)
     ResultVerts[i.x].Bitangent = SourceVerts[i.x].Bitangent;
     ResultVerts[i.x].TexCoord = SourceVerts[i.x].TexCoord;
     ResultVerts[i.x].Selected = SourceVerts[i.x].Selected;
+    ResultVerts[i.x].ColorRGB = SourceVerts[i.x].ColorRGB;
 }
 
