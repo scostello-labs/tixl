@@ -145,9 +145,14 @@ void CalculateTangentBitangent(
     float3 upVector = float3(0, 1, 0);
     float4 orientation = qLookAt(normal, upVector);
 
+    
+
     ResultPoints[index].Position = pCenter;
     ResultPoints[index].Rotation = normalize(orientation);
-    ResultPoints[index].Color = Color * Texture.SampleLevel(LinearSampler, uvCenter, 0);
+
+    float3 avgColor = (SourceVertices[faceVertices.x].ColorRGB + SourceVertices[faceVertices.y].ColorRGB + SourceVertices[faceVertices.z].ColorRGB)/3;
+
+    ResultPoints[index].Color = Color * Texture.SampleLevel(LinearSampler, uvCenter, 0) * float4(avgColor,1);
     ResultPoints[index].FX1 = Fx1;
     ResultPoints[index].FX2 = Fx1;
     // ResultPoints[index].Scale.xy = 1;

@@ -59,6 +59,7 @@ struct psInput
     float4 pixelPosition : SV_POSITION;
     float3 worldPosition : POSITION;
     float3x3 tbnToWorld : TBASIS;
+    float3 colorRGB : COLOR;
     float fog : VPOS;
 };
 
@@ -99,6 +100,8 @@ psInput vsMain(uint id : SV_VertexID)
 
     float2 uv = vertex.TexCoord;
     output.texCoord = float2(uv.x, 1 - uv.y);
+    
+    output.colorRGB = vertex.ColorRGB;
 
     // Pass tangent space basis vectors (for normal mapping).
     float3x3 TBN = float3x3(vertex.Tangent, vertex.Bitangent, vertex.Normal);
@@ -212,6 +215,7 @@ psOutput psMain(psInput pin) : SV_TARGET
     frag.Metalness = saturate(roughnessMetallicOcclusion.y + Metal);
     frag.Occlusion = roughnessMetallicOcclusion.z;
     frag.albedo = BaseColorMap.Sample(WrappedSampler, pin.texCoord);
+    frag.albedo.rgb *= pin.colorRGB;
     frag.uv = pin.texCoord;
     frag.N = ComputeNormal(pin, pin.tbnToWorld);
 

@@ -19,7 +19,7 @@
     },
     {
       "Id": "888017f2-3ac2-464b-ae6f-9f8caf53ba6d"/*UseVertexSelection*/,
-      "DefaultValue": false
+      "DefaultValue": true
     },
     {
       "Id": "b8409f71-d2e3-4fb3-91dc-abf96b55379f"/*Translate*/,

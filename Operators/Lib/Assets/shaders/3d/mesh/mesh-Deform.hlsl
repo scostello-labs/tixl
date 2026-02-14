@@ -121,4 +121,5 @@ inline float3 TwistFunction(float3 position, float twistAmount)
     ResultVerts[i.x].TexCoord2 = SourceVerts[i.x].TexCoord2;
 
     ResultVerts[i.x].Selected = SourceVerts[i.x].Selected;
+    ResultVerts[i.x].ColorRGB = SourceVerts[i.x].ColorRGB;
 }

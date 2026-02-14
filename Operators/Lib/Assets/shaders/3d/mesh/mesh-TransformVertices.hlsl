@@ -39,5 +39,6 @@ void main(uint3 i : SV_DispatchThreadID)
     ResultVerts[i.x].TexCoord2 = SourceVerts[i.x].TexCoord2;
 
     ResultVerts[i.x].Selected = SourceVerts[i.x].Selected;
+    ResultVerts[i.x].ColorRGB = SourceVerts[i.x].ColorRGB;
 }
 

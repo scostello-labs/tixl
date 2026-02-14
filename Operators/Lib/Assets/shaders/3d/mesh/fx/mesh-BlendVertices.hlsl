@@ -82,4 +82,5 @@ RWStructuredBuffer<PbrVertex> ResultVertices : u0; // output
     ResultVertices[i.x].Bitangent = lerp(A.Bitangent, B.Bitangent, f);
     ResultVertices[i.x].TexCoord = lerp(A.TexCoord, B.TexCoord, f);
     ResultVertices[i.x].Selected = lerp(A.Selected, B.Selected, f);
+    ResultVertices[i.x].ColorRGB = lerp(A.ColorRGB, B.ColorRGB, f);
 }

@@ -959,6 +959,7 @@ public class LoadGltfScene : Instance<LoadGltfScene>
                                                                        ? Vector2.Zero
                                                                        : new Vector2(texCoords2[vertexIndex].X,
                                                                                      1 - texCoords2[vertexIndex].Y),
+                                                        ColorRgb = Vector3.One,
                     Selection = 1,
                                                     };
             }
